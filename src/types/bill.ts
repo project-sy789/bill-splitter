@@ -1,4 +1,4 @@
-export type SplitMode = 'equally' | 'itemized' | 'percentage' | 'exact'
+export type SplitMode = 'equally' | 'percentage' | 'exact'
 
 export interface User {
   id: string

@@ -1,0 +1,27 @@
+{
+  "name": "หารบิล",
+  "short_name": "หารบิล",
+  "description": "แอปหารบิลออฟไลน์ สแกนสลิป + คำนวณ + แจ้งยอดโอน",
+  "start_url": "/bill-splitter/",
+  "scope": "/bill-splitter/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#7C3AED",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/bill-splitter/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/bill-splitter/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["finance", "utilities"],
+  "lang": "th"
+}

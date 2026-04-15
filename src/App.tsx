@@ -49,7 +49,6 @@ const MEMBER_COLORS = ['#7C3AED', '#0EA5E9', '#22C55E', '#F97316', '#EC4899', '#
 
 const SPLIT_MODE_LABELS: Record<SplitMode, string> = {
   equally: 'หารเท่ากัน',
-  itemized: 'เลือกเองว่าใครกิน',
   percentage: 'แบ่งตามเปอร์เซ็นต์',
   exact: 'ระบุยอดเอง',
 }
@@ -67,7 +66,7 @@ function calcItemSplit(item: BillItemDraft, members: MemberDraft[]) {
   const selected = item.consumerIds.filter((id) => members.some((m) => m.id === id))
   if (selected.length === 0) return result
 
-  if (item.splitMode === 'equally' || item.splitMode === 'itemized') {
+  if (item.splitMode === 'equally') {
     const each = item.amount / selected.length
     selected.forEach((id) => { result[id] = each })
   } else if (item.splitMode === 'percentage') {
@@ -989,9 +988,36 @@ function App() {
         {/* ── ผลสรุป: ใครโอนใคร ── */}
         {items.length > 0 && (
           <SectionCard>
-            <div className="mb-4 flex items-center gap-2">
-              <Users className="h-5 w-5 text-violet-600" />
-              <h2 className="text-base font-bold text-gray-800">สรุป — ใครโอนให้ใคร</h2>
+            <div className="mb-4 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Users className="h-5 w-5 text-violet-600" />
+                <h2 className="text-base font-bold text-gray-800">สรุป — ใครโอนให้ใคร</h2>
+              </div>
+              {settlements.length > 0 && (
+                <button
+                  onClick={() => {
+                    const lines = [
+                      '🧾 สรุปการหารบิล',
+                      `ยอดรวม ฿${grandTotal.toFixed(2)}`,
+                      '',
+                      ...settlements.map((s) => {
+                        const from = members.find((m) => m.id === s.fromMemberId)
+                        const to = members.find((m) => m.id === s.toMemberId)
+                        const pp = to?.promptPayId ? ` (PromptPay: ${to.promptPayId})` : ''
+                        return `• ${from?.name} → โอน ${to?.name} ฿${s.amount.toFixed(2)}${pp}`
+                      }),
+                    ]
+                    void copyText(lines.join('\n'), 'copy-all-summary')
+                  }}
+                  className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-violet-50 hover:text-violet-700 hover:border-violet-200 transition-colors"
+                >
+                  {copiedId === 'copy-all-summary' ? (
+                    <><span className="text-emerald-600">✓</span> คัดลอกแล้ว</>
+                  ) : (
+                    <><Copy className="h-3 w-3" /> คัดลอกสรุป</>
+                  )}
+                </button>
+              )}
             </div>
 
             {settlements.length === 0 ? (
