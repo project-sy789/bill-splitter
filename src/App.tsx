@@ -414,8 +414,11 @@ function App() {
     setVat(0)
     setDiscount(0)
     setPaidByMember({})
+    setReceiptPayerMap({})
+    setVatMode('exclusive')
     reset()
     prevMergedLenRef.current = 0
+    prevResultsLenRef.current = 0
   }, [reset])
 
   // ──────────────────────────────────────────────
@@ -913,7 +916,25 @@ function App() {
                     </div>
                     <select
                       value={assignedId ?? ''}
-                      onChange={(e) => setReceiptPayerMap((prev) => ({ ...prev, [idx]: e.target.value }))}
+                      onChange={(e) => {
+                        const newPayerId = e.target.value
+                        const oldPayerId = receiptPayerMap[idx]
+                        if (oldPayerId === newPayerId) return
+
+                        // Update paid amounts immediately without needing a button
+                        setPaidByMember((prev) => {
+                          const next = { ...prev }
+                          if (oldPayerId) {
+                            next[oldPayerId] = Math.max(0, round2((next[oldPayerId] ?? 0) - slipTotal))
+                          }
+                          if (newPayerId) {
+                            next[newPayerId] = round2((next[newPayerId] ?? 0) + slipTotal)
+                          }
+                          return next
+                        })
+
+                        setReceiptPayerMap((prev) => ({ ...prev, [idx]: newPayerId }))
+                      }}
                       className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-violet-400"
                     >
                       <option value="">ใครจ่าย?</option>
@@ -921,22 +942,6 @@ function App() {
                         <option key={m.id} value={m.id}>{m.name}</option>
                       ))}
                     </select>
-                    <button
-                      disabled={!assignedId}
-                      onClick={() => {
-                        if (!assignedId) return
-                        setPaidByMember((prev) => ({
-                          ...prev,
-                          [assignedId]: round2((prev[assignedId] ?? 0) + slipTotal),
-                        }))
-                        setReceiptPayerMap((prev) => {
-                          const n = { ...prev }; delete n[idx]; return n
-                        })
-                      }}
-                      className="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700 disabled:opacity-40 transition-colors"
-                    >
-                      + เพิ่มยอดจ่าย
-                    </button>
                   </div>
                 )
               })}
