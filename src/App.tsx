@@ -1076,7 +1076,7 @@ function App() {
             <div className="flex items-center gap-2 mb-3">
               <Receipt className="h-4 w-4 text-violet-500" />
               <span className="text-sm font-semibold text-gray-800">สลิปที่สแกน ({results.length} ใบ)</span>
-              <span className="text-xs text-gray-400 ml-1">— ระบุผู้จ่ายต่อสลิป แล้วกด &quot;+เพิ่มยอดจ่าย&quot;</span>
+              <span className="text-xs text-gray-400 ml-1">— เลือกว่าใครจ่ายสลิปนี้ ระบบจะบวกเงินไปที่ช่อง "ใครจ่ายไปแล้ว" อัตโนมัติ</span>
             </div>
             <div className="space-y-2">
               {results.map((r, idx) => {
