@@ -35,6 +35,7 @@ export interface PersistedBillState {
   paidByMember: Record<string, number>
   settlementStatus?: Record<string, boolean>
   manualBills?: ManualBill[]
+  receiptPayerMap?: Record<string, string>
 }
 
 export const STORAGE_KEY = 'bill-splitter:v2'

@@ -198,7 +198,7 @@ function App() {
   const [settlementStatus, setSettlementStatus] = useState<Record<string, boolean>>(initialState?.settlementStatus ?? {})
   const [manualBills, setManualBills] = useState<ManualBill[]>(initialState?.manualBills ?? [])
   const [vatMode, setVatMode] = useState<'exclusive' | 'inclusive'>('exclusive')
-  const [receiptPayerMap, setReceiptPayerMap] = useState<Record<string, string>>({}) // unifiedBillId → memberId
+  const [receiptPayerMap, setReceiptPayerMap] = useState<Record<string, string>>(initialState?.receiptPayerMap ?? {}) // unifiedBillId → memberId
   const [activeSettlementIdx, setActiveSettlementIdx] = useState<number | null>(null)
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set())
   const [copiedId, setCopiedId] = useState<string | null>(null)
@@ -254,7 +254,7 @@ function App() {
 
   // ── Persist to localStorage ──
   useEffect(() => {
-    const state: PersistedBillState = { members, items, serviceCharge, vat, discount, allocationMode, paidByMember, settlementStatus, manualBills }
+    const state: PersistedBillState = { members, items, serviceCharge, vat, discount, allocationMode, paidByMember, settlementStatus, manualBills, receiptPayerMap }
     localStorage.setItem(`bill-splitter-state-${currentBillId}`, JSON.stringify(state))
     localStorage.setItem('bill-splitter-current-id', currentBillId)
     
@@ -262,7 +262,7 @@ function App() {
     if (items.length > 0 || members.length > 2 || Object.keys(paidByMember).length > 0 || manualBills.length > 0) {
       addOrUpdateBill(currentBillId, `บิลวันที่ ${new Date().toLocaleDateString('th-TH')} - ยอด ฿${(items.reduce((sum, item) => sum + item.amount, 0) + serviceCharge + vat - discount).toFixed(2)}`)
     }
-  }, [members, items, serviceCharge, vat, discount, allocationMode, paidByMember, settlementStatus, manualBills, currentBillId, addOrUpdateBill])
+  }, [members, items, serviceCharge, vat, discount, allocationMode, paidByMember, settlementStatus, manualBills, receiptPayerMap, currentBillId, addOrUpdateBill])
 
 
 
@@ -474,11 +474,11 @@ function App() {
   }, [])
 
   const exportBill = useCallback(() => {
-    const blob = new Blob([JSON.stringify({ members, items, serviceCharge, vat, discount, allocationMode, paidByMember, settlementStatus, manualBills }, null, 2)], { type: 'application/json' })
+    const blob = new Blob([JSON.stringify({ members, items, serviceCharge, vat, discount, allocationMode, paidByMember, settlementStatus, manualBills, receiptPayerMap }, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     Object.assign(document.createElement('a'), { href: url, download: `บิล-${Date.now()}.json` }).click()
     URL.revokeObjectURL(url)
-  }, [members, items, serviceCharge, vat, discount, allocationMode, paidByMember, settlementStatus, manualBills])
+  }, [members, items, serviceCharge, vat, discount, allocationMode, paidByMember, settlementStatus, manualBills, receiptPayerMap])
 
   const importBill = useCallback(async (file: File | null) => {
     if (!file) return
@@ -493,6 +493,7 @@ function App() {
     setPaidByMember(data.paidByMember ?? {})
     setSettlementStatus(data.settlementStatus ?? {})
     setManualBills(data.manualBills ?? [])
+    setReceiptPayerMap(data.receiptPayerMap ?? {})
     reset()
   }, [reset])
 
@@ -529,7 +530,7 @@ function App() {
     setPaidByMember(data.paidByMember ?? {})
     setSettlementStatus(data.settlementStatus ?? {})
     setManualBills(data.manualBills ?? [])
-    setReceiptPayerMap({})
+    setReceiptPayerMap(data.receiptPayerMap ?? {})
     setVatMode('exclusive')
     reset()
     setIsHistoryModalOpen(false)
@@ -779,8 +780,16 @@ function App() {
             <div
               role="button"
               tabIndex={0}
-              onClick={() => (manualBills.length > 0 || results.length > 0) ? addManualItem() : cameraInputRef.current?.click()}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') ((manualBills.length > 0 || results.length > 0) ? addManualItem() : cameraInputRef.current?.click()) }}
+              onClick={() => {
+                if (manualBills.length > 0 || results.length > 0) addManualItem()
+                else cameraInputRef.current?.click()
+              }}
+              onKeyDown={(e) => { 
+                if (e.key === 'Enter' || e.key === ' ') {
+                  if (manualBills.length > 0 || results.length > 0) addManualItem()
+                  else cameraInputRef.current?.click()
+                }
+              }}
               className="flex cursor-pointer flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-gray-200 py-10 text-center transition hover:border-violet-300 hover:bg-violet-50/50"
             >
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-100">
