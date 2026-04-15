@@ -4,9 +4,9 @@
 
 **แอปช่วยคำนวณและหารค่าใช้จ่ายกับเพื่อน ง่าย ฟรี ไม่ต้องติดตั้ง**
 
-[![GitHub Pages](https://img.shields.io/badge/🌐_เปิดใช้งานแอปที่นี่-คลิกเลย!-8B5CF6?style=for-the-badge)](https://project-sy789.github.io/bill-splitter/)
+[![App Status](https://img.shields.io/badge/App_Status-Live_Now-8B5CF6?style=for-the-badge)](https://project-sy789.github.io/bill-splitter/)
 [![MIT License](https://img.shields.io/badge/License-MIT-22C55E?style=for-the-badge)](LICENSE)
-[![Free](https://img.shields.io/badge/ราคา-ฟรี_100%25-F97316?style=for-the-badge)](#)
+[![Free](https://img.shields.io/badge/Pricing-100%25_Free-F97316?style=for-the-badge)](#)
 
 *แอปพลิเคชันรูปแบบ PWA: ใช้งานออฟไลน์ได้ ข้อมูลทั้งหมดประมวลผลบนเครื่องของคุณ 100%*
 
