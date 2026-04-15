@@ -1,73 +1,59 @@
-# React + TypeScript + Vite
+# Bill Splitter
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+แอปแยกบิลแบบทำงานในเบราว์เซอร์ 100% สำหรับอัปโหลดรูปใบเสร็จ แปลงข้อความด้วย OCR แล้วช่วยคำนวณยอดที่แต่ละคนต้องจ่ายแบบง่ายและแชร์ต่อได้ทันที
 
-Currently, two official plugins are available:
+## จุดเด่น
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- อัปโหลดรูปบิลหรือใบเสร็จจากมือถือได้
+- อ่านข้อความด้วย OCR ภาษาไทยและอังกฤษ
+- แยกรายการจากข้อความอัตโนมัติ
+- แก้ไขสมาชิก รายการ และวิธีแบ่งบิลได้
+- กระจาย service charge, VAT และ discount ได้
+- ลดจำนวนการโอนด้วยการ simplify debt
+- สร้าง PromptPay QR และคัดลอก payload ได้
+- บันทึกงานค้างไว้ในเครื่องด้วย localStorage
+- รองรับ export/import บิลเป็นไฟล์ JSON
+- พร้อม deploy บน GitHub Pages
 
-## React Compiler
+## วิธีใช้งาน
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+1. เปิดแอป
+2. อัปโหลดรูปใบเสร็จ
+3. ตรวจสอบรายการที่ OCR ดึงมา
+4. เพิ่มสมาชิกและกำหนดว่าใครแชร์รายการไหน
+5. ใส่ยอด service charge, VAT, discount และยอดที่แต่ละคนจ่ายไปแล้ว
+6. ดูยอดสุทธิและ settlement ที่ต้องโอน
+7. เปิด QR หรือคัดลอก payload เพื่อส่งต่อให้เพื่อน
 
-## Expanding the ESLint configuration
+## ใช้งานในเครื่อง
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+ติดตั้ง dependencies และเริ่มโปรเจกต์ด้วยคำสั่งมาตรฐานของ Vite:
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## สร้างไฟล์สำหรับ deploy
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run build
 ```
+
+## โครงสร้างการทำงาน
+
+- ทุกอย่างประมวลผลฝั่ง client
+- ไม่มี backend
+- ข้อมูล draft ถูกเก็บใน browser ของผู้ใช้
+- เหมาะกับการ deploy แบบ static site
+
+## GitHub Actions
+
+โปรเจกต์นี้มี workflow สำหรับ:
+
+- ตรวจ lint และ build
+- deploy ไป GitHub Pages
+
+## หมายเหตุ
+
+ถ้าใช้บน GitHub Pages ให้เปิด Pages ใน repo settings และตรวจว่า branch ที่ deploy ใช้ workflow ที่เตรียมไว้แล้ว
