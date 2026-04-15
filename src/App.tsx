@@ -361,12 +361,12 @@ function App() {
 
   const normalizedPaid = useMemo(() => {
     const out: Record<string, number> = {}
-    members.forEach((m, i) => {
+    members.forEach((m) => {
       const ex = paidByMember[m.id]
-      out[m.id] = typeof ex === 'number' ? ex : i === 0 ? grandTotal : 0
+      out[m.id] = typeof ex === 'number' ? ex : 0
     })
     return out
-  }, [members, paidByMember, grandTotal])
+  }, [members, paidByMember])
 
   const netByMember = useMemo(() => {
     const net: Record<string, number> = {}
@@ -1177,7 +1177,7 @@ function App() {
         {items.length > 0 && (
           <SectionCard>
             <StepBadge n={3} label="ใครจ่ายไปแล้วเท่าไหร่?" />
-            <p className="mb-3 -mt-2 text-xs text-gray-400">ใส่ยอดที่แต่ละคนจ่ายไปแล้ว (ถ้าคนเดียวจ่ายทั้งหมด ไม่ต้องแก้)</p>
+            <p className="mb-3 -mt-2 text-xs text-gray-400">ใส่ยอดที่แต่ละคนจ่ายไปแล้ว หรือเลือกคนจ่ายจากบิลด้านบน</p>
 
             <div className="space-y-2">
               {members.map((m) => (
