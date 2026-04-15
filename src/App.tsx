@@ -15,11 +15,16 @@ import {
   Upload,
   Users,
   X,
+  Bookmark,
+  BookmarkPlus,
+  Share,
 } from 'lucide-react'
+import * as htmlToImage from 'html-to-image'
 
 import { QrCode } from './components/qr-code'
 import { useReceiptOcr } from './hooks/use-receipt-ocr'
 import { useBillHistory } from './hooks/use-bill-history'
+import { useGroups } from './hooks/use-groups'
 import { buildPromptPayPayload, formatPromptPay, validatePromptPay, toPromptPayTarget } from './lib/promptpay'
 import {
   type AllocationMode,
@@ -189,21 +194,42 @@ function App() {
   const [discount, setDiscount] = useState(initialState?.discount ?? 0)
   const [allocationMode, setAllocationMode] = useState<AllocationMode>(initialState?.allocationMode ?? 'proportional')
   const [paidByMember, setPaidByMember] = useState<Record<string, number>>(initialState?.paidByMember ?? {})
+  const [settlementStatus, setSettlementStatus] = useState<Record<string, boolean>>(initialState?.settlementStatus ?? {})
   const [vatMode, setVatMode] = useState<'exclusive' | 'inclusive'>('exclusive')
   const [receiptPayerMap, setReceiptPayerMap] = useState<Record<number, string>>({}) // resultIdx → memberId
   const [activeSettlementIdx, setActiveSettlementIdx] = useState<number | null>(null)
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set())
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  
+  const { groups, saveGroup, deleteGroup } = useGroups()
+  const [groupModalMode, setGroupModalMode] = useState<'save' | 'load' | null>(null)
+  const [newGroupName, setNewGroupName] = useState('')
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
   const importInputRef = useRef<HTMLInputElement>(null)
+  const exportImageRef = useRef<HTMLDivElement>(null)
+
+  const handleExportImage = useCallback(async () => {
+    if (!exportImageRef.current) return
+    try {
+      const dataUrl = await htmlToImage.toPng(exportImageRef.current, {
+        quality: 1, backgroundColor: '#ffffff', style: { borderRadius: '24px' }
+      })
+      const link = document.createElement('a')
+      link.download = `bill-split-${new Date().getTime()}.png`
+      link.href = dataUrl
+      link.click()
+    } catch (e) {
+      console.error('Failed to export image', e)
+    }
+  }, [])
 
   const { progress, results, mergedItems, error, scanFiles, reset, terminate, isBusy } = useReceiptOcr()
 
   // ── Persist to localStorage ──
   useEffect(() => {
-    const state: PersistedBillState = { members, items, serviceCharge, vat, discount, allocationMode, paidByMember }
+    const state: PersistedBillState = { members, items, serviceCharge, vat, discount, allocationMode, paidByMember, settlementStatus }
     localStorage.setItem(`bill-splitter-state-${currentBillId}`, JSON.stringify(state))
     localStorage.setItem('bill-splitter-current-id', currentBillId)
     
@@ -211,7 +237,7 @@ function App() {
     if (items.length > 0 || members.length > 2 || Object.keys(paidByMember).length > 0) {
       addOrUpdateBill(currentBillId, `บิลวันที่ ${new Date().toLocaleDateString('th-TH')} - ยอด ฿${(items.reduce((sum, item) => sum + item.amount, 0) + serviceCharge + vat - discount).toFixed(2)}`)
     }
-  }, [members, items, serviceCharge, vat, discount, allocationMode, paidByMember, currentBillId, addOrUpdateBill])
+  }, [members, items, serviceCharge, vat, discount, allocationMode, paidByMember, settlementStatus, currentBillId, addOrUpdateBill])
 
 
 
@@ -449,6 +475,7 @@ function App() {
     setVat(0)
     setDiscount(0)
     setPaidByMember({})
+    setSettlementStatus({})
     setReceiptPayerMap({})
     setVatMode('exclusive')
     reset()
@@ -472,6 +499,7 @@ function App() {
     setDiscount(data.discount ?? 0)
     setAllocationMode(data.allocationMode ?? 'proportional')
     setPaidByMember(data.paidByMember ?? {})
+    setSettlementStatus(data.settlementStatus ?? {})
     setReceiptPayerMap({})
     setVatMode('exclusive')
     reset()
@@ -489,6 +517,7 @@ function App() {
     setVat(0)
     setDiscount(0)
     setPaidByMember({})
+    setSettlementStatus({})
     setReceiptPayerMap({})
     setVatMode('exclusive')
     reset()
@@ -575,7 +604,17 @@ function App() {
 
         {/* ── STEP 1: คนหาร ── */}
         <SectionCard>
-          <StepBadge n={1} label="ใส่ชื่อคนที่จะหารบิล" />
+          <div className="flex justify-between items-center mb-4">
+            <StepBadge n={1} label="ใส่ชื่อคนที่จะหารบิล" />
+            <div className="flex gap-2">
+              <button onClick={() => setGroupModalMode('save')} className="text-xs text-violet-600 bg-violet-50 hover:bg-violet-100 flex items-center gap-1 px-2 py-1.5 rounded-lg font-medium transition-colors border border-violet-100">
+                <BookmarkPlus className="w-3.5 h-3.5"/> บันทึกแก๊ง
+              </button>
+              <button onClick={() => setGroupModalMode('load')} className="text-xs text-violet-600 bg-violet-50 hover:bg-violet-100 flex items-center gap-1 px-2 py-1.5 rounded-lg font-medium transition-colors border border-violet-100">
+                <Bookmark className="w-3.5 h-3.5"/> โหลดแก๊ง
+              </button>
+            </div>
+          </div>
 
           <div className="space-y-2.5">
             {members.map((member, idx) => (
@@ -908,7 +947,16 @@ function App() {
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {/* ค่าบริการ */}
                 <label className="block">
-                  <span className="text-xs text-gray-500">ค่าบริการ</span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-500">ค่าบริการ</span>
+                    <button
+                      type="button"
+                      onClick={() => setServiceCharge(round2(items.reduce((sum, item) => sum + item.amount, 0) * 0.1))}
+                      className="text-[10px] px-1.5 py-0.5 rounded-full font-medium transition-colors bg-violet-100 text-violet-600 border border-violet-200 hover:bg-violet-200"
+                    >
+                      +10%
+                    </button>
+                  </div>
                   <div className="flex items-center gap-1 mt-0.5">
                     <span className="text-xs text-gray-400">฿</span>
                     <input
@@ -937,6 +985,15 @@ function App() {
                     >
                       {vatMode === 'inclusive' ? 'รวมแล้ว' : 'บวกเพิ่ม'}
                     </button>
+                    {vatMode === 'exclusive' && (
+                      <button
+                        type="button"
+                        onClick={() => setVat(round2((items.reduce((sum, item) => sum + item.amount, 0) + serviceCharge - discount) * 0.07))}
+                        className="text-[10px] px-1.5 py-0.5 rounded-full font-medium transition-colors bg-violet-100 text-violet-600 border border-violet-200 hover:bg-violet-200 ml-1"
+                      >
+                        +7%
+                      </button>
+                    )}
                   </div>
                   <div className="flex items-center gap-1 mt-0.5">
                     <span className="text-xs text-gray-400">฿</span>
@@ -1101,29 +1158,37 @@ function App() {
                 <h2 className="text-base font-bold text-gray-800">สรุป — ใครโอนให้ใคร</h2>
               </div>
               {settlements.length > 0 && (
-                <button
-                  onClick={() => {
-                    const lines = [
-                      '🧾 สรุปการหารบิล',
-                      `ยอดรวม ฿${grandTotal.toFixed(2)}`,
-                      '',
-                      ...settlements.map((s) => {
-                        const from = members.find((m) => m.id === s.fromMemberId)
-                        const to = members.find((m) => m.id === s.toMemberId)
-                        const pp = to?.promptPayId ? ` (PromptPay: ${to.promptPayId})` : ''
-                        return `• ${from?.name} → โอน ${to?.name} ฿${s.amount.toFixed(2)}${pp}`
-                      }),
-                    ]
-                    void copyText(lines.join('\n'), 'copy-all-summary')
-                  }}
-                  className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-violet-50 hover:text-violet-700 hover:border-violet-200 transition-colors"
-                >
-                  {copiedId === 'copy-all-summary' ? (
-                    <><span className="text-emerald-600">✓</span> คัดลอกแล้ว</>
-                  ) : (
-                    <><Copy className="h-3 w-3" /> คัดลอกสรุป</>
-                  )}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleExportImage}
+                    className="flex items-center gap-1.5 rounded-xl border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-medium text-violet-700 hover:bg-violet-100 transition-colors"
+                  >
+                    <Share className="h-3 w-3" /> แชร์สลิปรูปภาพ
+                  </button>
+                  <button
+                    onClick={() => {
+                      const lines = [
+                        '🧾 สรุปการหารบิล',
+                        `ยอดรวม ฿${grandTotal.toFixed(2)}`,
+                        '',
+                        ...settlements.map((s) => {
+                          const from = members.find((m) => m.id === s.fromMemberId)
+                          const to = members.find((m) => m.id === s.toMemberId)
+                          const pp = to?.promptPayId ? ` (PromptPay: ${to.promptPayId})` : ''
+                          return `• ${from?.name} → โอน ${to?.name} ฿${s.amount.toFixed(2)}${pp}`
+                        }),
+                      ]
+                      void copyText(lines.join('\n'), 'copy-all-summary')
+                    }}
+                    className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+                  >
+                    {copiedId === 'copy-all-summary' ? (
+                      <><span className="text-emerald-600">✓</span> คัดลอกแล้ว</>
+                    ) : (
+                      <><Copy className="h-3 w-3" /> คัดลอกสรุป</>
+                    )}
+                  </button>
+                </div>
               )}
             </div>
 
@@ -1162,10 +1227,25 @@ function App() {
                             </p>
                           </div>
                         </div>
-                        <span className="text-base font-bold text-violet-700 shrink-0">
+                        <span className={`text-base font-bold shrink-0 ${settlementStatus[`${s.fromMemberId}-${s.toMemberId}`] ? 'text-gray-400 line-through' : 'text-violet-700'}`}>
                           ฿{s.amount.toFixed(2)}
                         </span>
                         <div className="flex gap-1 shrink-0">
+                          <button
+                            onClick={() => {
+                              setSettlementStatus((prev) => {
+                                const key = `${s.fromMemberId}-${s.toMemberId}`
+                                return { ...prev, [key]: !prev[key] }
+                              })
+                            }}
+                            className={`flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold transition-colors ${
+                              settlementStatus[`${s.fromMemberId}-${s.toMemberId}`]
+                                ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                                : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                            }`}
+                          >
+                            {settlementStatus[`${s.fromMemberId}-${s.toMemberId}`] ? '✓ จ่ายแล้ว' : 'รอโอน'}
+                          </button>
                           <button
                             onClick={() => void copyText(`${from.name} โอน ${to.name} ฿${s.amount.toFixed(2)}${to.promptPayId ? ` (PromptPay: ${to.promptPayId})` : ''}`, `copy-${idx}`)}
                             className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 transition-colors"
@@ -1285,6 +1365,140 @@ function App() {
           </div>
         </div>
       )}
+
+      {/* Group Modal */}
+      {groupModalMode && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-end bg-black/40 sm:justify-center p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white shadow-xl flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between border-b border-gray-100 p-4 bg-gray-50">
+              <h3 className="text-base font-bold text-gray-800">
+                {groupModalMode === 'save' ? 'บันทึกแก๊งนี้' : 'โหลดแก๊งประจำ'}
+              </h3>
+              <button onClick={() => setGroupModalMode(null)} className="rounded-full p-2 text-gray-400 hover:bg-gray-200 transition-colors">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="p-4">
+              {groupModalMode === 'save' ? (
+                <div className="space-y-3">
+                  <input
+                    value={newGroupName}
+                    onChange={(e) => setNewGroupName(e.target.value)}
+                    placeholder="ตั้งชื่อแก๊ง (เช่น แก๊งออฟฟิศ, เพื่อนมหา'ลัย)"
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-400"
+                  />
+                  <button
+                    onClick={() => {
+                      if (!newGroupName.trim()) return
+                      saveGroup(newGroupName, members.map(m => ({ name: m.name, promptPayId: m.promptPayId })))
+                      setGroupModalMode(null)
+                      setNewGroupName('')
+                    }}
+                    disabled={!newGroupName.trim()}
+                    className="w-full rounded-xl bg-violet-600 py-2.5 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50 transition-colors"
+                  >
+                    บันทึกแก๊ง
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {groups.length === 0 ? (
+                    <p className="text-center text-sm text-gray-500 py-4">ยังไม่เคยบันทึกแก๊งไหนไว้เลย</p>
+                  ) : (
+                    groups.map((g) => (
+                      <div key={g.id} className="flex flex-col gap-1 rounded-xl border border-gray-100 p-3 hover:border-violet-200 transition-colors">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-bold text-gray-800">{g.name}</span>
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() => {
+                                const loadedMembers = g.members.map((m, i) => ({
+                                  id: crypto.randomUUID(),
+                                  name: m.name,
+                                  promptPayId: m.promptPayId || '',
+                                  color: MEMBER_COLORS[i % MEMBER_COLORS.length]!
+                                }))
+                                setMembers(loadedMembers)
+                                setGroupModalMode(null)
+                              }}
+                              className="rounded-lg bg-violet-50 text-violet-700 px-3 py-1.5 text-xs font-semibold hover:bg-violet-100 transition-colors"
+                            >
+                              เลือก
+                            </button>
+                            <button
+                              onClick={() => deleteGroup(g.id)}
+                              className="rounded-lg text-red-500 px-2 py-1.5 text-xs hover:bg-red-50 transition-colors"
+                            >
+                              ลบ
+                            </button>
+                          </div>
+                        </div>
+                        <span className="text-xs text-gray-500 line-clamp-1">{g.members.map(m => m.name).join(', ')}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Hidden Export Slip Container */}
+      <div className="fixed top-[-9999px] left-[-9999px] z-[-1]">
+        <div ref={exportImageRef} className="w-[380px] bg-[#f8f9fa] p-5 shadow-sm rounded-[24px]">
+          {/* Header */}
+          <div className="flex items-center gap-2 mb-4 justify-center">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-violet-600 text-white">
+              <Receipt className="h-4 w-4" />
+            </div>
+            <div>
+              <h1 className="text-lg font-bold leading-none text-gray-900">สรุปการหารบิล</h1>
+              <p className="text-[10px] text-gray-400 leading-none mt-0.5">{new Date().toLocaleDateString('th-TH')}</p>
+            </div>
+          </div>
+
+          <div className="rounded-xl bg-white p-4 shadow-sm border border-gray-100 mb-4">
+            <h2 className="text-xs font-bold text-gray-400 mb-3 uppercase tracking-wider text-center border-b border-dashed border-gray-200 pb-2">ใครต้องโอนใครบ้าง</h2>
+            <div className="space-y-3">
+              {settlements.map((s, idx) => {
+                const from = members.find((m) => m.id === s.fromMemberId)
+                const to = members.find((m) => m.id === s.toMemberId)
+                if (!from || !to) return null
+                return (
+                  <div key={idx} className="flex flex-col gap-1.5 bg-gray-50 rounded-xl p-3 border border-gray-100">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 max-w-[60%]">
+                        <span className="font-semibold text-gray-800 text-sm truncate">{from.name}</span>
+                        <span className="text-[10px] bg-gray-200 text-gray-500 px-1.5 rounded-full">โอนให้</span>
+                        <span className="font-semibold text-gray-800 text-sm truncate">{to.name}</span>
+                      </div>
+                      <span className="text-lg font-bold text-violet-700">฿{s.amount.toFixed(2)}</span>
+                    </div>
+                    {to.promptPayId && (
+                      <div className="flex items-center justify-between bg-white rounded-lg p-2 mt-1 border border-violet-100 shrink-0 shadow-[0_2px_4px_rgba(0,0,0,0.02)]">
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-[10px] font-semibold text-violet-600">พร้อมเพย์ของ {to.name}</span>
+                          <span className="text-[11px] font-medium text-gray-600">{formatPromptPay(to.promptPayId)}</span>
+                        </div>
+                        {s.promptPayPayload && (
+                          <div className="w-10 h-10 border border-gray-100 rounded-md overflow-hidden bg-white ml-2 flex-shrink-0">
+                            <QrCode value={s.promptPayPayload} />
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          <div className="text-center text-[10px] text-gray-400 mt-2">
+            สร้างด้วยแอป หารบิลกัน (Free & Offline)
+          </div>
+        </div>
+      </div>
     </div>
   )
 

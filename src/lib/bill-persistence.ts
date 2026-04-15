@@ -27,6 +27,7 @@ export interface PersistedBillState {
   discount: number
   allocationMode: AllocationMode
   paidByMember: Record<string, number>
+  settlementStatus?: Record<string, boolean>
 }
 
 export const STORAGE_KEY = 'bill-splitter:v2'
