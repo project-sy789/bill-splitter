@@ -5,11 +5,12 @@ import {
   ChevronUp,
   Copy,
   Download,
+  History,
+  Image,
   Loader2,
   Plus,
   QrCode as QrCodeIcon,
   Receipt,
-  ScanLine,
   Trash2,
   Upload,
   Users,
@@ -18,13 +19,13 @@ import {
 
 import { QrCode } from './components/qr-code'
 import { useReceiptOcr } from './hooks/use-receipt-ocr'
-import { buildPromptPayPayload, toPromptPayTarget } from './lib/promptpay'
+import { useBillHistory } from './hooks/use-bill-history'
+import { buildPromptPayPayload, formatPromptPay, validatePromptPay, toPromptPayTarget } from './lib/promptpay'
 import {
   type AllocationMode,
   type BillItemDraft,
   type MemberDraft,
   type PersistedBillState,
-  STORAGE_KEY,
   safeParseBillState,
 } from './lib/bill-persistence'
 import type { SplitMode } from './types/bill'
@@ -166,9 +167,15 @@ function SectionCard({ children, className = '' }: { children: React.ReactNode; 
 // ──────────────────────────────────────────────
 
 function App() {
-  const initialState = safeParseBillState(localStorage.getItem(STORAGE_KEY))
+  const currentId = localStorage.getItem('bill-splitter-current-id')
+  const initialState = safeParseBillState(
+    currentId ? localStorage.getItem(`bill-splitter-state-${currentId}`) : localStorage.getItem('bill-splitter-state')
+  ) || safeParseBillState(localStorage.getItem('bill-splitter-state'))
 
   // ── State ──
+  const [currentBillId, setCurrentBillId] = useState<string>(currentId ?? crypto.randomUUID())
+  const { history, addOrUpdateBill, removeBill } = useBillHistory()
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false)
   const [members, setMembers] = useState<MemberDraft[]>(
     initialState?.members ?? [
       { id: crypto.randomUUID(), name: 'ฉัน', color: MEMBER_COLORS[0]!, promptPayId: '' },
@@ -189,6 +196,7 @@ function App() {
   const [copiedId, setCopiedId] = useState<string | null>(null)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
   const importInputRef = useRef<HTMLInputElement>(null)
 
   const { progress, results, mergedItems, error, scanFiles, reset, terminate, isBusy } = useReceiptOcr()
@@ -196,8 +204,14 @@ function App() {
   // ── Persist to localStorage ──
   useEffect(() => {
     const state: PersistedBillState = { members, items, serviceCharge, vat, discount, allocationMode, paidByMember }
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
-  }, [members, items, serviceCharge, vat, discount, allocationMode, paidByMember])
+    localStorage.setItem(`bill-splitter-state-${currentBillId}`, JSON.stringify(state))
+    localStorage.setItem('bill-splitter-current-id', currentBillId)
+    
+    // Auto-save history if the bill has any meaningful data
+    if (items.length > 0 || members.length > 2 || Object.keys(paidByMember).length > 0) {
+      addOrUpdateBill(currentBillId, `บิลวันที่ ${new Date().toLocaleDateString('th-TH')} - ยอด ฿${(items.reduce((sum, item) => sum + item.amount, 0) + serviceCharge + vat - discount).toFixed(2)}`)
+    }
+  }, [members, items, serviceCharge, vat, discount, allocationMode, paidByMember, currentBillId, addOrUpdateBill])
 
 
 
@@ -210,18 +224,39 @@ function App() {
     prevMergedLenRef.current = mergedItems.length
     if (newOcrItems.length === 0) return
 
-    setItems((prev) => [
-      ...prev,
-      ...newOcrItems.map((oi) => ({
-        id: oi.id,
-        name: oi.name,
-        amount: oi.amount,
-        splitMode: 'equally' as SplitMode,
-        consumerIds: members.map((m) => m.id),
-        percentageByUser: Object.fromEntries(members.map((m) => [m.id, round2(100 / Math.max(members.length, 1))])),
-        exactByUser: Object.fromEntries(members.map((m) => [m.id, round2(oi.amount / Math.max(members.length, 1))])),
-      })),
-    ])
+    setItems((prev) => {
+      const next = [...prev]
+      newOcrItems.forEach((oi) => {
+        // Grouping: Check if an exact match of (name + exact price) exists
+        const matchBaseIdx = next.findIndex((x) => (x.name === oi.name || x.name.startsWith(`${oi.name} (x`)) && Math.abs((x.amount / (parseInt(x.name.match(/\(x(\d+)\)$/)?.[1] || '1', 10))) - oi.amount) < 0.01)
+
+        if (matchBaseIdx !== -1) {
+          const item = next[matchBaseIdx]!
+          const match = item.name.match(/\(x(\d+)\)$/)
+          const currentCount = match ? parseInt(match[1]!) : 1
+          const newCount = currentCount + 1
+          const baseName = match ? item.name.substring(0, item.name.lastIndexOf(' (x')) : item.name
+          
+          next[matchBaseIdx] = {
+            ...item,
+            name: `${baseName} (x${newCount})`,
+            amount: round2(item.amount + oi.amount),
+            exactByUser: Object.fromEntries(members.map((m) => [m.id, round2((item.amount + oi.amount) / Math.max(members.length, 1))])),
+          }
+        } else {
+          next.push({
+            id: oi.id,
+            name: oi.name,
+            amount: oi.amount,
+            splitMode: 'equally' as SplitMode,
+            consumerIds: members.map((m) => m.id),
+            percentageByUser: Object.fromEntries(members.map((m) => [m.id, round2(100 / Math.max(members.length, 1))])),
+            exactByUser: Object.fromEntries(members.map((m) => [m.id, round2(oi.amount / Math.max(members.length, 1))])),
+          })
+        }
+      })
+      return next
+    })
 
     // Accumulate VAT from each new receipt — but SKIP if receipt says "VAT INCLUDED"
     const newResults = results.slice(prevResultsLenRef.current)
@@ -421,6 +456,47 @@ function App() {
     prevResultsLenRef.current = 0
   }, [reset])
 
+  const loadHistoryBill = useCallback((id: string) => {
+    let dataStr = localStorage.getItem(`bill-splitter-state-${id}`)
+    if (!dataStr && id === localStorage.getItem('bill-splitter-current-id') && localStorage.getItem('bill-splitter-state')) {
+      dataStr = localStorage.getItem('bill-splitter-state') // fallback for migration
+    }
+    if (!dataStr) return
+    const data = safeParseBillState(dataStr)
+    if (!data) return
+    setCurrentBillId(id)
+    setMembers(data.members)
+    setItems(data.items)
+    setServiceCharge(data.serviceCharge ?? 0)
+    setVat(data.vat ?? 0)
+    setDiscount(data.discount ?? 0)
+    setAllocationMode(data.allocationMode ?? 'proportional')
+    setPaidByMember(data.paidByMember ?? {})
+    setReceiptPayerMap({})
+    setVatMode('exclusive')
+    reset()
+    setIsHistoryModalOpen(false)
+  }, [reset])
+
+  const createNewBill = useCallback(() => {
+    setCurrentBillId(crypto.randomUUID())
+    setMembers([
+      { id: crypto.randomUUID(), name: 'ฉัน', color: MEMBER_COLORS[0]!, promptPayId: '' },
+      { id: crypto.randomUUID(), name: 'เพื่อน', color: MEMBER_COLORS[1]!, promptPayId: '' },
+    ])
+    setItems([])
+    setServiceCharge(0)
+    setVat(0)
+    setDiscount(0)
+    setPaidByMember({})
+    setReceiptPayerMap({})
+    setVatMode('exclusive')
+    reset()
+    prevMergedLenRef.current = 0
+    prevResultsLenRef.current = 0
+    setIsHistoryModalOpen(false)
+  }, [reset])
+
   // ──────────────────────────────────────────────
   // Render
   // ──────────────────────────────────────────────
@@ -428,6 +504,14 @@ function App() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-violet-50 via-white to-sky-50">
       {/* Hidden inputs */}
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={(e) => void handleFilesSelected(e.target.files)}
+      />
       <input
         ref={fileInputRef}
         type="file"
@@ -463,9 +547,16 @@ function App() {
               ฟรี 100%
             </span>
             <button
+              onClick={() => setIsHistoryModalOpen(true)}
+              className="rounded-xl border border-gray-200 p-2 text-gray-500 hover:bg-gray-50 transition-colors"
+              title="ประวัติบิล"
+            >
+              <History className="h-4 w-4" />
+            </button>
+            <button
               onClick={triggerImportUpload}
               className="rounded-xl border border-gray-200 p-2 text-gray-500 hover:bg-gray-50 transition-colors"
-              title="โหลดข้อมูลที่บันทึกไว้"
+              title="โหลดข้อมูลทีบันทึกย้อนหลัง (JSON)"
             >
               <Upload className="h-4 w-4" />
             </button>
@@ -514,11 +605,14 @@ function App() {
                   <label className="text-xs text-gray-400 shrink-0">PromptPay:</label>
                   <input
                     value={member.promptPayId}
-                    onChange={(e) => updateMember(member.id, 'promptPayId', e.target.value)}
+                    onChange={(e) => updateMember(member.id, 'promptPayId', formatPromptPay(e.target.value))}
                     placeholder="เบอร์โทร 10 หลัก (ถ้ามี)"
-                    className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-violet-400"
+                    className={`flex-1 rounded-lg border bg-white px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-violet-400 ${!validatePromptPay(member.promptPayId) ? 'border-red-300 text-red-600 focus:border-red-500 focus:ring-red-200' : 'border-gray-200'}`}
                   />
                 </div>
+                {!validatePromptPay(member.promptPayId) && (
+                  <p className="pl-9 mt-1 text-[10px] text-red-500 font-medium">เบอร์ต้องมี 10 หรือ 13 หลัก</p>
+                )}
               </div>
             ))}
           </div>
@@ -556,12 +650,20 @@ function App() {
               เพิ่มรายการ
             </button>
             <button
+              onClick={() => cameraInputRef.current?.click()}
+              disabled={isBusy}
+              className="flex items-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-4 py-2.5 text-sm font-semibold text-violet-700 hover:bg-violet-100 disabled:opacity-50 transition-colors"
+            >
+              {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+              {isBusy ? 'กำลังสแกน...' : 'ถ่ายบิลเลย'}
+            </button>
+            <button
               onClick={() => fileInputRef.current?.click()}
               disabled={isBusy}
               className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
             >
-              {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ScanLine className="h-4 w-4" />}
-              {isBusy ? 'กำลังสแกน...' : 'สแกนสลิป'}
+              {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Image className="h-4 w-4" />}
+              {isBusy ? 'กำลังสแกน...' : 'เลือกรูปจากคลัง'}
               {!isBusy && (
                 <span className="ml-0.5 rounded-full bg-gray-100 px-1.5 py-0.5 text-xs text-gray-500 font-normal">
                   หลายใบได้
@@ -608,8 +710,8 @@ function App() {
             <div
               role="button"
               tabIndex={0}
-              onClick={() => fileInputRef.current?.click()}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click() }}
+              onClick={() => cameraInputRef.current?.click()}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') cameraInputRef.current?.click() }}
               className="flex cursor-pointer flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-gray-200 py-10 text-center transition hover:border-violet-300 hover:bg-violet-50/50"
             >
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-100">
@@ -1138,6 +1240,51 @@ function App() {
           </SectionCard>
         )}
       </main>
+
+      {/* History Modal */}
+      {isHistoryModalOpen && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-end bg-black/40 sm:justify-center p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-xl max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-gray-100 p-4">
+              <h3 className="text-lg font-bold text-gray-800">ประวัติบิล</h3>
+              <button onClick={() => setIsHistoryModalOpen(false)} className="rounded-full p-2 text-gray-400 hover:bg-gray-100">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              <button
+                onClick={createNewBill}
+                className="w-full flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-violet-200 bg-violet-50 py-3 text-sm font-semibold text-violet-700 hover:bg-violet-100 transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                สร้างบิลใหม่
+              </button>
+              
+              {history.length === 0 ? (
+                <div className="text-center text-sm text-gray-400 py-6">ยังไม่มีประวัติบิล</div>
+              ) : (
+                history.map((h) => (
+                  <div key={h.id} className="flex items-center justify-between rounded-xl border border-gray-100 bg-white p-3 shadow-sm hover:border-violet-200 transition-colors">
+                    <button onClick={() => loadHistoryBill(h.id)} className="flex-1 text-left min-w-0">
+                      <p className={`text-sm font-semibold truncate ${h.id === currentBillId ? 'text-violet-600' : 'text-gray-800'}`}>
+                        {h.title}
+                        {h.id === currentBillId && <span className="ml-2 text-[10px] bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded-md">เปิดอยู่</span>}
+                      </p>
+                      <p className="text-xs text-gray-400">{new Date(h.updatedAt).toLocaleString('th-TH')}</p>
+                    </button>
+                    <button
+                      onClick={() => removeBill(h.id)}
+                      className="ml-2 rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 

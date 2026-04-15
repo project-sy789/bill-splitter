@@ -45,3 +45,27 @@ export function buildPromptPayPayload(targetRaw: string, amount: number): string
 
   return `${body}${crc16(body)}`
 }
+
+export function formatPromptPay(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 13)
+  
+  if (digits.startsWith('0') && digits.length <= 10) {
+    if (digits.length <= 3) return digits
+    if (digits.length <= 6) return `${digits.slice(0, 3)}-${digits.slice(3)}`
+    return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6, 10)}`
+  }
+  
+  if (digits.length <= 1) return digits
+  if (digits.length <= 5) return `${digits.slice(0, 1)}-${digits.slice(1)}`
+  if (digits.length <= 10) return `${digits.slice(0, 1)}-${digits.slice(1, 5)}-${digits.slice(5)}`
+  if (digits.length <= 12) return `${digits.slice(0, 1)}-${digits.slice(1, 5)}-${digits.slice(5, 10)}-${digits.slice(10)}`
+  return `${digits.slice(0, 1)}-${digits.slice(1, 5)}-${digits.slice(5, 10)}-${digits.slice(10, 12)}-${digits.slice(12, 13)}`
+}
+
+export function validatePromptPay(raw: string): boolean {
+  if (!raw) return true // Empty is valid (not set)
+  const digits = raw.replace(/\D/g, '')
+  if (digits.startsWith('0') && digits.length === 10) return true
+  if (digits.length === 13) return true
+  return false
+}
