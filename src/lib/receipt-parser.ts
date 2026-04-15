@@ -68,6 +68,10 @@ const HEADER_KW = [
 /** Lines starting with transaction/reference IDs — always skip */
 const TX_ID_RE = /^(?:tid#|r#|bid#|ref#|txn#|trn#|\*\s*ศูนย์)/i
 
+/** Receipts that state prices already include VAT */
+const VAT_INCLUDED_RE =
+  /vat\s*(?:included|incl\.?|inclusive)|(?:รวม|ราคารวม)\s*(?:vat|ภาษี)|ค่าภาษีรวมอยู่ในราคา/i
+
 /** Thai decimal numerals → ASCII */
 const THAI_DIGIT_MAP: Record<string, string> = {
   '๐': '0', '๑': '1', '๒': '2', '๓': '3', '๔': '4',
@@ -292,7 +296,9 @@ export function parseReceiptText(rawText: string): ParsedReceiptResult {
     total = round2(items.reduce((s, it) => s + it.amount, 0))
   }
 
-  return { rawText, lines, items, summary: { subtotal, vat, total } }
+  const vatIncluded = VAT_INCLUDED_RE.test(rawText)
+
+  return { rawText, lines, items, summary: { subtotal, vat, total }, vatIncluded }
 }
 
 // ──────────────────────────────────────────────

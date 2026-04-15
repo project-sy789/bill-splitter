@@ -183,6 +183,8 @@ function App() {
   const [discount, setDiscount] = useState(initialState?.discount ?? 0)
   const [allocationMode, setAllocationMode] = useState<AllocationMode>(initialState?.allocationMode ?? 'proportional')
   const [paidByMember, setPaidByMember] = useState<Record<string, number>>(initialState?.paidByMember ?? {})
+  const [vatMode, setVatMode] = useState<'exclusive' | 'inclusive'>('exclusive')
+  const [receiptPayerMap, setReceiptPayerMap] = useState<Record<number, string>>({}) // resultIdx → memberId
   const [activeSettlementIdx, setActiveSettlementIdx] = useState<number | null>(null)
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set())
   const [copiedId, setCopiedId] = useState<string | null>(null)
@@ -222,12 +224,17 @@ function App() {
       })),
     ])
 
-    // Accumulate VAT + serviceCharge from each new scanned receipt
-    // (สะสมจากทุกสลิป ไม่ใช่แค่ครั้งแรก)
+    // Accumulate VAT from each new receipt — but SKIP if receipt says "VAT INCLUDED"
     const newResults = results.slice(prevResultsLenRef.current)
     prevResultsLenRef.current = results.length
     newResults.forEach((r) => {
-      if (r.summary.vat) setVat((prev) => round2(prev + r.summary.vat!))
+      if (r.summary.vat && !r.vatIncluded) {
+        setVat((prev) => round2(prev + r.summary.vat!))
+      }
+      if (r.vatIncluded) {
+        // Auto-switch to inclusive mode when receipt signals VAT already in price
+        setVatMode('inclusive')
+      }
     })
   }, [mergedItems, results, members])
 
@@ -247,8 +254,11 @@ function App() {
   const totalItemsAmount = useMemo(() => round2(items.reduce((s, i) => s + i.amount, 0)), [items])
 
   const adjustmentsByMember = useMemo(
-    () => allocateAmount(serviceCharge + vat - discount, members, baseTotalsByMember, allocationMode),
-    [serviceCharge, vat, discount, members, baseTotalsByMember, allocationMode],
+    () => allocateAmount(
+      serviceCharge + (vatMode === 'exclusive' ? vat : 0) - discount,
+      members, baseTotalsByMember, allocationMode,
+    ),
+    [serviceCharge, vat, vatMode, discount, members, baseTotalsByMember, allocationMode],
   )
 
   const finalDueByMember = useMemo(() => {
@@ -260,8 +270,8 @@ function App() {
   }, [members, baseTotalsByMember, adjustmentsByMember])
 
   const grandTotal = useMemo(
-    () => round2(totalItemsAmount + serviceCharge + vat - discount),
-    [totalItemsAmount, serviceCharge, vat, discount],
+    () => round2(totalItemsAmount + serviceCharge + (vatMode === 'exclusive' ? vat : 0) - discount),
+    [totalItemsAmount, serviceCharge, vat, vatMode, discount],
   )
 
   const normalizedPaid = useMemo(() => {
@@ -792,29 +802,73 @@ function App() {
           {items.length > 0 && (
             <div className="mt-4 rounded-xl bg-gray-50 border border-gray-100 p-3">
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {(
-                  [
-                    { label: 'ค่าบริการ', value: serviceCharge, setter: setServiceCharge },
-                    { label: 'VAT', value: vat, setter: setVat },
-                    { label: 'ส่วนลด', value: discount, setter: setDiscount },
-                  ] as { label: string; value: number; setter: (v: number) => void }[]
-                ).map(({ label, value, setter }) => (
-                  <label key={label} className="block">
-                    <span className="text-xs text-gray-500">{label}</span>
-                    <div className="flex items-center gap-1 mt-0.5">
-                      <span className="text-xs text-gray-400">฿</span>
-                      <input
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        value={value || ''}
-                        onChange={(e) => setter(Number(e.target.value) || 0)}
-                        placeholder="0"
-                        className="w-full rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm text-right outline-none focus:ring-2 focus:ring-violet-400"
-                      />
-                    </div>
-                  </label>
-                ))}
+                {/* ค่าบริการ */}
+                <label className="block">
+                  <span className="text-xs text-gray-500">ค่าบริการ</span>
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <span className="text-xs text-gray-400">฿</span>
+                    <input
+                      type="number" min={0} step="0.01"
+                      value={serviceCharge || ''}
+                      onChange={(e) => setServiceCharge(Number(e.target.value) || 0)}
+                      placeholder="0"
+                      className="w-full rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm text-right outline-none focus:ring-2 focus:ring-violet-400"
+                    />
+                  </div>
+                </label>
+
+                {/* VAT with inclusive/exclusive toggle */}
+                <label className="block">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-500">VAT</span>
+                    <button
+                      type="button"
+                      onClick={() => setVatMode((m) => m === 'exclusive' ? 'inclusive' : 'exclusive')}
+                      title={vatMode === 'exclusive' ? 'คลิกถ้า VAT รวมอยู่ในราคาแล้ว' : 'คลิกถ้าต้องการบวก VAT เพิ่ม'}
+                      className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium transition-colors ${
+                        vatMode === 'inclusive'
+                          ? 'bg-amber-100 text-amber-700 border border-amber-200'
+                          : 'bg-gray-100 text-gray-500 border border-gray-200'
+                      }`}
+                    >
+                      {vatMode === 'inclusive' ? 'รวมแล้ว' : 'บวกเพิ่ม'}
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <span className="text-xs text-gray-400">฿</span>
+                    <input
+                      type="number" min={0} step="0.01"
+                      value={vat || ''}
+                      onChange={(e) => setVat(Number(e.target.value) || 0)}
+                      placeholder="0"
+                      disabled={vatMode === 'inclusive'}
+                      className={`w-full rounded-lg border px-2 py-1.5 text-sm text-right outline-none focus:ring-2 focus:ring-violet-400 ${
+                        vatMode === 'inclusive'
+                          ? 'border-amber-200 bg-amber-50 text-amber-600 cursor-not-allowed'
+                          : 'border-gray-200 bg-white'
+                      }`}
+                    />
+                  </div>
+                  {vatMode === 'inclusive' && (
+                    <p className="mt-0.5 text-[10px] text-amber-600">รวมในราคาแล้ว ไม่บวกซ้ำ</p>
+                  )}
+                </label>
+
+                {/* ส่วนลด */}
+                <label className="block">
+                  <span className="text-xs text-gray-500">ส่วนลด</span>
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <span className="text-xs text-gray-400">฿</span>
+                    <input
+                      type="number" min={0} step="0.01"
+                      value={discount || ''}
+                      onChange={(e) => setDiscount(Number(e.target.value) || 0)}
+                      placeholder="0"
+                      className="w-full rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm text-right outline-none focus:ring-2 focus:ring-violet-400"
+                    />
+                  </div>
+                </label>
+
                 <div className="flex flex-col justify-end">
                   <span className="text-xs text-gray-500">วิธีกระจายค่าบริการ</span>
                   <select
@@ -835,6 +889,62 @@ function App() {
           )}
         </SectionCard>
 
+        {/* ── Scanned receipts payer assignment ── */}
+        {results.length > 0 && !isBusy && (
+          <SectionCard>
+            <div className="flex items-center gap-2 mb-3">
+              <Receipt className="h-4 w-4 text-violet-500" />
+              <span className="text-sm font-semibold text-gray-800">สลิปที่สแกน ({results.length} ใบ)</span>
+              <span className="text-xs text-gray-400 ml-1">— ระบุผู้จ่ายต่อสลิป แล้วกด &quot;+เพิ่มยอดจ่าย&quot;</span>
+            </div>
+            <div className="space-y-2">
+              {results.map((r, idx) => {
+                const slipTotal = r.summary.total ?? r.items.reduce((s, it) => s + it.amount, 0)
+                const assignedId = receiptPayerMap[idx]
+                return (
+                  <div key={idx} className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-gray-600">
+                        สลิป {idx + 1} — {r.items.length} รายการ
+                        {r.vatIncluded && (
+                          <span className="ml-1.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-700">VAT รวมแล้ว</span>
+                        )}
+                      </p>
+                      <p className="text-sm font-bold text-violet-700">฿{slipTotal.toFixed(2)}</p>
+                    </div>
+                    <select
+                      value={assignedId ?? ''}
+                      onChange={(e) => setReceiptPayerMap((prev) => ({ ...prev, [idx]: e.target.value }))}
+                      className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-violet-400"
+                    >
+                      <option value="">ใครจ่าย?</option>
+                      {members.map((m) => (
+                        <option key={m.id} value={m.id}>{m.name}</option>
+                      ))}
+                    </select>
+                    <button
+                      disabled={!assignedId}
+                      onClick={() => {
+                        if (!assignedId) return
+                        setPaidByMember((prev) => ({
+                          ...prev,
+                          [assignedId]: round2((prev[assignedId] ?? 0) + slipTotal),
+                        }))
+                        setReceiptPayerMap((prev) => {
+                          const n = { ...prev }; delete n[idx]; return n
+                        })
+                      }}
+                      className="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700 disabled:opacity-40 transition-colors"
+                    >
+                      + เพิ่มยอดจ่าย
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          </SectionCard>
+        )}
+
         {/* ── STEP 3: Who paid? ── */}
         {items.length > 0 && (
           <SectionCard>
@@ -853,6 +963,7 @@ function App() {
                   <span className="flex-1 text-sm font-medium text-gray-700">{m.name}</span>
                   <div className="flex items-center gap-1">
                     <span className="text-sm text-gray-400">฿</span>
+
                     <input
                       type="number"
                       min={0}
