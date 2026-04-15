@@ -232,7 +232,7 @@ function App() {
             files: [file]
           })
           return
-        } catch (err) {
+        } catch {
           // Fallback to download if share API failed/cancelled
         }
       }
@@ -1591,7 +1591,7 @@ function App() {
                           <span className="text-[11px] font-medium text-gray-600">{formatPromptPay(to.promptPayId)}</span>
                         </div>
                         {s.promptPayPayload && (
-                          <div className="w-10 h-10 border border-gray-100 rounded-md overflow-hidden bg-white ml-2 flex-shrink-0">
+                          <div className="w-20 h-20 border border-gray-100 rounded-md overflow-hidden bg-white ml-2 flex-shrink-0">
                             <QrCode value={s.promptPayPayload} />
                           </div>
                         )}
