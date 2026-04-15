@@ -190,7 +190,7 @@ function App() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const importInputRef = useRef<HTMLInputElement>(null)
 
-  const { progress, mergedItems, lastSummary, error, scanFiles, reset, terminate, isBusy } = useReceiptOcr()
+  const { progress, results, mergedItems, error, scanFiles, reset, terminate, isBusy } = useReceiptOcr()
 
   // ── Persist to localStorage ──
   useEffect(() => {
@@ -202,6 +202,7 @@ function App() {
 
   // Merge OCR results into items list when mergedItems changes
   const prevMergedLenRef = useRef(0)
+  const prevResultsLenRef = useRef(0)
   useEffect(() => {
     if (mergedItems.length === prevMergedLenRef.current) return
     const newOcrItems = mergedItems.slice(prevMergedLenRef.current)
@@ -221,9 +222,14 @@ function App() {
       })),
     ])
 
-    // Auto-fill vat/service from slip if fields are 0
-    if (lastSummary?.vat && vat === 0) setVat(lastSummary.vat)
-  }, [mergedItems, lastSummary, members, vat])
+    // Accumulate VAT + serviceCharge from each new scanned receipt
+    // (สะสมจากทุกสลิป ไม่ใช่แค่ครั้งแรก)
+    const newResults = results.slice(prevResultsLenRef.current)
+    prevResultsLenRef.current = results.length
+    newResults.forEach((r) => {
+      if (r.summary.vat) setVat((prev) => round2(prev + r.summary.vat!))
+    })
+  }, [mergedItems, results, members])
 
   useEffect(() => () => { void terminate() }, [terminate])
 

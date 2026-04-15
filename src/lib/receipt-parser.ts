@@ -160,7 +160,7 @@ function cleanName(raw: string): string {
     .replace(BAHT_INLINE_RE, '')        // inline ฿
     .replace(/[฿$%]/g, '')
     .replace(/\s{2,}/g, ' ')
-    .replace(/[.\-–—]+$/, '')
+    .replace(/[-.\u2013\u2014]+$/, '')
     .trim()
 }
 
