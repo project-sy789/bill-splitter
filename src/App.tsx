@@ -5,13 +5,11 @@ import {
   ChevronUp,
   Copy,
   Download,
-  KeyRound,
   Loader2,
   Plus,
   QrCode as QrCodeIcon,
   Receipt,
   ScanLine,
-  Settings,
   Trash2,
   Upload,
   Users,
@@ -47,7 +45,7 @@ interface Settlement {
 // ──────────────────────────────────────────────
 
 const MEMBER_COLORS = ['#7C3AED', '#0EA5E9', '#22C55E', '#F97316', '#EC4899', '#EAB308']
-const SETTINGS_KEY = 'bill-splitter:settings'
+
 
 const SPLIT_MODE_LABELS: Record<SplitMode, string> = {
   equally: 'หารเท่ากัน',
@@ -162,61 +160,7 @@ function SectionCard({ children, className = '' }: { children: React.ReactNode; 
   )
 }
 
-interface SettingsModalProps {
-  apiKey: string
-  onSave: (key: string) => void
-  onClose: () => void
-}
 
-function SettingsModal({ apiKey, onSave, onClose }: SettingsModalProps) {
-  const [draft, setDraft] = useState(apiKey)
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
-    >
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-bold">ตั้งค่า AI OCR</h2>
-          <button onClick={onClose} className="rounded-lg p-1 hover:bg-gray-100">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-        <div className="mb-3 rounded-xl bg-violet-50 border border-violet-100 p-3 text-sm text-violet-700">
-          <p className="font-semibold mb-1">🤖 ใส่ OpenAI API Key เพื่อใช้ GPT-4o Vision</p>
-          <p className="text-xs text-violet-600">
-            อ่านใบเสร็จไทยได้แม่นกว่า Tesseract มาก — key เก็บในเครื่องคุณเท่านั้น ไม่ส่งไปที่อื่น
-          </p>
-        </div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">OpenAI API Key</label>
-        <input
-          type="password"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          placeholder="sk-..."
-          className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-violet-400"
-        />
-        <p className="mt-1.5 text-xs text-gray-400">
-          ถ้าไม่ใส่ จะใช้ Tesseract.js แทน (ออฟไลน์ แต่แม่นน้อยกว่า)
-        </p>
-        <div className="mt-4 flex justify-end gap-2">
-          <button
-            onClick={onClose}
-            className="rounded-xl border border-gray-200 px-4 py-2 text-sm hover:bg-gray-50"
-          >
-            ยกเลิก
-          </button>
-          <button
-            onClick={() => { onSave(draft.trim()); onClose() }}
-            className="rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700"
-          >
-            บันทึก
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 // ──────────────────────────────────────────────
 // Main App
@@ -224,10 +168,6 @@ function SettingsModal({ apiKey, onSave, onClose }: SettingsModalProps) {
 
 function App() {
   const initialState = safeParseBillState(localStorage.getItem(STORAGE_KEY))
-  const savedSettings = (() => {
-    try { return JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}') as { apiKey?: string } }
-    catch { return {} }
-  })()
 
   // ── State ──
   const [members, setMembers] = useState<MemberDraft[]>(
@@ -244,8 +184,6 @@ function App() {
   const [allocationMode, setAllocationMode] = useState<AllocationMode>(initialState?.allocationMode ?? 'proportional')
   const [paidByMember, setPaidByMember] = useState<Record<string, number>>(initialState?.paidByMember ?? {})
   const [activeSettlementIdx, setActiveSettlementIdx] = useState<number | null>(null)
-  const [showSettings, setShowSettings] = useState(false)
-  const [apiKey, setApiKey] = useState(savedSettings.apiKey ?? '')
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set())
   const [copiedId, setCopiedId] = useState<string | null>(null)
 
@@ -260,9 +198,7 @@ function App() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
   }, [members, items, serviceCharge, vat, discount, allocationMode, paidByMember])
 
-  useEffect(() => {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ apiKey }))
-  }, [apiKey])
+
 
   // Merge OCR results into items list when mergedItems changes
   const prevMergedLenRef = useRef(0)
@@ -354,9 +290,9 @@ function App() {
   const handleFilesSelected = useCallback(
     async (files: FileList | null) => {
       if (!files || files.length === 0) return
-      await scanFiles(Array.from(files), apiKey || undefined)
+      await scanFiles(Array.from(files))
     },
-    [scanFiles, apiKey],
+    [scanFiles],
   )
 
   const addMember = useCallback(() => {
@@ -490,14 +426,7 @@ function App() {
         onChange={(e) => void importBill(e.target.files?.[0] ?? null)}
       />
 
-      {/* Settings Modal */}
-      {showSettings && (
-        <SettingsModal
-          apiKey={apiKey}
-          onSave={setApiKey}
-          onClose={() => setShowSettings(false)}
-        />
-      )}
+
 
       {/* Header */}
       <header className="sticky top-0 z-40 border-b border-gray-100 bg-white/80 backdrop-blur-md">
@@ -512,27 +441,13 @@ function App() {
             </div>
           </div>
           <div className="flex items-center gap-1.5">
-            {apiKey ? (
-              <span className="hidden sm:flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-1 text-xs font-medium text-emerald-700">
-                <KeyRound className="h-3 w-3" />
-                GPT-4o
-              </span>
-            ) : (
-              <span className="hidden sm:flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-1 text-xs font-medium text-amber-700">
-                Tesseract
-              </span>
-            )}
-            <button
-              onClick={() => setShowSettings(true)}
-              className="rounded-xl border border-gray-200 p-2 text-gray-500 hover:bg-gray-50 transition-colors"
-              title="ตั้งค่า"
-            >
-              <Settings className="h-4 w-4" />
-            </button>
+            <span className="hidden sm:flex items-center gap-1 rounded-full bg-violet-50 border border-violet-200 px-2 py-1 text-xs font-medium text-violet-700">
+              ฟรี 100%
+            </span>
             <button
               onClick={triggerImportUpload}
               className="rounded-xl border border-gray-200 p-2 text-gray-500 hover:bg-gray-50 transition-colors"
-              title="โหลดข้อมูล"
+              title="โหลดข้อมูลที่บันทึกไว้"
             >
               <Upload className="h-4 w-4" />
             </button>
