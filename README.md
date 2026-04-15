@@ -1,6 +1,6 @@
 # Bill Splitter
 
-แอปแยกบิลแบบทำงานในเบราว์เซอร์ 100% สำหรับอัปโหลดรูปใบเสร็จ แปลงข้อความด้วย OCR แล้วช่วยคำนวณยอดที่แต่ละคนต้องจ่ายแบบง่ายและแชร์ต่อได้ทันที
+แอปแยกบิลแบบทำงานในเบราว์เซอร์ 100% สำหรับอัปโหลดรูปใบเสร็จ อ่านด้วย OCR แล้วช่วยคำนวณยอดที่แต่ละคนต้องจ่ายแบบง่าย แชร์ต่อได้ทันที และพร้อม deploy บน GitHub Pages
 
 ## จุดเด่น
 
@@ -9,7 +9,7 @@
 - แยกรายการจากข้อความอัตโนมัติ
 - แก้ไขสมาชิก รายการ และวิธีแบ่งบิลได้
 - กระจาย service charge, VAT และ discount ได้
-- ลดจำนวนการโอนด้วยการ simplify debt
+- ลดจำนวนการโอนด้วย debt simplification
 - สร้าง PromptPay QR และคัดลอก payload ได้
 - บันทึกงานค้างไว้ในเครื่องด้วย localStorage
 - รองรับ export/import บิลเป็นไฟล์ JSON
@@ -40,6 +40,12 @@ npm run dev
 npm run build
 ```
 
+## Deploy บน GitHub Pages
+
+โปรเจกต์นี้มี GitHub Actions workflow สำหรับ build และ deploy ไป GitHub Pages อัตโนมัติเมื่อ push ไปที่ branch หลัก
+
+หากยังไม่เปิด Pages ให้เข้าไปที่ `Settings > Pages` ใน repo แล้วเลือกให้ใช้ GitHub Actions deployment
+
 ## โครงสร้างการทำงาน
 
 - ทุกอย่างประมวลผลฝั่ง client
@@ -47,13 +53,7 @@ npm run build
 - ข้อมูล draft ถูกเก็บใน browser ของผู้ใช้
 - เหมาะกับการ deploy แบบ static site
 
-## GitHub Actions
-
-โปรเจกต์นี้มี workflow สำหรับ:
-
-- ตรวจ lint และ build
-- deploy ไป GitHub Pages
-
 ## หมายเหตุ
 
-ถ้าใช้บน GitHub Pages ให้เปิด Pages ใน repo settings และตรวจว่า branch ที่ deploy ใช้ workflow ที่เตรียมไว้แล้ว
+- ถ้าเปิดบน GitHub Pages แล้วรูป/asset ไม่ขึ้น ให้ตรวจว่า workflow deploy สำเร็จแล้ว
+- หากต้องการเริ่มใหม่ สามารถล้าง draft จากในแอป หรือปิด/เปิด browser ใหม่ได้
