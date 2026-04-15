@@ -111,6 +111,7 @@ export function useReceiptOcr() {
         setResult(parsed)
         setStatus('completed')
         setProgress((prev) => ({ ...prev, progress: 100, statusText: 'OCR completed' }))
+        return parsed
       } catch (err) {
         const message = err instanceof Error ? err.message : 'OCR failed unexpectedly'
         if (message.includes('timeout')) {
@@ -118,6 +119,7 @@ export function useReceiptOcr() {
         }
         setStatus('error')
         setError(message)
+        return null
       }
     },
     [getWorker, terminate],

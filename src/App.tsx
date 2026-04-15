@@ -174,30 +174,26 @@ function App() {
     }
   }, [previewUrl, terminate])
 
-  useEffect(() => {
-    if (!result) return
-
-    setItems(
-      result.items.map((item: { id: string; name: string; amount: number }) => ({
+  const resultItems = result
+    ? result.items.map((item: { id: string; name: string; amount: number }) => ({
         id: item.id,
         name: item.name,
         amount: item.amount,
-        splitMode: 'equally',
+        splitMode: 'equally' as SplitMode,
         consumerIds: members.map((m) => m.id),
         percentageByUser: Object.fromEntries(members.map((m) => [m.id, round2(100 / Math.max(members.length, 1))])),
         exactByUser: Object.fromEntries(members.map((m) => [m.id, round2(item.amount / Math.max(members.length, 1))])),
-      })),
-    )
-
-    setVat(result.summary.vat ?? 0)
-  }, [result, members])
+      }))
+    : items
 
   const isBusy = status === 'loading' || status === 'recognizing'
+
+  const currentItems = result ? resultItems : items
 
   const baseTotalsByMember = useMemo(() => {
     const totals: Record<string, number> = Object.fromEntries(members.map((m) => [m.id, 0]))
 
-    items.forEach((item) => {
+    currentItems.forEach((item) => {
       const split = calcItemSplit(item, members)
       Object.entries(split).forEach(([memberId, amount]) => {
         totals[memberId] = (totals[memberId] ?? 0) + amount
@@ -209,7 +205,7 @@ function App() {
     })
 
     return totals
-  }, [items, members])
+  }, [currentItems, members])
 
   const totalItemsAmount = useMemo(() => round2(items.reduce((sum, item) => sum + item.amount, 0)), [items])
 
@@ -230,32 +226,24 @@ function App() {
 
   const grandTotal = useMemo(() => round2(totalItemsAmount + serviceCharge + vat - discount), [totalItemsAmount, serviceCharge, vat, discount])
 
-  useEffect(() => {
-    if (members.length === 0) return
-
-    setPaidByMember((prev) => {
-      const next: Record<string, number> = {}
-      members.forEach((member, index) => {
-        const existing = prev[member.id]
-        if (typeof existing === 'number') {
-          next[member.id] = existing
-        } else {
-          next[member.id] = index === 0 ? grandTotal : 0
-        }
-      })
-      return next
+  const normalizedPaidByMember = useMemo(() => {
+    const next: Record<string, number> = {}
+    members.forEach((member, index) => {
+      const existing = paidByMember[member.id]
+      next[member.id] = typeof existing === 'number' ? existing : index === 0 ? grandTotal : 0
     })
-  }, [members, grandTotal])
+    return next
+  }, [members, paidByMember, grandTotal])
 
   const netByMember = useMemo(() => {
     const net: Record<string, number> = {}
     members.forEach((member) => {
-      const paid = paidByMember[member.id] ?? 0
+      const paid = normalizedPaidByMember[member.id] ?? 0
       const due = finalDueByMember[member.id] ?? 0
       net[member.id] = round2(paid - due)
     })
     return net
-  }, [members, paidByMember, finalDueByMember])
+  }, [members, normalizedPaidByMember, finalDueByMember])
 
   const settlements = useMemo(
     () =>
