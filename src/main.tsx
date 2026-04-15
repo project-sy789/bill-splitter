@@ -8,3 +8,12 @@ createRoot(document.getElementById('root')!).render(
     <App />
   </StrictMode>,
 )
+
+// Register service worker for PWA / offline support
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker
+      .register('/bill-splitter/sw.js', { scope: '/bill-splitter/' })
+      .catch(() => { /* SW unavailable in dev mode — safe to ignore */ })
+  })
+}
