@@ -543,7 +543,12 @@ function App() {
               className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
             >
               {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ScanLine className="h-4 w-4" />}
-              สแกนสลิป
+              {isBusy ? 'กำลังสแกน...' : 'สแกนสลิป'}
+              {!isBusy && (
+                <span className="ml-0.5 rounded-full bg-gray-100 px-1.5 py-0.5 text-xs text-gray-500 font-normal">
+                  หลายใบได้
+                </span>
+              )}
             </button>
             {items.length > 0 && (
               <button
@@ -594,7 +599,7 @@ function App() {
               </div>
               <div>
                 <p className="font-semibold text-gray-700">ถ่ายหรืออัปโหลดรูปสลิป</p>
-                <p className="text-sm text-gray-400">หรือกด "เพิ่มรายการ" เพื่อใส่เองได้เลย</p>
+                <p className="text-sm text-gray-400">เลือกได้หลายใบพร้อมกัน หรือกด &quot;เพิ่มรายการ&quot; เพื่อใส่เองได้เลย</p>
               </div>
             </div>
           ) : (
