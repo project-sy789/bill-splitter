@@ -779,16 +779,29 @@ function App() {
             <div
               role="button"
               tabIndex={0}
-              onClick={() => cameraInputRef.current?.click()}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') cameraInputRef.current?.click() }}
+              onClick={() => (manualBills.length > 0 || results.length > 0) ? addManualItem() : cameraInputRef.current?.click()}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') ((manualBills.length > 0 || results.length > 0) ? addManualItem() : cameraInputRef.current?.click()) }}
               className="flex cursor-pointer flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-gray-200 py-10 text-center transition hover:border-violet-300 hover:bg-violet-50/50"
             >
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-100">
-                <Camera className="h-6 w-6 text-gray-400" />
+                {manualBills.length > 0 || results.length > 0 ? (
+                  <Plus className="h-6 w-6 text-violet-500" />
+                ) : (
+                  <Camera className="h-6 w-6 text-gray-400" />
+                )}
               </div>
               <div>
-                <p className="font-semibold text-gray-700">ถ่ายหรืออัปโหลดรูปสลิป</p>
-                <p className="text-sm text-gray-400">เลือกได้หลายใบพร้อมกัน หรือกด &quot;เพิ่มรายการ&quot; เพื่อใส่เองได้เลย</p>
+                {manualBills.length > 0 || results.length > 0 ? (
+                  <>
+                    <p className="font-semibold text-gray-700">ใส่ยอดจ่ายแล้ว ต้องเพิ่มรายการด้วย!</p>
+                    <p className="text-sm text-gray-400">กดที่นี่เพื่อเพิ่มรายการว่า <b>มีค่าอะไรบ้าง</b> และ <b>ใครเป็นคนกิน</b></p>
+                  </>
+                ) : (
+                  <>
+                    <p className="font-semibold text-gray-700">ถ่ายหรืออัปโหลดรูปสลิป</p>
+                    <p className="text-sm text-gray-400">สแกนอัตโนมัติ หรือกดเพิ่มรายการเพื่อระบุเองได้ทันที</p>
+                  </>
+                )}
               </div>
             </div>
           ) : (
