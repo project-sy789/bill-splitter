@@ -1,4 +1,4 @@
-import type { ParsedReceiptItem, ParsedReceiptResult } from '@/types/ocr'
+import type { ParsedReceiptItem, ParsedReceiptResult } from '../types/ocr'
 
 const MONEY_REGEX = /(-?\d{1,3}(?:[,.]\d{3})*(?:[.,]\d{1,2})|-?\d+(?:[.,]\d{1,2})?)/g
 

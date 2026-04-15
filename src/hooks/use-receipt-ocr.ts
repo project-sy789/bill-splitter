@@ -1,8 +1,8 @@
 import { useCallback, useRef, useState } from 'react'
 import { createWorker } from 'tesseract.js'
 
-import { parseReceiptText } from '@/lib/receipt-parser'
-import type { OcrStatus, ParsedReceiptResult } from '@/types/ocr'
+import { parseReceiptText } from '../lib/receipt-parser'
+import type { OcrStatus, ParsedReceiptResult } from '../types/ocr'
 
 interface OcrProgress {
   progress: number

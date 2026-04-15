@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Download, ImageUp, LoaderCircle, Copy, Receipt, Sparkles, Upload, Users, Wallet } from 'lucide-react'
 
-import { Button } from '@/components/ui/button'
-import { QrCode } from '@/components/qr-code'
-import { useReceiptOcr } from '@/hooks/use-receipt-ocr'
-import { buildPromptPayPayload, toPromptPayTarget } from '@/lib/promptpay'
+import { Button } from './components/ui/button'
+import { QrCode } from './components/qr-code'
+import { useReceiptOcr } from './hooks/use-receipt-ocr'
+import { buildPromptPayPayload, toPromptPayTarget } from './lib/promptpay'
 import {
   type AllocationMode,
   type BillItemDraft,
@@ -12,8 +12,8 @@ import {
   type PersistedBillState,
   STORAGE_KEY,
   safeParseBillState,
-} from '@/lib/bill-persistence'
-import type { SplitMode } from '@/types/bill'
+} from './lib/bill-persistence'
+import type { SplitMode } from './types/bill'
 
 interface Settlement {
   fromMemberId: string
@@ -188,7 +188,7 @@ function App() {
     if (!result) return
 
     setItems(
-      result.items.map((item) => ({
+      result.items.map((item: { id: string; name: string; amount: number }) => ({
         id: item.id,
         name: item.name,
         amount: item.amount,

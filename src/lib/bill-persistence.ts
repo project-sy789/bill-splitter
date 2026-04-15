@@ -1,4 +1,4 @@
-import type { SplitMode } from '@/types/bill'
+import type { SplitMode } from '../types/bill'
 
 export type AllocationMode = 'proportional' | 'equal'
 
