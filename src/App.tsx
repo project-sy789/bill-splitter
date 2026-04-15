@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
+  AlertTriangle,
   Camera,
   ChevronDown,
   ChevronUp,
@@ -358,6 +359,23 @@ function App() {
     () => round2(totalItemsAmount + serviceCharge + (vatMode === 'exclusive' ? vat : 0) - discount),
     [totalItemsAmount, serviceCharge, vat, vatMode, discount],
   )
+
+  const unifiedBills = useMemo(() => [
+    ...results.map((r, i) => ({
+      id: `ocr-${i}`,
+      title: `สลิป ${i + 1}`,
+      subtitle: `${r.items.length} รายการ${r.vatIncluded ? ' (VAT รวมแล้ว)' : ''}`,
+      amount: r.summary.total ?? r.items.reduce((s, it) => s + it.amount, 0),
+    })),
+    ...manualBills.map((m) => ({
+      id: m.id,
+      title: m.name,
+      subtitle: 'ยอดใส่เอง',
+      amount: m.amount,
+    }))
+  ], [results, manualBills])
+
+  const unifiedBillsSum = useMemo(() => round2(unifiedBills.reduce((s, b) => s + b.amount, 0)), [unifiedBills])
 
   const normalizedPaid = useMemo(() => {
     const out: Record<string, number> = {}
@@ -1102,6 +1120,45 @@ function App() {
           )}
         </SectionCard>
 
+        {/* ── Discrepancy Warning ── */}
+        {unifiedBillsSum > 0 && Math.abs(unifiedBillsSum - grandTotal) > 0.01 && (
+          <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 rounded-full bg-amber-100 p-1.5 shrink-0">
+                <AlertTriangle className="h-4 w-4 text-amber-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h4 className="text-sm font-bold text-amber-800">ยอดบิลไม่ตรงกับยอดรายการ</h4>
+                <p className="mt-1 text-[11px] xs:text-xs text-amber-700 leading-relaxed">
+                  ยอดรวมในบิลคือ <b>฿{unifiedBillsSum.toFixed(2)}</b> แต่รวมรายการด้านบนได้ <b>฿{grandTotal.toFixed(2)}</b>
+                  <br className="hidden xs:block" />(เกิดจากสแกนตกหล่น หรือบวกแค่ยอดรวมแต่ไม่พิมพ์รายการ)
+                </p>
+                <button
+                  onClick={() => {
+                    const diff = round2(unifiedBillsSum - grandTotal)
+                    setItems((prev) => [
+                      ...prev,
+                      {
+                        id: crypto.randomUUID(),
+                        name: diff > 0 ? 'ส่วนต่างบัญชี / สแกนไม่ครบ' : 'ส่วนเกินบัญชี',
+                        amount: Math.abs(diff),
+                        splitMode: 'equally',
+                        consumerIds: members.map((m) => m.id),
+                        percentageByUser: Object.fromEntries(members.map((m) => [m.id, round2(100 / Math.max(members.length, 1))])),
+                        exactByUser: Object.fromEntries(members.map((m) => [m.id, round2(Math.abs(diff) / Math.max(members.length, 1))])),
+                      },
+                    ])
+                  }}
+                  className="mt-3 flex items-center gap-1.5 rounded-lg bg-amber-200/50 px-3 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-200 transition-colors"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  เพิ่มยอดส่วนต่าง (฿{Math.abs(unifiedBillsSum - grandTotal).toFixed(2)}) ลงในรายการให้ที
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ── Scanned & Manual receipts payer assignment ── */}
         {(results.length > 0 || manualBills.length > 0 || !isBusy) && (
           <SectionCard>
@@ -1119,24 +1176,11 @@ function App() {
               </button>
             </div>
             
-            {results.length === 0 && manualBills.length === 0 ? (
+            {unifiedBills.length === 0 ? (
               <div className="text-center text-xs text-gray-400 py-3">ยังไม่มีบิล กดเพิ่มยอดบิลเอง หรือถ่ายรูปสลิป</div>
             ) : (
               <div className="space-y-2">
-                {[
-                  ...results.map((r, i) => ({
-                    id: `ocr-${i}`,
-                    title: `สลิป ${i + 1}`,
-                    subtitle: `${r.items.length} รายการ${r.vatIncluded ? ' (VAT รวมแล้ว)' : ''}`,
-                    amount: r.summary.total ?? r.items.reduce((s, it) => s + it.amount, 0),
-                  })),
-                  ...manualBills.map((m) => ({
-                    id: m.id,
-                    title: m.name,
-                    subtitle: 'ยอดใส่เอง',
-                    amount: m.amount,
-                  }))
-                ].map((b) => {
+                {unifiedBills.map((b) => {
                   const assignedId = receiptPayerMap[b.id]
                   return (
                     <div key={b.id} className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2">
