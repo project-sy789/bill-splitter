@@ -31,6 +31,7 @@ import {
   type BillItemDraft,
   type MemberDraft,
   type PersistedBillState,
+  type ManualBill,
   safeParseBillState,
 } from './lib/bill-persistence'
 import type { SplitMode } from './types/bill'
@@ -195,8 +196,9 @@ function App() {
   const [allocationMode, setAllocationMode] = useState<AllocationMode>(initialState?.allocationMode ?? 'proportional')
   const [paidByMember, setPaidByMember] = useState<Record<string, number>>(initialState?.paidByMember ?? {})
   const [settlementStatus, setSettlementStatus] = useState<Record<string, boolean>>(initialState?.settlementStatus ?? {})
+  const [manualBills, setManualBills] = useState<ManualBill[]>(initialState?.manualBills ?? [])
   const [vatMode, setVatMode] = useState<'exclusive' | 'inclusive'>('exclusive')
-  const [receiptPayerMap, setReceiptPayerMap] = useState<Record<number, string>>({}) // resultIdx → memberId
+  const [receiptPayerMap, setReceiptPayerMap] = useState<Record<string, string>>({}) // unifiedBillId → memberId
   const [activeSettlementIdx, setActiveSettlementIdx] = useState<number | null>(null)
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set())
   const [copiedId, setCopiedId] = useState<string | null>(null)
@@ -204,6 +206,9 @@ function App() {
   const { groups, saveGroup, deleteGroup } = useGroups()
   const [groupModalMode, setGroupModalMode] = useState<'save' | 'load' | null>(null)
   const [newGroupName, setNewGroupName] = useState('')
+  const [isManualBillModalOpen, setIsManualBillModalOpen] = useState(false)
+  const [newManualBillName, setNewManualBillName] = useState('')
+  const [newManualBillAmount, setNewManualBillAmount] = useState('')
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
@@ -249,15 +254,15 @@ function App() {
 
   // ── Persist to localStorage ──
   useEffect(() => {
-    const state: PersistedBillState = { members, items, serviceCharge, vat, discount, allocationMode, paidByMember, settlementStatus }
+    const state: PersistedBillState = { members, items, serviceCharge, vat, discount, allocationMode, paidByMember, settlementStatus, manualBills }
     localStorage.setItem(`bill-splitter-state-${currentBillId}`, JSON.stringify(state))
     localStorage.setItem('bill-splitter-current-id', currentBillId)
     
     // Auto-save history if the bill has any meaningful data
-    if (items.length > 0 || members.length > 2 || Object.keys(paidByMember).length > 0) {
+    if (items.length > 0 || members.length > 2 || Object.keys(paidByMember).length > 0 || manualBills.length > 0) {
       addOrUpdateBill(currentBillId, `บิลวันที่ ${new Date().toLocaleDateString('th-TH')} - ยอด ฿${(items.reduce((sum, item) => sum + item.amount, 0) + serviceCharge + vat - discount).toFixed(2)}`)
     }
-  }, [members, items, serviceCharge, vat, discount, allocationMode, paidByMember, settlementStatus, currentBillId, addOrUpdateBill])
+  }, [members, items, serviceCharge, vat, discount, allocationMode, paidByMember, settlementStatus, manualBills, currentBillId, addOrUpdateBill])
 
 
 
@@ -469,11 +474,11 @@ function App() {
   }, [])
 
   const exportBill = useCallback(() => {
-    const blob = new Blob([JSON.stringify({ members, items, serviceCharge, vat, discount, allocationMode, paidByMember }, null, 2)], { type: 'application/json' })
+    const blob = new Blob([JSON.stringify({ members, items, serviceCharge, vat, discount, allocationMode, paidByMember, settlementStatus, manualBills }, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     Object.assign(document.createElement('a'), { href: url, download: `บิล-${Date.now()}.json` }).click()
     URL.revokeObjectURL(url)
-  }, [members, items, serviceCharge, vat, discount, allocationMode, paidByMember])
+  }, [members, items, serviceCharge, vat, discount, allocationMode, paidByMember, settlementStatus, manualBills])
 
   const importBill = useCallback(async (file: File | null) => {
     if (!file) return
@@ -486,6 +491,8 @@ function App() {
     setDiscount(data.discount ?? 0)
     setAllocationMode(data.allocationMode ?? 'proportional')
     setPaidByMember(data.paidByMember ?? {})
+    setSettlementStatus(data.settlementStatus ?? {})
+    setManualBills(data.manualBills ?? [])
     reset()
   }, [reset])
 
@@ -496,6 +503,7 @@ function App() {
     setDiscount(0)
     setPaidByMember({})
     setSettlementStatus({})
+    setManualBills([])
     setReceiptPayerMap({})
     setVatMode('exclusive')
     reset()
@@ -520,6 +528,7 @@ function App() {
     setAllocationMode(data.allocationMode ?? 'proportional')
     setPaidByMember(data.paidByMember ?? {})
     setSettlementStatus(data.settlementStatus ?? {})
+    setManualBills(data.manualBills ?? [])
     setReceiptPayerMap({})
     setVatMode('exclusive')
     reset()
@@ -538,6 +547,7 @@ function App() {
     setDiscount(0)
     setPaidByMember({})
     setSettlementStatus({})
+    setManualBills([])
     setReceiptPayerMap({})
     setVatMode('exclusive')
     reset()
@@ -1070,61 +1080,83 @@ function App() {
           )}
         </SectionCard>
 
-        {/* ── Scanned receipts payer assignment ── */}
-        {results.length > 0 && !isBusy && (
+        {/* ── Scanned & Manual receipts payer assignment ── */}
+        {(results.length > 0 || manualBills.length > 0 || !isBusy) && (
           <SectionCard>
-            <div className="flex items-center gap-2 mb-3">
-              <Receipt className="h-4 w-4 text-violet-500" />
-              <span className="text-sm font-semibold text-gray-800">สลิปที่สแกน ({results.length} ใบ)</span>
-              <span className="text-xs text-gray-400 ml-1">— เลือกว่าใครจ่ายสลิปนี้ ระบบจะบวกเงินไปที่ช่อง "ใครจ่ายไปแล้ว" อัตโนมัติ</span>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Receipt className="h-4 w-4 text-violet-500" />
+                <span className="text-sm font-semibold text-gray-800">ใบเสร็จ & ยอดจ่าย ({results.length + manualBills.length})</span>
+                <span className="text-[10px] sm:text-xs text-gray-400 ml-1 hidden xs:inline">— ยอดจะไปรวมในกล่องใครจ่ายอัตโนมัติ</span>
+              </div>
+              <button
+                onClick={() => setIsManualBillModalOpen(true)}
+                className="text-[10px] sm:text-xs font-semibold text-violet-600 bg-violet-50 hover:bg-violet-100 px-2 py-1.5 sm:px-2.5 rounded-lg border border-violet-100 transition-colors flex items-center gap-1 shrink-0"
+              >
+                <Plus className="h-3 w-3" /> เพิ่มยอดบิลเอง
+              </button>
             </div>
-            <div className="space-y-2">
-              {results.map((r, idx) => {
-                const slipTotal = r.summary.total ?? r.items.reduce((s, it) => s + it.amount, 0)
-                const assignedId = receiptPayerMap[idx]
-                return (
-                  <div key={idx} className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-gray-600">
-                        สลิป {idx + 1} — {r.items.length} รายการ
-                        {r.vatIncluded && (
-                          <span className="ml-1.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-700">VAT รวมแล้ว</span>
-                        )}
-                      </p>
-                      <p className="text-sm font-bold text-violet-700">฿{slipTotal.toFixed(2)}</p>
+            
+            {results.length === 0 && manualBills.length === 0 ? (
+              <div className="text-center text-xs text-gray-400 py-3">ยังไม่มีบิล กดเพิ่มยอดบิลเอง หรือถ่ายรูปสลิป</div>
+            ) : (
+              <div className="space-y-2">
+                {[
+                  ...results.map((r, i) => ({
+                    id: `ocr-${i}`,
+                    title: `สลิป ${i + 1}`,
+                    subtitle: `${r.items.length} รายการ${r.vatIncluded ? ' (VAT รวมแล้ว)' : ''}`,
+                    amount: r.summary.total ?? r.items.reduce((s, it) => s + it.amount, 0),
+                  })),
+                  ...manualBills.map((m) => ({
+                    id: m.id,
+                    title: m.name,
+                    subtitle: 'ยอดใส่เอง',
+                    amount: m.amount,
+                  }))
+                ].map((b) => {
+                  const assignedId = receiptPayerMap[b.id]
+                  return (
+                    <div key={b.id} className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-gray-600 truncate">
+                          {b.title} — {b.subtitle}
+                        </p>
+                        <p className="text-sm font-bold text-violet-700">฿{b.amount.toFixed(2)}</p>
+                      </div>
+                      <select
+                        value={assignedId ?? ''}
+                        onChange={(e) => {
+                          const newPayerId = e.target.value
+                          const oldPayerId = receiptPayerMap[b.id]
+                          if (oldPayerId === newPayerId) return
+
+                          // Update paid amounts immediately without needing a button
+                          setPaidByMember((prev) => {
+                            const next = { ...prev }
+                            if (oldPayerId) {
+                              next[oldPayerId] = Math.max(0, round2((next[oldPayerId] ?? 0) - b.amount))
+                            }
+                            if (newPayerId) {
+                              next[newPayerId] = round2((next[newPayerId] ?? 0) + b.amount)
+                            }
+                            return next
+                          })
+
+                          setReceiptPayerMap((prev) => ({ ...prev, [b.id]: newPayerId }))
+                        }}
+                        className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-violet-400"
+                      >
+                        <option value="">ใครจ่าย?</option>
+                        {members.map((m) => (
+                          <option key={m.id} value={m.id}>{m.name}</option>
+                        ))}
+                      </select>
                     </div>
-                    <select
-                      value={assignedId ?? ''}
-                      onChange={(e) => {
-                        const newPayerId = e.target.value
-                        const oldPayerId = receiptPayerMap[idx]
-                        if (oldPayerId === newPayerId) return
-
-                        // Update paid amounts immediately without needing a button
-                        setPaidByMember((prev) => {
-                          const next = { ...prev }
-                          if (oldPayerId) {
-                            next[oldPayerId] = Math.max(0, round2((next[oldPayerId] ?? 0) - slipTotal))
-                          }
-                          if (newPayerId) {
-                            next[newPayerId] = round2((next[newPayerId] ?? 0) + slipTotal)
-                          }
-                          return next
-                        })
-
-                        setReceiptPayerMap((prev) => ({ ...prev, [idx]: newPayerId }))
-                      }}
-                      className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-violet-400"
-                    >
-                      <option value="">ใครจ่าย?</option>
-                      {members.map((m) => (
-                        <option key={m.id} value={m.id}>{m.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                )
-              })}
-            </div>
+                  )
+                })}
+              </div>
+            )}
           </SectionCard>
         )}
 
@@ -1381,6 +1413,63 @@ function App() {
                   </div>
                 ))
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Manual Bill Modal */}
+      {isManualBillModalOpen && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-end bg-black/40 sm:justify-center p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white shadow-xl flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between border-b border-gray-100 p-4 bg-gray-50">
+              <h3 className="text-base font-bold text-gray-800">เพิ่มยอดบิลเอง</h3>
+              <button
+                onClick={() => setIsManualBillModalOpen(false)}
+                className="rounded-full p-2 text-gray-400 hover:bg-gray-200 transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              <label className="block">
+                <span className="text-sm text-gray-600 mb-1 block">ชื่อบิล / รายการ</span>
+                <input
+                  value={newManualBillName}
+                  onChange={(e) => setNewManualBillName(e.target.value)}
+                  placeholder="เช่น ค่าข้าวร้านป้า, ค่าน้ำแข็ง"
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-400"
+                />
+              </label>
+              <label className="block">
+                <span className="text-sm text-gray-600 mb-1 block">ยอดเงิน (บาท)</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-400">฿</span>
+                  <input
+                    type="number" min={0} step="0.01"
+                    value={newManualBillAmount}
+                    onChange={(e) => setNewManualBillAmount(e.target.value)}
+                    placeholder="0.00"
+                    className="flex-1 rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-400"
+                  />
+                </div>
+              </label>
+
+              <button
+                onClick={() => {
+                  const amt = Number(newManualBillAmount)
+                  if (!newManualBillName.trim() || isNaN(amt) || amt <= 0) return
+                  const newBill = { id: crypto.randomUUID(), name: newManualBillName.trim(), amount: round2(amt) }
+                  setManualBills((prev) => [...prev, newBill])
+                  setIsManualBillModalOpen(false)
+                  setNewManualBillName('')
+                  setNewManualBillAmount('')
+                }}
+                disabled={!newManualBillName.trim() || Number(newManualBillAmount) <= 0}
+                className="w-full mt-2 rounded-xl bg-violet-600 py-2.5 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50 transition-colors"
+              >
+                เพิ่มยอดบิล
+              </button>
             </div>
           </div>
         </div>

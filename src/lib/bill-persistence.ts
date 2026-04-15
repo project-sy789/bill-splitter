@@ -19,6 +19,12 @@ export interface BillItemDraft {
   exactByUser: Record<string, number>
 }
 
+export interface ManualBill {
+  id: string
+  name: string
+  amount: number
+}
+
 export interface PersistedBillState {
   members: MemberDraft[]
   items: BillItemDraft[]
@@ -28,6 +34,7 @@ export interface PersistedBillState {
   allocationMode: AllocationMode
   paidByMember: Record<string, number>
   settlementStatus?: Record<string, boolean>
+  manualBills?: ManualBill[]
 }
 
 export const STORAGE_KEY = 'bill-splitter:v2'
