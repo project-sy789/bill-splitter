@@ -216,10 +216,30 @@ function App() {
       const dataUrl = await htmlToImage.toPng(exportImageRef.current, {
         quality: 1, backgroundColor: '#ffffff', style: { borderRadius: '24px' }
       })
+      const res = await fetch(dataUrl)
+      const blob = await res.blob()
+      const file = new File([blob], `bill-split-${new Date().getTime()}.png`, { type: 'image/png' })
+
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            title: 'สรุปการหารบิล',
+            files: [file]
+          })
+          return
+        } catch (err) {
+          // Fallback to download if share API failed/cancelled
+        }
+      }
+
+      const blobUrl = URL.createObjectURL(blob)
       const link = document.createElement('a')
-      link.download = `bill-split-${new Date().getTime()}.png`
-      link.href = dataUrl
+      link.download = file.name
+      link.href = blobUrl
+      document.body.appendChild(link)
       link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(blobUrl)
     } catch (e) {
       console.error('Failed to export image', e)
     }
