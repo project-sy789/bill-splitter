@@ -130,38 +130,28 @@ function simplifyDebts(netByMember: Record<string, number>): Settlement[] {
 
 
 function App() {
+  const initialBillState = safeParseBillState(localStorage.getItem(STORAGE_KEY))
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const importInputRef = useRef<HTMLInputElement | null>(null)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-  const [members, setMembers] = useState<MemberDraft[]>([
-    { id: crypto.randomUUID(), name: 'Me', color: MEMBER_COLORS[0], promptPayId: '' },
-    { id: crypto.randomUUID(), name: 'Friend', color: MEMBER_COLORS[1], promptPayId: '' },
-  ])
+  const [members, setMembers] = useState<MemberDraft[]>(
+    initialBillState?.members ?? [
+      { id: crypto.randomUUID(), name: 'Me', color: MEMBER_COLORS[0], promptPayId: '' },
+      { id: crypto.randomUUID(), name: 'Friend', color: MEMBER_COLORS[1], promptPayId: '' },
+    ],
+  )
   const [newMemberName, setNewMemberName] = useState('')
-  const [items, setItems] = useState<BillItemDraft[]>([])
+  const [items, setItems] = useState<BillItemDraft[]>(initialBillState?.items ?? [])
 
-  const [serviceCharge, setServiceCharge] = useState(0)
-  const [vat, setVat] = useState(0)
-  const [discount, setDiscount] = useState(0)
-  const [allocationMode, setAllocationMode] = useState<AllocationMode>('proportional')
-  const [paidByMember, setPaidByMember] = useState<Record<string, number>>({})
+  const [serviceCharge, setServiceCharge] = useState(initialBillState?.serviceCharge ?? 0)
+  const [vat, setVat] = useState(initialBillState?.vat ?? 0)
+  const [discount, setDiscount] = useState(initialBillState?.discount ?? 0)
+  const [allocationMode, setAllocationMode] = useState<AllocationMode>(initialBillState?.allocationMode ?? 'proportional')
+  const [paidByMember, setPaidByMember] = useState<Record<string, number>>(initialBillState?.paidByMember ?? {})
   const [selectedSettlement, setSelectedSettlement] = useState<Settlement | null>(null)
 
   const { status, progress, result, error, runOcr, reset, terminate } = useReceiptOcr()
-
-  useEffect(() => {
-    const data = safeParseBillState(localStorage.getItem(STORAGE_KEY))
-    if (!data) return
-
-    setMembers(data.members)
-    setItems(data.items)
-    setServiceCharge(data.serviceCharge ?? 0)
-    setVat(data.vat ?? 0)
-    setDiscount(data.discount ?? 0)
-    setAllocationMode(data.allocationMode ?? 'proportional')
-    setPaidByMember(data.paidByMember ?? {})
-  }, [])
 
   useEffect(() => {
     const payload: PersistedBillState = {
@@ -279,16 +269,6 @@ function App() {
     [netByMember, members],
   )
 
-  useEffect(() => {
-    if (!selectedSettlement) return
-    const stillExists = settlements.some(
-      (settlement) =>
-        settlement.fromMemberId === selectedSettlement.fromMemberId &&
-        settlement.toMemberId === selectedSettlement.toMemberId &&
-        settlement.amount === selectedSettlement.amount,
-    )
-    if (!stillExists) setSelectedSettlement(null)
-  }, [selectedSettlement, settlements])
 
   const handleFileSelect = async (file: File | null) => {
     if (!file) return
@@ -430,6 +410,7 @@ function App() {
   const clearLocalData = () => {
     localStorage.removeItem(STORAGE_KEY)
   }
+
 
   const activeSettlement = selectedSettlement
     ? settlements.find(
