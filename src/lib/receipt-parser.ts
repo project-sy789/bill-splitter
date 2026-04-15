@@ -88,7 +88,7 @@ const THAI_DIGIT_MAP: Record<string, string> = {
  *   - "-30.00"         negative (discounts)
  */
 const TRAILING_MONEY_RE =
-  /(?:฿\s*)?(-?\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?|-?\d+(?:\.\d{1,2})?)\s*[A-Za-z]{0,3}\.?\-?\s*$/
+  /(?:฿\s*)?(-?\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?|-?\d+(?:\.\d{1,2})?)\s*[A-Za-z]{0,3}\.?-?\s*$/
 
 /** Inline ฿: ฿189.00 */
 const BAHT_INLINE_RE = /฿\s*(\d[\d,]*(?:\.\d{1,2})?)/
@@ -106,7 +106,7 @@ const BRACKET_TAG_RE = /\[[^\]]{0,6}\]/g
 const PAREN_FLAVOR_RE = /\([^)]{0,60}\)\s*$/
 
 /** Decorative / separator */
-const DECORATIVE_RE = /^[\s\-=*_.~#|/\\+]{3,}$/
+const DECORATIVE_RE = /^[\s=*_.~#|/\\+-]{3,}$/
 
 /** Only digits, punctuation — no real item name */
 const PURE_NONWORD_RE = /^[\d\s.,฿%+*/()[\]:.=-]+$/
