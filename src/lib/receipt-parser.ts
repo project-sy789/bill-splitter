@@ -111,9 +111,6 @@ const DECORATIVE_RE = /^[\s\-=*_.~#|/\\+]{3,}$/
 /** Only digits, punctuation — no real item name */
 const PURE_NONWORD_RE = /^[\d\s.,฿%+\-*/()[\]:.=]+$/
 
-/** Thai character range */
-const THAI_RE = /[\u0E00-\u0E7F]/
-
 /** At least 2 meaningful characters */
 const WORD_RE = /[\u0E00-\u0E7F]{2,}|[a-zA-Z]{2,}/
 
