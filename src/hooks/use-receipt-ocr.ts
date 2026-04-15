@@ -8,7 +8,7 @@
  */
 
 import { useCallback, useRef, useState } from 'react'
-import { createWorker } from 'tesseract.js'
+import { PSM, createWorker } from 'tesseract.js'
 
 import { parseReceiptText } from '../lib/receipt-parser'
 import type { OcrStatus, ParsedReceiptResult } from '../types/ocr'
@@ -156,11 +156,8 @@ export function useReceiptOcr() {
     // PSM 6 = "Assume a single uniform block of text" — good for receipt columns
     // OEM 1 = LSTM neural net only (most accurate)
     await worker.setParameters({
-      tessedit_pageseg_mode: '6' as unknown as number,
-      // Keep digits and common receipt chars
-      tessedit_char_whitelist: '',
-      // Preserve interword spaces (Thai needs this)
-      preserve_interword_spaces: '1',
+      tessedit_pageseg_mode: PSM.SINGLE_BLOCK, // PSM 6 — single block, good for receipt columns
+      preserve_interword_spaces: '1',          // preserve Thai word spacing
     })
 
     workerRef.current = worker
