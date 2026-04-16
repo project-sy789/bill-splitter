@@ -118,3 +118,49 @@ body {
     @apply font-sans;
   }
 }
+
+@layer utilities {
+  /* Zig-zag serrated edge for top of receipt cards */
+  .receipt-serrated-top {
+    position: relative;
+  }
+  .receipt-serrated-top::before {
+    content: "";
+    position: absolute;
+    top: -6px;
+    left: 0;
+    width: 100%;
+    height: 10px;
+    background-image: linear-gradient(135deg, #fff 25%, transparent 25%),
+                      linear-gradient(225deg, #fff 25%, transparent 25%);
+    background-position: left top;
+    background-size: 10px 10px;
+    background-repeat: repeat-x;
+    z-index: 5;
+  }
+
+  /* Zig-zag serrated edge for bottom of receipt cards */
+  .receipt-serrated-bottom {
+    position: relative;
+  }
+  .receipt-serrated-bottom::after {
+    content: "";
+    position: absolute;
+    bottom: -6px;
+    left: 0;
+    width: 100%;
+    height: 10px;
+    background-image: linear-gradient(45deg, #fff 25%, transparent 25%),
+                      linear-gradient(-45deg, #fff 25%, transparent 25%);
+    background-position: left bottom;
+    background-size: 10px 10px;
+    background-repeat: repeat-x;
+    z-index: 5;
+  }
+  
+  .receipt-thermal-texture {
+    background-image: radial-gradient(#f1f1f1 0.5px, transparent 0.5px);
+    background-size: 4px 4px;
+    background-color: #ffffff;
+  }
+}
