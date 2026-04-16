@@ -367,7 +367,7 @@ function App() {
       const activeItemsCount = items.filter(it => it.billId === bId).length
       return {
         id: bId,
-        title: `สลิป ${i + 1}`,
+        title: r.customName !== undefined ? r.customName : `สลิป ${i + 1}`,
         subtitle: `${activeItemsCount} รายการ${r.vatIncluded ? ' (VAT รวมแล้ว)' : ''}`,
         amount: r.summary.total ?? r.items.reduce((s, it) => s + it.amount, 0),
       }
@@ -891,16 +891,19 @@ function App() {
                 return (
                   <div key={bill.id} className="space-y-2.5">
                     <div className="flex items-end justify-between border-b border-gray-100 pb-2 px-1">
-                       {!bill.id.startsWith('ocr-') ? (
-                         <input
-                           value={bill.title}
-                           onChange={(e) => setManualBills(prev => prev.map(m => m.id === bill.id ? {...m, name: e.target.value} : m))}
-                           className="text-sm font-bold text-gray-700 bg-transparent border-b border-dashed border-gray-300 outline-none focus:border-violet-500 transition-colors placeholder:font-normal"
-                           placeholder="ชื่อบิล (เช่น บิลค่าเฟ่)"
-                         />
-                       ) : (
-                         <h3 className="text-sm font-bold text-gray-700">{bill.title}</h3>
-                       )}
+                       <input
+                         value={bill.title}
+                         onChange={(e) => {
+                           if (bill.id.startsWith('ocr-')) {
+                             const idx = parseInt(bill.id.split('-')[1]!, 10)
+                             setResults(res => res.map((rr, ii) => ii === idx ? { ...rr, customName: e.target.value } : rr))
+                           } else {
+                             setManualBills(prev => prev.map(m => m.id === bill.id ? {...m, name: e.target.value} : m))
+                           }
+                         }}
+                         className="text-sm font-bold text-gray-700 bg-transparent border-b border-dashed border-gray-300 outline-none focus:border-violet-500 transition-colors placeholder:font-normal"
+                         placeholder={bill.id.startsWith('ocr-') ? "ชื่อสลิป (เช่น ร้านอาหาร)" : "ชื่อบิล (เช่น บิลค่าเฟ่)"}
+                       />
                        <span className="text-xs font-semibold text-violet-600 shrink-0">ยอดบิล {bill.amount.toFixed(2)} ฿</span>
                     </div>
                     {billItems.map((item) => {
@@ -1301,21 +1304,22 @@ function App() {
                   return (
                     <div key={b.id} className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2">
                       <div className="flex-1 min-w-0">
-                        {!b.id.startsWith('ocr-') ? (
-                          <div className="flex flex-col gap-0.5">
-                            <input
-                              value={b.title}
-                              onChange={(e) => setManualBills(prev => prev.map(m => m.id === b.id ? {...m, name: e.target.value} : m))}
-                              className="text-xs font-medium text-gray-700 bg-transparent border-b border-dashed border-gray-300 w-full outline-none focus:border-violet-500 transition-colors pb-0.5 placeholder:font-normal"
-                              placeholder="ชื่อบิล"
-                            />
-                            <p className="text-[10px] text-gray-400">{b.subtitle}</p>
-                          </div>
-                        ) : (
-                          <p className="text-xs font-medium text-gray-600 truncate">
-                            {b.title} — {b.subtitle}
-                          </p>
-                        )}
+                        <div className="flex flex-col gap-0.5">
+                          <input
+                            value={b.title}
+                            onChange={(e) => {
+                              if (b.id.startsWith('ocr-')) {
+                                const idx = parseInt(b.id.split('-')[1]!, 10)
+                                setResults(res => res.map((rr, ii) => ii === idx ? { ...rr, customName: e.target.value } : rr))
+                              } else {
+                                setManualBills(prev => prev.map(m => m.id === b.id ? {...m, name: e.target.value} : m))
+                              }
+                            }}
+                            className="text-xs font-medium text-gray-700 bg-transparent border-b border-dashed border-gray-300 w-full outline-none focus:border-violet-500 transition-colors pb-0.5 placeholder:font-normal"
+                            placeholder={b.id.startsWith('ocr-') ? "ชื่อสลิป" : "ชื่อบิล"}
+                          />
+                          <p className="text-[10px] text-gray-400">{b.subtitle}</p>
+                        </div>
                         <p className="text-sm font-bold text-violet-700">฿{b.amount.toFixed(2)}</p>
                       </div>
                       <div className="flex items-center gap-1.5">
