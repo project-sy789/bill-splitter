@@ -19,6 +19,7 @@ import {
   Bookmark,
   BookmarkPlus,
   Share,
+  Check,
 } from 'lucide-react'
 import * as htmlToImage from 'html-to-image'
 
@@ -1141,6 +1142,37 @@ function App() {
                       )
                     })}
                     
+                    {(() => {
+                      const currentItemsSum = billItems.reduce((s, it) => s + it.amount, 0)
+                      const deficit = round2(bill.amount - currentItemsSum)
+                      if (deficit > 0.01) {
+                        return (
+                          <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-2 text-center">
+                            <button
+                              onClick={() => {
+                                const item: BillItemDraft = {
+                                  id: crypto.randomUUID(),
+                                  name: `ส่วนต่างของ ${bill.title}`,
+                                  billId: bill.id,
+                                  amount: deficit,
+                                  splitMode: 'equally',
+                                  consumerIds: members.map((m) => m.id),
+                                  percentageByUser: Object.fromEntries(members.map((m) => [m.id, round2(100 / Math.max(members.length, 1))])),
+                                  exactByUser: Object.fromEntries(members.map((m) => [m.id, round2(deficit / Math.max(members.length, 1))])),
+                                }
+                                setItems((prev) => [...prev, item])
+                              }}
+                              className="flex w-full items-center justify-center gap-1.5 text-xs font-bold text-amber-700 hover:text-amber-800 transition-colors py-1"
+                            >
+                              <Plus className="h-3.5 w-3.5" />
+                              เติมส่วนต่างคงเหลือ (฿{deficit.toFixed(2)}) เข้าบิลนี้
+                            </button>
+                          </div>
+                        )
+                      }
+                      return null
+                    })()}
+                    
                     <button
                       onClick={() => addManualItem(bill.id)}
                       className="flex w-full items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50/50 py-2.5 text-xs font-semibold text-gray-400 transition hover:border-violet-300 hover:text-violet-600 hover:bg-violet-50/50"
@@ -1151,6 +1183,73 @@ function App() {
                   </div>
                 )
               })}
+
+              {/* Orphaned Items (Independent) */}
+              {items.some(it => !it.billId) && (
+                <div className="space-y-2.5 mt-6 border-t border-gray-100 pt-6">
+                  <div className="flex items-center justify-between px-1">
+                    <span className="text-sm font-bold text-amber-600">รายการอิสระ (ไม่มีสลิป/บิล)</span>
+                    <span className="text-xs text-amber-400">ยังไม่ได้ระบุว่าใครจ่ายก้อนนี้</span>
+                  </div>
+                  {items.filter(it => !it.billId).map((item) => {
+                    const split = calcItemSplit(item, members)
+                    const isExpanded = expandedItems.has(item.id)
+                    return (
+                      <div key={item.id} className="rounded-xl border border-amber-200 bg-amber-50/30 overflow-hidden shadow-sm">
+                        <div className="flex items-center gap-2 p-3">
+                          <input
+                            value={item.name}
+                            onChange={(e) => updateItem(item.id, 'name', e.target.value)}
+                            placeholder="ชื่อรายการ"
+                            className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-amber-400 min-w-0"
+                          />
+                          <div className="flex items-center gap-1 shrink-0">
+                            <span className="text-sm text-gray-400">฿</span>
+                            <input
+                              type="number"
+                              min={0}
+                              step="0.01"
+                              value={item.amount || ''}
+                              onChange={(e) => updateItem(item.id, 'amount', Number(e.target.value) || 0)}
+                              placeholder="0"
+                              className="w-24 rounded-lg border border-gray-200 px-2 py-2 text-right text-sm outline-none focus:ring-2 focus:ring-amber-400"
+                            />
+                          </div>
+                          <button onClick={() => toggleExpanded(item.id)} className="rounded-lg p-1.5 text-gray-400 hover:bg-white transition-colors">
+                            {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                          </button>
+                          <button onClick={() => removeItem(item.id)} className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                        <div className="border-t border-amber-100 px-3 py-2 flex flex-wrap gap-1.5 items-center">
+                          <span className="text-[10px] text-amber-500 mr-1 uppercase">แบ่งจ่ายโดย:</span>
+                          {members.map((m) => {
+                            const checked = item.consumerIds.includes(m.id)
+                            return (
+                              <button key={m.id} onClick={() => toggleConsumer(item.id, m.id)} className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition-all ${checked ? 'text-white' : 'bg-gray-100 text-gray-400'}`} style={checked ? { backgroundColor: m.color } : {}}>
+                                {m.name}
+                              </button>
+                            )
+                          })}
+                        </div>
+                        {isExpanded && (
+                           <div className="border-t border-amber-100 bg-amber-50/50 p-3">
+                              <div className="flex flex-wrap gap-2 text-[11px] text-gray-500 uppercase font-medium mb-1">ยอดจ่ายจริง:</div>
+                              <div className="flex flex-wrap gap-2">
+                                {members.map((m) => (
+                                  <span key={m.id} className="text-xs text-gray-600">
+                                    <span className="font-medium">{m.name}</span> ฿{(split[m.id] ?? 0).toFixed(2)}
+                                  </span>
+                                ))}
+                              </div>
+                           </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
 
               {/* Add New Bill globally */}
               <button
@@ -1287,29 +1386,51 @@ function App() {
                   {unifiedBillsSum > grandTotal ? '(อาจเกิดจากสแกนตกหล่น หรือบวกแค่ยอดรวมแต่ไม่พิมพ์รายการ)' : '(อาจเกิดจากพิมพ์รายการเกิน หรือไม่ได้กดยกยอดจ่ายบิลเพิ่มเข้าไป)'}
                 </p>
                 
-                {unifiedBillsSum > grandTotal ? (
-                  <button
-                    onClick={() => {
-                      const diff = round2(unifiedBillsSum - grandTotal)
-                      setItems((prev) => [
-                        ...prev,
-                        {
-                          id: crypto.randomUUID(),
-                          name: 'ส่วนต่างบัญชี / สแกนไม่ครบ',
-                          amount: Math.abs(diff),
-                          splitMode: 'equally',
-                          consumerIds: members.map((m) => m.id),
-                          percentageByUser: Object.fromEntries(members.map((m) => [m.id, round2(100 / Math.max(members.length, 1))])),
-                          exactByUser: Object.fromEntries(members.map((m) => [m.id, round2(Math.abs(diff) / Math.max(members.length, 1))])),
-                        },
-                      ])
-                    }}
-                    className="mt-3 flex items-center gap-1.5 rounded-lg bg-amber-200/50 px-3 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-200 transition-colors"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    เพิ่มส่วนต่าง (฿{Math.abs(unifiedBillsSum - grandTotal).toFixed(2)}) ลงในรายการให้ที
-                  </button>
-                ) : (
+                {unifiedBillsSum > grandTotal && (
+                  <div className="mt-3 space-y-2">
+                    <p className="text-[11px] font-medium text-amber-800 italic">
+                      💡 {unifiedBills.length > 0 ? 'กดปุ่มด้านล่างเพื่อกระจายยอดบิลนี้ลงในรายการให้ทันที:' : 'กรุณาสร้างยอดบิลก่อนเพิ่มรายการ'}
+                    </p>
+                    <button
+                      onClick={() => {
+                        const diff = round2(unifiedBillsSum - grandTotal)
+                        
+                        // Find the bill that has the largest deficit
+                        const billDeficits = unifiedBills.map(b => {
+                          const currentItemsSum = items.filter(it => it.billId === b.id).reduce((s, it) => s + it.amount, 0)
+                          return { id: b.id, title: b.title, deficit: b.amount - currentItemsSum }
+                        }).filter(d => d.deficit > 0.01)
+                        
+                        const targetBill = billDeficits.length > 0 
+                          ? billDeficits.sort((a, b) => b.deficit - a.deficit)[0]!
+                          : null
+
+                        if (targetBill) {
+                           const item: BillItemDraft = {
+                            id: crypto.randomUUID(),
+                            name: `ส่วนต่างของ ${targetBill.title}`,
+                            billId: targetBill.id,
+                            amount: Math.abs(diff),
+                            splitMode: 'equally',
+                            consumerIds: members.map((m) => m.id),
+                            percentageByUser: Object.fromEntries(members.map((m) => [m.id, round2(100 / Math.max(members.length, 1))])),
+                            exactByUser: Object.fromEntries(members.map((m) => [m.id, round2(Math.abs(diff) / Math.max(members.length, 1))])),
+                          }
+                          setItems((prev) => [...prev, item])
+                        } else {
+                           // Scroll to top of list or just show alert
+                           alert('กรุณากด "เพิ่มรายการ" ในบิลด้านบนที่คุณต้องการระบุค่าใช้จ่าย')
+                        }
+                      }}
+                      className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-amber-600 px-3 py-2.5 text-xs font-bold text-white hover:bg-amber-700 shadow-sm transition-all active:scale-[0.98]"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      กดที่นี่เพื่อเพิ่มรายการว่า มีค่าอะไรบ้าง และ ใครเป็นคนกิน
+                    </button>
+                  </div>
+                )}
+
+                {unifiedBillsSum < grandTotal && (
                   <button
                     onClick={() => {
                       const diff = round2(grandTotal - unifiedBillsSum)
@@ -1516,20 +1637,45 @@ function App() {
               )}
             </div>
 
-            {settlements.length === 0 ? (
-              Object.values(normalizedPaid).reduce((sum, amt) => sum + amt, 0) < grandTotal - 0.01 ? (
-                <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 text-center">
-                  <p className="text-sm font-semibold text-amber-700">⚠️ โปรดระบุว่าใครเป็นคนจ่ายเงิน</p>
-                  <p className="text-xs text-amber-600 mt-1">เพื่อให้ระบบคำนวณยอดโอนได้อย่างถูกต้อง</p>
-                </div>
-              ) : (
-                <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-4 text-center">
-                  <p className="text-sm font-semibold text-emerald-700">🎉 ทุกคนเคลียร์แล้ว!</p>
-                  <p className="text-xs text-emerald-500 mt-1">ไม่มีใครต้องโอนเพิ่ม</p>
-                </div>
-              )
-            ) : (
-              <div className="space-y-3">
+            {(() => {
+              const allPaid = settlements.length > 0 && settlements.every(s => settlementStatus[`${s.fromMemberId}-${s.toMemberId}`])
+              const noSettlements = settlements.length === 0
+              const paidSum = Object.values(normalizedPaid).reduce((sum, amt) => sum + amt, 0)
+              const missingPayer = noSettlements && paidSum < grandTotal - 0.01
+
+              if (missingPayer) {
+                return (
+                  <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 text-center">
+                    <p className="text-sm font-semibold text-amber-700">⚠️ โปรดระบุว่าใครเป็นคนจ่ายเงิน</p>
+                    <p className="text-xs text-amber-600 mt-1">เพื่อให้ระบบคำนวณยอดโอนได้อย่างถูกต้อง</p>
+                  </div>
+                )
+              }
+
+              if (noSettlements || allPaid) {
+                return (
+                  <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-4 text-center">
+                    <div className="flex justify-center mb-1">
+                      <div className="rounded-full bg-emerald-100 p-2">
+                        <Check className="h-5 w-5 text-emerald-600" />
+                      </div>
+                    </div>
+                    <p className="text-sm font-semibold text-emerald-700">🎉 ทุกคนเคลียร์แล้ว!</p>
+                    <p className="text-xs text-emerald-500 mt-1">ไม่มีใครต้องโอนเพิ่ม {allPaid ? 'ได้รับยอดโอนครบทั้งบิลแล้ว' : ''}</p>
+                    {allPaid && (
+                      <button 
+                        onClick={() => setSettlementStatus({})}
+                        className="mt-3 text-[10px] text-emerald-400 hover:text-emerald-600 underline"
+                      >
+                        รีเซ็ตสถานะการโอน
+                      </button>
+                    )}
+                  </div>
+                )
+              }
+
+              return (
+                <div className="space-y-3">
                 {settlements.map((s, idx) => {
                   const from = members.find((m) => m.id === s.fromMemberId)
                   const to = members.find((m) => m.id === s.toMemberId)
@@ -1627,7 +1773,8 @@ function App() {
                   )
                 })}
               </div>
-            )}
+            )
+          })()}
 
             {/* Per-member summary */}
             <div className="mt-4 pt-3 border-t border-gray-100">
