@@ -55,11 +55,7 @@ interface Settlement {
 const MEMBER_COLORS = ['#7C3AED', '#0EA5E9', '#22C55E', '#F97316', '#EC4899', '#EAB308']
 
 
-const SPLIT_MODE_LABELS: Record<SplitMode, string> = {
-  equally: 'หารเท่ากัน',
-  percentage: 'แบ่งตามเปอร์เซ็นต์',
-  exact: 'ระบุยอดเอง',
-}
+
 
 // ──────────────────────────────────────────────
 // Helpers
@@ -366,19 +362,26 @@ function App() {
   )
 
   const unifiedBills = useMemo(() => [
-    ...results.map((r, i) => ({
-      id: `ocr-${i}`,
-      title: `สลิป ${i + 1}`,
-      subtitle: `${r.items.length} รายการ${r.vatIncluded ? ' (VAT รวมแล้ว)' : ''}`,
-      amount: r.summary.total ?? r.items.reduce((s, it) => s + it.amount, 0),
-    })),
-    ...manualBills.map((m) => ({
-      id: m.id,
-      title: m.name,
-      subtitle: 'ยอดใส่เอง',
-      amount: m.amount,
-    }))
-  ], [results, manualBills])
+    ...results.map((r, i) => {
+      const bId = `ocr-${i}`
+      const activeItemsCount = items.filter(it => it.billId === bId).length
+      return {
+        id: bId,
+        title: `สลิป ${i + 1}`,
+        subtitle: `${activeItemsCount} รายการ${r.vatIncluded ? ' (VAT รวมแล้ว)' : ''}`,
+        amount: r.summary.total ?? r.items.reduce((s, it) => s + it.amount, 0),
+      }
+    }),
+    ...manualBills.map((m) => {
+      const activeItemsCount = items.filter(it => it.billId === m.id).length
+      return {
+        id: m.id,
+        title: m.name,
+        subtitle: activeItemsCount > 0 ? `${activeItemsCount} รายการ` : 'ยอดใส่เอง',
+        amount: m.amount,
+      }
+    })
+  ], [results, manualBills, items])
 
   const unifiedBillsSum = useMemo(() => round2(unifiedBills.reduce((s, b) => s + b.amount, 0)), [unifiedBills])
 
@@ -469,11 +472,15 @@ function App() {
 
   const updateItem = useCallback(<K extends keyof BillItemDraft>(itemId: string, field: K, value: BillItemDraft[K]) => {
     const oldItem = items.find((item) => item.id === itemId)
-    if (field === 'amount' && oldItem && oldItem.billId && oldItem.billId.startsWith('ocr-')) {
+    if (field === 'amount' && oldItem && oldItem.billId) {
       const diff = (value as number) - oldItem.amount
       if (diff !== 0) {
-        const ocrIdx = parseInt(oldItem.billId.split('-')[1]!, 10)
-        setResults(res => res.map((r, i) => i === ocrIdx ? { ...r, summary: { ...r.summary, total: round2((r.summary.total || 0) + diff) } } : r))
+        if (oldItem.billId.startsWith('ocr-')) {
+          const ocrIdx = parseInt(oldItem.billId.split('-')[1]!, 10)
+          setResults(res => res.map((r, i) => i === ocrIdx ? { ...r, summary: { ...r.summary, total: round2((r.summary.total || 0) + diff) } } : r))
+        } else {
+          setManualBills(prev => prev.map(m => m.id === oldItem.billId ? { ...m, amount: Math.max(0, round2(m.amount + diff)) } : m))
+        }
         
         const payerId = receiptPayerMap[oldItem.billId]
         if (payerId) {
@@ -486,9 +493,13 @@ function App() {
 
   const removeItem = useCallback((id: string) => {
     const itemToDelete = items.find((item) => item.id === id)
-    if (itemToDelete && itemToDelete.billId && itemToDelete.billId.startsWith('ocr-')) {
-      const ocrIdx = parseInt(itemToDelete.billId.split('-')[1]!, 10)
-      setResults(res => res.map((r, i) => i === ocrIdx ? { ...r, summary: { ...r.summary, total: round2((r.summary.total || 0) - itemToDelete.amount) } } : r))
+    if (itemToDelete && itemToDelete.billId) {
+      if (itemToDelete.billId.startsWith('ocr-')) {
+        const ocrIdx = parseInt(itemToDelete.billId.split('-')[1]!, 10)
+        setResults(res => res.map((r, i) => i === ocrIdx ? { ...r, summary: { ...r.summary, total: round2((r.summary.total || 0) - itemToDelete.amount) } } : r))
+      } else {
+        setManualBills(prev => prev.map(m => m.id === itemToDelete.billId ? { ...m, amount: Math.max(0, round2(m.amount - itemToDelete.amount)) } : m))
+      }
       
       const payerId = receiptPayerMap[itemToDelete.billId]
       if (payerId) {
@@ -498,8 +509,9 @@ function App() {
     setItems((prev) => prev.filter((item) => item.id !== id))
   }, [items, setResults, receiptPayerMap])
 
-  const addManualItem = useCallback(() => {
+  const addManualItem = useCallback((billId?: string) => {
     const item = makeNewItem(members)
+    if (billId) item.billId = billId
     setItems((prev) => [...prev, item])
     setExpandedItems((prev) => new Set([...prev, item.id]))
   }, [members])
@@ -759,7 +771,7 @@ function App() {
           {/* Action buttons */}
           <div className="mb-4 flex flex-wrap gap-2">
             <button
-              onClick={addManualItem}
+              onClick={() => addManualItem()}
               className="flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-violet-700 transition-colors"
             >
               <Plus className="h-4 w-4" />
@@ -860,182 +872,407 @@ function App() {
               </div>
             </div>
           ) : (
-            <div className="space-y-2.5">
-              {items.map((item) => {
-                const split = calcItemSplit(item, members)
-                const isExpanded = expandedItems.has(item.id)
-                const pctSum = item.consumerIds.reduce((s, id) => s + (item.percentageByUser[id] ?? 0), 0)
-                const exactSum = item.consumerIds.reduce((s, id) => s + (item.exactByUser[id] ?? 0), 0)
-
+            <div className="space-y-6">
+              {unifiedBills.map((bill) => {
+                const billItems = items.filter(i => i.billId === bill.id)
+                // If there are no items and it's a manual bill, it might just be someone typing a total. But we show the group anyway so they can add items.
                 return (
-                  <div key={item.id} className="rounded-xl border border-gray-200 bg-white overflow-hidden">
-                    {/* Item header row */}
-                    <div className="flex items-center gap-2 p-3">
-                      <input
-                        value={item.name}
-                        onChange={(e) => updateItem(item.id, 'name', e.target.value)}
-                        placeholder="ชื่อรายการ"
-                        className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-400 min-w-0"
-                      />
-                      <div className="flex items-center gap-1 shrink-0">
-                        <span className="text-sm text-gray-400">฿</span>
-                        <input
-                          type="number"
-                          min={0}
-                          step="0.01"
-                          value={item.amount || ''}
-                          onChange={(e) => updateItem(item.id, 'amount', Number(e.target.value) || 0)}
-                          placeholder="0"
-                          className="w-24 rounded-lg border border-gray-200 px-2 py-2 text-right text-sm outline-none focus:ring-2 focus:ring-violet-400"
-                        />
-                      </div>
-                      <button
-                        onClick={() => toggleExpanded(item.id)}
-                        className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 transition-colors"
-                        title="แก้ไขรายละเอียด"
-                      >
-                        {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                      </button>
-                      <button
-                        onClick={() => removeItem(item.id)}
-                        className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                  <div key={bill.id} className="space-y-2.5">
+                    <div className="flex items-end justify-between border-b border-gray-100 pb-2 px-1">
+                       <h3 className="text-sm font-bold text-gray-700">{bill.title}</h3>
+                       <span className="text-xs font-semibold text-violet-600">ยอดบิล {bill.amount.toFixed(2)} ฿</span>
                     </div>
+                    {billItems.map((item) => {
+                      const split = calcItemSplit(item, members)
+                      const isExpanded = expandedItems.has(item.id)
+                      const pctSum = item.consumerIds.reduce((s, id) => s + (item.percentageByUser[id] ?? 0), 0)
+                      const exactSum = item.consumerIds.reduce((s, id) => s + (item.exactByUser[id] ?? 0), 0)
 
-                    {/* Consumer chips (always shown) */}
-                    <div className="border-t border-gray-100 px-3 py-2 flex flex-wrap gap-1.5 items-center">
-                      <span className="text-xs text-gray-400 mr-1">ใครกิน/ใช้:</span>
-                      {members.map((m) => {
-                        const checked = item.consumerIds.includes(m.id)
-                        return (
-                          <button
-                            key={m.id}
-                            onClick={() => toggleConsumer(item.id, m.id)}
-                            className={`rounded-full px-2.5 py-1 text-xs font-medium transition-all ${
-                              checked
-                                ? 'text-white shadow-sm'
-                                : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
-                            }`}
-                            style={checked ? { backgroundColor: m.color } : {}}
-                          >
-                            {m.name}
-                          </button>
-                        )
-                      })}
-                    </div>
+                      return (
+                        <div key={item.id} className="rounded-xl border border-gray-200 bg-white overflow-hidden shadow-sm">
+                          {/* Item header row */}
+                          <div className="flex items-center gap-2 p-3">
+                            <input
+                              value={item.name}
+                              onChange={(e) => updateItem(item.id, 'name', e.target.value)}
+                              placeholder="ชื่อรายการ"
+                              className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-400 min-w-0"
+                            />
+                            <div className="flex items-center gap-1 shrink-0">
+                              <span className="text-sm text-gray-400">฿</span>
+                              <input
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                value={item.amount || ''}
+                                onChange={(e) => updateItem(item.id, 'amount', Number(e.target.value) || 0)}
+                                placeholder="0"
+                                className="w-24 rounded-lg border border-gray-200 px-2 py-2 text-right text-sm outline-none focus:ring-2 focus:ring-violet-400"
+                              />
+                            </div>
+                            <button
+                              onClick={() => toggleExpanded(item.id)}
+                              className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 transition-colors"
+                              title="แก้ไขรายละเอียด"
+                            >
+                              {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                            </button>
+                            <button
+                              onClick={() => removeItem(item.id)}
+                              className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
 
-                    {/* Expanded details */}
-                    {isExpanded && (
-                      <div className="border-t border-gray-100 bg-gray-50 px-3 py-3 space-y-3">
-                        {/* Split mode */}
-                        <div>
-                          <label className="text-xs text-gray-500 mb-1 block">วิธีหาร</label>
-                          <select
-                            value={item.splitMode}
-                            onChange={(e) => updateItem(item.id, 'splitMode', e.target.value as SplitMode)}
-                            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-400"
-                          >
-                            {(Object.entries(SPLIT_MODE_LABELS) as [SplitMode, string][]).map(([v, l]) => (
-                              <option key={v} value={v}>{l}</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        {/* Percentage inputs */}
-                        {item.splitMode === 'percentage' && (
-                          <div className="space-y-1.5">
-                            {item.consumerIds.map((mid) => {
-                              const m = members.find((x) => x.id === mid)
-                              if (!m) return null
+                          {/* Consumer chips (always shown) */}
+                          <div className="border-t border-gray-100 px-3 py-2 flex flex-wrap gap-1.5 items-center">
+                            <span className="text-xs text-gray-400 mr-1">ใครกิน/ใช้:</span>
+                            {members.map((m) => {
+                              const checked = item.consumerIds.includes(m.id)
                               return (
-                                <label key={mid} className="flex items-center justify-between gap-2 text-sm">
-                                  <span className="text-gray-600">{m.name}</span>
-                                  <div className="flex items-center gap-1">
-                                    <input
-                                      type="number"
-                                      min={0}
-                                      step="0.01"
-                                      value={item.percentageByUser[mid] ?? 0}
-                                      onChange={(e) =>
-                                        updateItem(item.id, 'percentageByUser', {
-                                          ...item.percentageByUser,
-                                          [mid]: Number(e.target.value) || 0,
-                                        })
-                                      }
-                                      className="w-20 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-right text-sm outline-none focus:ring-2 focus:ring-violet-400"
-                                    />
-                                    <span className="text-gray-400">%</span>
-                                  </div>
-                                </label>
+                                <button
+                                  key={m.id}
+                                  onClick={() => toggleConsumer(item.id, m.id)}
+                                  className={`rounded-full px-2.5 py-1 text-xs font-medium transition-all ${
+                                    checked
+                                      ? 'text-white shadow-sm'
+                                      : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+                                  }`}
+                                  style={checked ? { backgroundColor: m.color } : {}}
+                                >
+                                  {m.name}
+                                </button>
                               )
                             })}
-                            <p className={`text-xs mt-1 ${Math.abs(pctSum - 100) < 0.1 ? 'text-emerald-600' : 'text-amber-600'}`}>
-                              รวม {pctSum.toFixed(1)}% {Math.abs(pctSum - 100) < 0.1 ? '✓' : '(ควรรวมได้ 100%)'}
-                            </p>
                           </div>
-                        )}
 
-                        {/* Exact inputs */}
-                        {item.splitMode === 'exact' && (
-                          <div className="space-y-1.5">
-                            {item.consumerIds.map((mid) => {
-                              const m = members.find((x) => x.id === mid)
-                              if (!m) return null
-                              return (
-                                <label key={mid} className="flex items-center justify-between gap-2 text-sm">
-                                  <span className="text-gray-600">{m.name}</span>
-                                  <div className="flex items-center gap-1">
-                                    <span className="text-gray-400">฿</span>
-                                    <input
-                                      type="number"
-                                      min={0}
-                                      step="0.01"
-                                      value={item.exactByUser[mid] ?? 0}
-                                      onChange={(e) =>
-                                        updateItem(item.id, 'exactByUser', {
-                                          ...item.exactByUser,
-                                          [mid]: Number(e.target.value) || 0,
-                                        })
-                                      }
-                                      className="w-24 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-right text-sm outline-none focus:ring-2 focus:ring-violet-400"
-                                    />
-                                  </div>
-                                </label>
-                              )
-                            })}
-                            <p className={`text-xs mt-1 ${Math.abs(exactSum - item.amount) < 0.1 ? 'text-emerald-600' : 'text-amber-600'}`}>
-                              รวม ฿{exactSum.toFixed(2)} {Math.abs(exactSum - item.amount) < 0.1 ? '✓' : `(ต่างจากราคา ฿${Math.abs(exactSum - item.amount).toFixed(2)})`}
-                            </p>
-                          </div>
-                        )}
+                          {/* Expanded options */}
+                          {isExpanded && (
+                            <div className="border-t border-gray-100 bg-gray-50/50 p-3 space-y-3">
+                              {/* Split Mode toggle */}
+                              <div className="flex rounded-lg bg-gray-100/80 p-0.5">
+                                <button
+                                  onClick={() => updateItem(item.id, 'splitMode', 'equally')}
+                                  className={`flex-1 rounded-md px-2 py-1.5 text-[11px] font-medium transition-all ${
+                                    item.splitMode === 'equally' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+                                  }`}
+                                >
+                                  หารเท่า
+                                </button>
+                                <button
+                                  onClick={() => updateItem(item.id, 'splitMode', 'percentage')}
+                                  className={`flex-1 rounded-md px-2 py-1.5 text-[11px] font-medium transition-all ${
+                                    item.splitMode === 'percentage' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+                                  }`}
+                                >
+                                  % สัดส่วน
+                                </button>
+                                <button
+                                  onClick={() => updateItem(item.id, 'splitMode', 'exact')}
+                                  className={`flex-1 rounded-md px-2 py-1.5 text-[11px] font-medium transition-all ${
+                                    item.splitMode === 'exact' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+                                  }`}
+                                >
+                                  ระบุยอดเอง
+                                </button>
+                              </div>
 
-                        {/* Preview split */}
-                        <div className="rounded-lg bg-white border border-gray-100 p-2">
-                          <p className="text-xs text-gray-400 mb-1.5">แต่ละคนจ่าย:</p>
-                          <div className="flex flex-wrap gap-2">
-                            {members.map((m) => (
-                              <span key={m.id} className="text-xs text-gray-600">
-                                <span className="font-medium">{m.name}</span> ฿{round2(split[m.id] ?? 0).toFixed(2)}
-                              </span>
-                            ))}
-                          </div>
+                              {/* Split input controls */}
+                              {item.splitMode === 'percentage' && (
+                                <div className="space-y-2">
+                                  {item.consumerIds.map((cid) => {
+                                    const m = members.find((x) => x.id === cid)
+                                    if (!m) return null
+                                    return (
+                                      <label key={cid} className="flex items-center justify-between gap-2">
+                                        <span className="text-xs text-gray-600">{m.name}</span>
+                                        <div className="flex items-center gap-1">
+                                          <input
+                                            type="number"
+                                            min={0}
+                                            step="1"
+                                            value={item.percentageByUser[cid] ?? ''}
+                                            onChange={(e) =>
+                                              updateItem(item.id, 'percentageByUser', {
+                                                ...item.percentageByUser,
+                                                [cid]: Number(e.target.value) || 0,
+                                              })
+                                            }
+                                            className="w-16 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-right text-sm outline-none focus:ring-2 focus:ring-violet-400"
+                                          />
+                                          <span className="text-xs text-gray-400">%</span>
+                                        </div>
+                                      </label>
+                                    )
+                                  })}
+                                  <p className={`text-xs mt-1 ${Math.abs(pctSum - 100) < 0.1 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                                    รวม {pctSum.toFixed(2)}% {Math.abs(pctSum - 100) < 0.1 ? '✓' : '(ไม่ถึง 100%)'}
+                                  </p>
+                                </div>
+                              )}
+
+                              {item.splitMode === 'exact' && (
+                                <div className="space-y-2">
+                                  {item.consumerIds.map((cid) => {
+                                    const m = members.find((x) => x.id === cid)
+                                    if (!m) return null
+                                    return (
+                                      <label key={cid} className="flex items-center justify-between gap-2">
+                                        <span className="text-xs text-gray-600">{m.name}</span>
+                                        <div className="flex items-center gap-1">
+                                          <span className="text-xs text-gray-400">฿</span>
+                                          <input
+                                            type="number"
+                                            min={0}
+                                            step="0.01"
+                                            value={item.exactByUser[cid] ?? ''}
+                                            onChange={(e) =>
+                                              updateItem(item.id, 'exactByUser', {
+                                                ...item.exactByUser,
+                                                [cid]: Number(e.target.value) || 0,
+                                              })
+                                            }
+                                            className="w-24 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-right text-sm outline-none focus:ring-2 focus:ring-violet-400"
+                                          />
+                                        </div>
+                                      </label>
+                                    )
+                                  })}
+                                  <p className={`text-xs mt-1 ${Math.abs(exactSum - item.amount) < 0.1 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                                    รวม ฿{exactSum.toFixed(2)} {Math.abs(exactSum - item.amount) < 0.1 ? '✓' : `(ต่างจากราคา ฿${Math.abs(exactSum - item.amount).toFixed(2)})`}
+                                  </p>
+                                </div>
+                              )}
+
+                              {/* Preview split */}
+                              <div className="rounded-lg bg-white border border-gray-100 p-2">
+                                <p className="text-xs text-gray-400 mb-1.5">แต่ละคนจ่าย:</p>
+                                <div className="flex flex-wrap gap-2">
+                                  {members.map((m) => (
+                                    <span key={m.id} className="text-xs text-gray-600">
+                                      <span className="font-medium">{m.name}</span> ฿{round2(split[m.id] ?? 0).toFixed(2)}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    )}
+                      )
+                    })}
+                    
+                    <button
+                      onClick={() => addManualItem(bill.id)}
+                      className="flex w-full items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50/50 py-2.5 text-xs font-semibold text-gray-400 transition hover:border-violet-300 hover:text-violet-600 hover:bg-violet-50/50"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      เพิ่มรายการใน {bill.title}
+                    </button>
                   </div>
                 )
               })}
 
-              {/* Quick add row */}
-              <button
-                onClick={addManualItem}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-200 py-3 text-sm text-gray-400 transition hover:border-violet-300 hover:text-violet-600 hover:bg-violet-50/50"
-              >
-                <Plus className="h-4 w-4" />
-                เพิ่มรายการ
-              </button>
+              {(() => {
+                const unassignedItems = items.filter(i => !i.billId)
+                if (unassignedItems.length === 0 && unifiedBills.length > 0) return null
+                return (
+                  <div className="space-y-2.5">
+                    {unifiedBills.length > 0 && (
+                      <div className="flex items-end justify-between border-b border-gray-100 pb-2 px-1 mt-4">
+                        <h3 className="text-sm font-bold text-gray-700">รายการอื่นๆ (ไม่มีบิล)</h3>
+                      </div>
+                    )}
+                    {unassignedItems.map((item) => {
+                      const split = calcItemSplit(item, members)
+                      const isExpanded = expandedItems.has(item.id)
+                      const pctSum = item.consumerIds.reduce((s, id) => s + (item.percentageByUser[id] ?? 0), 0)
+                      const exactSum = item.consumerIds.reduce((s, id) => s + (item.exactByUser[id] ?? 0), 0)
+
+                      return (
+                        <div key={item.id} className="rounded-xl border border-gray-200 bg-white overflow-hidden shadow-sm">
+                          {/* Item header row */}
+                          <div className="flex items-center gap-2 p-3">
+                            <input
+                              value={item.name}
+                              onChange={(e) => updateItem(item.id, 'name', e.target.value)}
+                              placeholder="ชื่อรายการ"
+                              className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-400 min-w-0"
+                            />
+                            <div className="flex items-center gap-1 shrink-0">
+                              <span className="text-sm text-gray-400">฿</span>
+                              <input
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                value={item.amount || ''}
+                                onChange={(e) => updateItem(item.id, 'amount', Number(e.target.value) || 0)}
+                                placeholder="0"
+                                className="w-24 rounded-lg border border-gray-200 px-2 py-2 text-right text-sm outline-none focus:ring-2 focus:ring-violet-400"
+                              />
+                            </div>
+                            <button
+                              onClick={() => toggleExpanded(item.id)}
+                              className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 transition-colors"
+                              title="แก้ไขรายละเอียด"
+                            >
+                              {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                            </button>
+                            <button
+                              onClick={() => removeItem(item.id)}
+                              className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+
+                          {/* Consumer chips (always shown) */}
+                          <div className="border-t border-gray-100 px-3 py-2 flex flex-wrap gap-1.5 items-center">
+                            <span className="text-xs text-gray-400 mr-1">ใครกิน/ใช้:</span>
+                            {members.map((m) => {
+                              const checked = item.consumerIds.includes(m.id)
+                              return (
+                                <button
+                                  key={m.id}
+                                  onClick={() => toggleConsumer(item.id, m.id)}
+                                  className={`rounded-full px-2.5 py-1 text-xs font-medium transition-all ${
+                                    checked
+                                      ? 'text-white shadow-sm'
+                                      : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+                                  }`}
+                                  style={checked ? { backgroundColor: m.color } : {}}
+                                >
+                                  {m.name}
+                                </button>
+                              )
+                            })}
+                          </div>
+
+                          {/* Expanded options */}
+                          {isExpanded && (
+                            <div className="border-t border-gray-100 bg-gray-50/50 p-3 space-y-3">
+                              {/* Split Mode toggle */}
+                              <div className="flex rounded-lg bg-gray-100/80 p-0.5">
+                                <button
+                                  onClick={() => updateItem(item.id, 'splitMode', 'equally')}
+                                  className={`flex-1 rounded-md px-2 py-1.5 text-[11px] font-medium transition-all ${
+                                    item.splitMode === 'equally' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+                                  }`}
+                                >
+                                  หารเท่า
+                                </button>
+                                <button
+                                  onClick={() => updateItem(item.id, 'splitMode', 'percentage')}
+                                  className={`flex-1 rounded-md px-2 py-1.5 text-[11px] font-medium transition-all ${
+                                    item.splitMode === 'percentage' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+                                  }`}
+                                >
+                                  % สัดส่วน
+                                </button>
+                                <button
+                                  onClick={() => updateItem(item.id, 'splitMode', 'exact')}
+                                  className={`flex-1 rounded-md px-2 py-1.5 text-[11px] font-medium transition-all ${
+                                    item.splitMode === 'exact' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+                                  }`}
+                                >
+                                  ระบุยอดเอง
+                                </button>
+                              </div>
+
+                              {/* Split input controls */}
+                              {item.splitMode === 'percentage' && (
+                                <div className="space-y-2">
+                                  {item.consumerIds.map((cid) => {
+                                    const m = members.find((x) => x.id === cid)
+                                    if (!m) return null
+                                    return (
+                                      <label key={cid} className="flex items-center justify-between gap-2">
+                                        <span className="text-xs text-gray-600">{m.name}</span>
+                                        <div className="flex items-center gap-1">
+                                          <input
+                                            type="number"
+                                            min={0}
+                                            step="1"
+                                            value={item.percentageByUser[cid] ?? ''}
+                                            onChange={(e) =>
+                                              updateItem(item.id, 'percentageByUser', {
+                                                ...item.percentageByUser,
+                                                [cid]: Number(e.target.value) || 0,
+                                              })
+                                            }
+                                            className="w-16 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-right text-sm outline-none focus:ring-2 focus:ring-violet-400"
+                                          />
+                                          <span className="text-xs text-gray-400">%</span>
+                                        </div>
+                                      </label>
+                                    )
+                                  })}
+                                  <p className={`text-xs mt-1 ${Math.abs(pctSum - 100) < 0.1 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                                    รวม {pctSum.toFixed(2)}% {Math.abs(pctSum - 100) < 0.1 ? '✓' : '(ไม่ถึง 100%)'}
+                                  </p>
+                                </div>
+                              )}
+
+                              {item.splitMode === 'exact' && (
+                                <div className="space-y-2">
+                                  {item.consumerIds.map((cid) => {
+                                    const m = members.find((x) => x.id === cid)
+                                    if (!m) return null
+                                    return (
+                                      <label key={cid} className="flex items-center justify-between gap-2">
+                                        <span className="text-xs text-gray-600">{m.name}</span>
+                                        <div className="flex items-center gap-1">
+                                          <span className="text-xs text-gray-400">฿</span>
+                                          <input
+                                            type="number"
+                                            min={0}
+                                            step="0.01"
+                                            value={item.exactByUser[cid] ?? ''}
+                                            onChange={(e) =>
+                                              updateItem(item.id, 'exactByUser', {
+                                                ...item.exactByUser,
+                                                [cid]: Number(e.target.value) || 0,
+                                              })
+                                            }
+                                            className="w-24 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-right text-sm outline-none focus:ring-2 focus:ring-violet-400"
+                                          />
+                                        </div>
+                                      </label>
+                                    )
+                                  })}
+                                  <p className={`text-xs mt-1 ${Math.abs(exactSum - item.amount) < 0.1 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                                    รวม ฿{exactSum.toFixed(2)} {Math.abs(exactSum - item.amount) < 0.1 ? '✓' : `(ต่างจากราคา ฿${Math.abs(exactSum - item.amount).toFixed(2)})`}
+                                  </p>
+                                </div>
+                              )}
+
+                              {/* Preview split */}
+                              <div className="rounded-lg bg-white border border-gray-100 p-2">
+                                <p className="text-xs text-gray-400 mb-1.5">แต่ละคนจ่าย:</p>
+                                <div className="flex flex-wrap gap-2">
+                                  {members.map((m) => (
+                                    <span key={m.id} className="text-xs text-gray-600">
+                                      <span className="font-medium">{m.name}</span> ฿{round2(split[m.id] ?? 0).toFixed(2)}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                    
+                    <button
+                      onClick={() => addManualItem()}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-200 py-3 text-sm font-semibold text-gray-400 transition hover:border-violet-300 hover:text-violet-600 hover:bg-violet-50/50"
+                    >
+                      <Plus className="h-4 w-4" />
+                      เพิ่มรายการอิสระ
+                    </button>
+                  </div>
+                )
+              })()}
             </div>
           )}
 
