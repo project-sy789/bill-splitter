@@ -1149,7 +1149,7 @@ function App() {
         </SectionCard>
 
         {/* ── Discrepancy Warning ── */}
-        {unifiedBillsSum > 0 && Math.abs(unifiedBillsSum - grandTotal) > 0.01 && (
+        {(unifiedBillsSum > 0 || grandTotal > 0) && Math.abs(unifiedBillsSum - grandTotal) > 0.01 && (
           <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
             <div className="flex items-start gap-3">
               <div className="mt-0.5 rounded-full bg-amber-100 p-1.5 shrink-0">
@@ -1159,29 +1159,51 @@ function App() {
                 <h4 className="text-sm font-bold text-amber-800">ยอดบิลไม่ตรงกับยอดรายการ</h4>
                 <p className="mt-1 text-[11px] xs:text-xs text-amber-700 leading-relaxed">
                   ยอดรวมในบิลคือ <b>฿{unifiedBillsSum.toFixed(2)}</b> แต่รวมรายการด้านบนได้ <b>฿{grandTotal.toFixed(2)}</b>
-                  <br className="hidden xs:block" />(เกิดจากสแกนตกหล่น หรือบวกแค่ยอดรวมแต่ไม่พิมพ์รายการ)
+                  <br className="hidden xs:block" />
+                  {unifiedBillsSum > grandTotal ? '(อาจเกิดจากสแกนตกหล่น หรือบวกแค่ยอดรวมแต่ไม่พิมพ์รายการ)' : '(อาจเกิดจากพิมพ์รายการเกิน หรือไม่ได้กดยกยอดจ่ายบิลเพิ่มเข้าไป)'}
                 </p>
-                <button
-                  onClick={() => {
-                    const diff = round2(unifiedBillsSum - grandTotal)
-                    setItems((prev) => [
-                      ...prev,
-                      {
-                        id: crypto.randomUUID(),
-                        name: diff > 0 ? 'ส่วนต่างบัญชี / สแกนไม่ครบ' : 'ส่วนเกินบัญชี',
-                        amount: Math.abs(diff),
-                        splitMode: 'equally',
-                        consumerIds: members.map((m) => m.id),
-                        percentageByUser: Object.fromEntries(members.map((m) => [m.id, round2(100 / Math.max(members.length, 1))])),
-                        exactByUser: Object.fromEntries(members.map((m) => [m.id, round2(Math.abs(diff) / Math.max(members.length, 1))])),
-                      },
-                    ])
-                  }}
-                  className="mt-3 flex items-center gap-1.5 rounded-lg bg-amber-200/50 px-3 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-200 transition-colors"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  เพิ่มยอดส่วนต่าง (฿{Math.abs(unifiedBillsSum - grandTotal).toFixed(2)}) ลงในรายการให้ที
-                </button>
+                
+                {unifiedBillsSum > grandTotal ? (
+                  <button
+                    onClick={() => {
+                      const diff = round2(unifiedBillsSum - grandTotal)
+                      setItems((prev) => [
+                        ...prev,
+                        {
+                          id: crypto.randomUUID(),
+                          name: 'ส่วนต่างบัญชี / สแกนไม่ครบ',
+                          amount: Math.abs(diff),
+                          splitMode: 'equally',
+                          consumerIds: members.map((m) => m.id),
+                          percentageByUser: Object.fromEntries(members.map((m) => [m.id, round2(100 / Math.max(members.length, 1))])),
+                          exactByUser: Object.fromEntries(members.map((m) => [m.id, round2(Math.abs(diff) / Math.max(members.length, 1))])),
+                        },
+                      ])
+                    }}
+                    className="mt-3 flex items-center gap-1.5 rounded-lg bg-amber-200/50 px-3 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-200 transition-colors"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    เพิ่มส่วนต่าง (฿{Math.abs(unifiedBillsSum - grandTotal).toFixed(2)}) ลงในรายการให้ที
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      const diff = round2(grandTotal - unifiedBillsSum)
+                      setManualBills((prev) => [
+                        ...prev,
+                        {
+                          id: crypto.randomUUID(),
+                          name: 'ส่วนเกินบัญชี / บิลที่จ่ายตกหล่น',
+                          amount: Math.abs(diff),
+                        },
+                      ])
+                    }}
+                    className="mt-3 flex items-center gap-1.5 rounded-lg bg-amber-200/50 px-3 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-200 transition-colors"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    เพิ่มเป็นยอดบิลใส่เอง (฿{Math.abs(grandTotal - unifiedBillsSum).toFixed(2)})
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -1218,34 +1240,53 @@ function App() {
                         </p>
                         <p className="text-sm font-bold text-violet-700">฿{b.amount.toFixed(2)}</p>
                       </div>
-                      <select
-                        value={assignedId ?? ''}
-                        onChange={(e) => {
-                          const newPayerId = e.target.value
-                          const oldPayerId = receiptPayerMap[b.id]
-                          if (oldPayerId === newPayerId) return
+                      <div className="flex items-center gap-1.5">
+                        <select
+                          value={assignedId ?? ''}
+                          onChange={(e) => {
+                            const newPayerId = e.target.value
+                            const oldPayerId = receiptPayerMap[b.id]
+                            if (oldPayerId === newPayerId) return
 
-                          // Update paid amounts immediately without needing a button
-                          setPaidByMember((prev) => {
-                            const next = { ...prev }
-                            if (oldPayerId) {
-                              next[oldPayerId] = Math.max(0, round2((next[oldPayerId] ?? 0) - b.amount))
-                            }
-                            if (newPayerId) {
-                              next[newPayerId] = round2((next[newPayerId] ?? 0) + b.amount)
-                            }
-                            return next
-                          })
+                            // Update paid amounts immediately without needing a button
+                            setPaidByMember((prev) => {
+                              const next = { ...prev }
+                              if (oldPayerId) {
+                                next[oldPayerId] = Math.max(0, round2((next[oldPayerId] ?? 0) - b.amount))
+                              }
+                              if (newPayerId) {
+                                next[newPayerId] = round2((next[newPayerId] ?? 0) + b.amount)
+                              }
+                              return next
+                            })
 
-                          setReceiptPayerMap((prev) => ({ ...prev, [b.id]: newPayerId }))
-                        }}
-                        className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-violet-400"
-                      >
-                        <option value="">ใครจ่าย?</option>
-                        {members.map((m) => (
-                          <option key={m.id} value={m.id}>{m.name}</option>
-                        ))}
-                      </select>
+                            setReceiptPayerMap((prev) => ({ ...prev, [b.id]: newPayerId }))
+                          }}
+                          className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-violet-400"
+                        >
+                          <option value="">ใครจ่าย?</option>
+                          {members.map((m) => (
+                            <option key={m.id} value={m.id}>{m.name}</option>
+                          ))}
+                        </select>
+
+                        {!b.id.startsWith('ocr-') && (
+                          <button
+                            onClick={() => {
+                              const payerId = receiptPayerMap[b.id]
+                              if (payerId) {
+                                setPaidByMember(payers => ({ ...payers, [payerId]: Math.max(0, round2((payers[payerId] || 0) - b.amount)) }))
+                                setReceiptPayerMap(prev => { const next = {...prev}; delete next[b.id]; return next })
+                              }
+                              setManualBills(prev => prev.filter(m => m.id !== b.id))
+                            }}
+                            className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+                            title="ลบสลิป/บิลนี้"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   )
                 })}
