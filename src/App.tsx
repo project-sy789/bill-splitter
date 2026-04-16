@@ -1493,12 +1493,12 @@ function App() {
                         <p className="text-sm font-bold text-violet-700">฿{b.amount.toFixed(2)}</p>
                       </div>
 
-                      {/* Fee Controls inside Each Bill */}
-                      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 border-t border-gray-50 pt-2 pb-1">
-                        {/* Service Charge */}
-                        <div>
-                          <div className="flex items-center justify-between mb-0.5">
-                            <span className="text-[10px] text-gray-400 font-medium">Service</span>
+                      {/* Fee Controls Summary Block */}
+                      <div className="mt-3 space-y-2.5 rounded-xl bg-violet-50/40 p-3 border border-violet-100/50">
+                        {/* Service Charge Row */}
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] font-bold text-gray-600">Service Charge</span>
                             <button
                               onClick={() => {
                                 const billItemsAmount = items.filter(it => it.billId === b.id).reduce((s, it) => s + it.amount, 0)
@@ -1509,11 +1509,11 @@ function App() {
                                   setManualBills(prev => prev.map(mm => mm.id === b.id ? { ...mm, serviceCharge: val } : mm))
                                 }
                               }}
-                              className="text-[9px] bg-violet-50 text-violet-600 px-1 rounded border border-violet-100"
+                              className="text-[10px] bg-white text-violet-600 px-1.5 py-0.5 rounded border border-violet-200 hover:bg-violet-50 transition-colors"
                             >+10%</button>
                           </div>
-                          <div className="flex items-center gap-1">
-                            <span className="text-[10px] text-gray-300">฿</span>
+                          <div className="flex items-center gap-1.5 min-w-[100px] justify-end">
+                            <span className="text-[10px] text-gray-400">฿</span>
                             <input
                               type="number"
                               value={(b.id.startsWith('ocr-') ? results[parseInt(b.id.split('-')[1]!, 10)]?.summary.serviceCharge : manualBills.find(m => m.id === b.id)?.serviceCharge) || ''}
@@ -1525,15 +1525,15 @@ function App() {
                                   setManualBills(prev => prev.map(mm => mm.id === b.id ? { ...mm, serviceCharge: val } : mm))
                                 }
                               }}
-                              className="w-full bg-gray-50/50 rounded px-1.5 py-0.5 text-xs text-right outline-none focus:bg-white focus:ring-1 focus:ring-violet-200"
+                              className="w-20 bg-white rounded-lg border border-violet-100 px-2 py-1 text-xs text-right font-medium text-gray-700 outline-none focus:ring-2 focus:ring-violet-400 transition-all font-mono"
                               placeholder="0"
                             />
                           </div>
                         </div>
 
-                        {/* VAT */}
-                        <div>
-                          <div className="flex items-center justify-between mb-0.5">
+                        {/* VAT Row */}
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2">
                             <button
                                onClick={() => {
                                 const isInc = b.id.startsWith('ocr-') ? results[parseInt(b.id.split('-')[1]!, 10)]?.vatIncluded : manualBills.find(m => m.id === b.id)?.vatIncluded
@@ -1543,10 +1543,10 @@ function App() {
                                   setManualBills(prev => prev.map(mm => mm.id === b.id ? { ...mm, vatIncluded: !isInc } : mm))
                                 }
                               }}
-                              className={`text-[9px] px-1 rounded border ${
+                              className={`text-[10px] px-1.5 py-0.5 rounded border font-bold transition-colors ${
                                 (b.id.startsWith('ocr-') ? results[parseInt(b.id.split('-')[1]!, 10)]?.vatIncluded : manualBills.find(m => m.id === b.id)?.vatIncluded)
-                                ? 'bg-amber-50 text-amber-600 border-amber-100'
-                                : 'bg-gray-50 text-gray-500 border-gray-100'
+                                ? 'bg-amber-100 text-amber-700 border-amber-200'
+                                : 'bg-white text-violet-600 border-violet-200'
                               }`}
                             >
                               { (b.id.startsWith('ocr-') ? results[parseInt(b.id.split('-')[1]!, 10)]?.vatIncluded : manualBills.find(m => m.id === b.id)?.vatIncluded) ? 'VAT รวมแล้ว' : 'VAT แยก' }
@@ -1564,12 +1564,12 @@ function App() {
                                    setManualBills(prev => prev.map(mm => mm.id === b.id ? { ...mm, vat: val } : mm))
                                  }
                                }}
-                               className="text-[9px] bg-violet-50 text-violet-600 px-1 rounded border border-violet-100"
+                               className="text-[10px] bg-white text-violet-600 px-1.5 py-0.5 rounded border border-violet-200 hover:bg-violet-50 transition-colors"
                              >+7%</button>
                             )}
                           </div>
-                          <div className="flex items-center gap-1">
-                            <span className="text-[10px] text-gray-300">฿</span>
+                          <div className="flex items-center gap-1.5 min-w-[100px] justify-end">
+                            <span className="text-[10px] text-gray-400">฿</span>
                             <input
                               type="number"
                               value={(b.id.startsWith('ocr-') ? results[parseInt(b.id.split('-')[1]!, 10)]?.summary.vat : manualBills.find(m => m.id === b.id)?.vat) || ''}
@@ -1582,21 +1582,21 @@ function App() {
                                 }
                               }}
                               disabled={(b.id.startsWith('ocr-') ? results[parseInt(b.id.split('-')[1]!, 10)]?.vatIncluded : manualBills.find(m => m.id === b.id)?.vatIncluded)}
-                              className={`w-full rounded px-1.5 py-0.5 text-xs text-right outline-none focus:ring-1 focus:ring-violet-200 ${
+                              className={`w-20 rounded-lg px-2 py-1 text-xs text-right font-medium outline-none transition-all font-mono ${
                                 (b.id.startsWith('ocr-') ? results[parseInt(b.id.split('-')[1]!, 10)]?.vatIncluded : manualBills.find(m => m.id === b.id)?.vatIncluded)
-                                ? 'bg-amber-50/50 text-amber-600 border-none'
-                                : 'bg-gray-50/50 focus:bg-white border-none'
+                                ? 'bg-amber-50 text-amber-600 border border-transparent'
+                                : 'bg-white border border-violet-100 focus:ring-2 focus:ring-violet-400 text-gray-700'
                               }`}
                               placeholder="0"
                             />
                           </div>
                         </div>
 
-                        {/* Discount */}
-                        <div>
-                          <span className="block text-[10px] text-gray-400 font-medium mb-0.5">ส่วนลด</span>
-                          <div className="flex items-center gap-1">
-                            <span className="text-[10px] text-gray-300">฿</span>
+                        {/* Discount Row */}
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-[11px] font-bold text-gray-600">ส่วนลด</span>
+                          <div className="flex items-center gap-1.5 min-w-[100px] justify-end">
+                            <span className="text-[10px] text-gray-400">฿</span>
                             <input
                               type="number"
                               value={(b.id.startsWith('ocr-') ? results[parseInt(b.id.split('-')[1]!, 10)]?.summary.discount : manualBills.find(m => m.id === b.id)?.discount) || ''}
@@ -1608,13 +1608,15 @@ function App() {
                                   setManualBills(prev => prev.map(mm => mm.id === b.id ? { ...mm, discount: val } : mm))
                                 }
                               }}
-                              className="w-full bg-gray-50/50 rounded px-1.5 py-0.5 text-xs text-right outline-none focus:bg-white focus:ring-1 focus:ring-violet-200"
+                              className="w-20 bg-white rounded-lg border border-violet-100 px-2 py-1 text-xs text-right font-medium text-pink-600 outline-none focus:ring-2 focus:ring-violet-400 transition-all font-mono"
                               placeholder="0"
                             />
                           </div>
                         </div>
 
-                        <div className="flex flex-col justify-end">
+                        {/* Payer Block */}
+                        <div className="mt-1 pt-2 border-t border-violet-100/50 flex items-center justify-between">
+                           <span className="text-[11px] font-bold text-violet-700">ใครจ่ายบิลนี้?</span>
                            <select
                             value={assignedId ?? ''}
                             onChange={(e) => {
@@ -1635,9 +1637,9 @@ function App() {
 
                               setReceiptPayerMap((prev) => ({ ...prev, [b.id]: newPayerId }))
                             }}
-                            className="w-full rounded bg-white border border-gray-100 px-1.5 py-0.5 text-xs outline-none focus:ring-1 focus:ring-violet-200"
+                            className="bg-white border border-violet-200 rounded-lg px-2 py-1 text-xs text-violet-700 outline-none focus:ring-2 focus:ring-violet-400 transition-all font-medium"
                           >
-                            <option value="">ใครจ่าย?</option>
+                            <option value="">เลือกคนจ่าย</option>
                             {members.map((m) => (
                               <option key={m.id} value={m.id}>{m.name}</option>
                             ))}
