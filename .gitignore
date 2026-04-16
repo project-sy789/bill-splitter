@@ -4,3 +4,7 @@ dist
 .env
 .env.*
 coverage
+
+# Worker
+worker/node_modules/
+worker/.dev.vars

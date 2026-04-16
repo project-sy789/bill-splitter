@@ -27,6 +27,7 @@ import { useReceiptOcr } from './hooks/use-receipt-ocr'
 import { useBillHistory } from './hooks/use-bill-history'
 import { useGroups } from './hooks/use-groups'
 import { buildPromptPayPayload, formatPromptPay, validatePromptPay, toPromptPayTarget } from './lib/promptpay'
+import * as db from './lib/bill-db'
 import {
   type AllocationMode,
   type BillItemDraft,
@@ -170,13 +171,43 @@ function SectionCard({ children, className = '' }: { children: React.ReactNode; 
 // ──────────────────────────────────────────────
 
 function App() {
-  const currentId = localStorage.getItem('bill-splitter-current-id')
-  const initialState = safeParseBillState(
-    currentId ? localStorage.getItem(`bill-splitter-state-${currentId}`) : localStorage.getItem('bill-splitter-state')
-  ) || safeParseBillState(localStorage.getItem('bill-splitter-state'))
+  // ── Startup: migrate localStorage → IndexedDB then read current id ──
+  const [currentBillId, setCurrentBillId] = useState<string>(() => {
+    // Synchronous fallback during migration (resolved async below)
+    const legacyId = localStorage.getItem('bill-splitter-current-id')
+    return legacyId ?? crypto.randomUUID()
+  })
+  const [initialState, setInitialState] = useState<ReturnType<typeof safeParseBillState>>(null)
+  const [dbReady, setDbReady] = useState(false)
 
-  // ── State ──
-  const [currentBillId, setCurrentBillId] = useState<string>(currentId ?? crypto.randomUUID())
+  useEffect(() => {
+    let cancelled = false
+    async function init() {
+      // 1. Run migration once (idempotent)
+      const migratedId = await db.migrateFromLocalStorage()
+
+      // 2. Get current bill id from DB settings
+      const savedId = await db.getSetting('current-bill-id')
+      const resolvedId = savedId ?? migratedId ?? currentBillId
+
+      // 3. Load the bill state
+      const state = resolvedId ? await db.getBill(resolvedId) : null
+
+      // 4. Legacy localStorage fallback for very first launch
+      const legacyFallback = state ?? safeParseBillState(
+        localStorage.getItem('bill-splitter-state')
+      )
+
+      if (!cancelled) {
+        if (savedId && savedId !== currentBillId) setCurrentBillId(savedId)
+        setInitialState(legacyFallback)
+        setDbReady(true)
+      }
+    }
+    void init()
+    return () => { cancelled = true }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const { history, addOrUpdateBill, removeBill } = useBillHistory()
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false)
   const [members, setMembers] = useState<MemberDraft[]>(
@@ -249,17 +280,20 @@ function App() {
 
   const { progress, results, mergedItems, error, scanFiles, reset, terminate, isBusy, setResults } = useReceiptOcr()
 
-  // ── Persist to localStorage ──
+  // ── Persist to IndexedDB ──
   useEffect(() => {
+    if (!dbReady) return
     const state: PersistedBillState = { members, items, serviceCharge, vat, discount, allocationMode, paidByMember, settlementStatus, manualBills, receiptPayerMap }
-    localStorage.setItem(`bill-splitter-state-${currentBillId}`, JSON.stringify(state))
-    localStorage.setItem('bill-splitter-current-id', currentBillId)
-    
+    const title = `บิลวันที่ ${new Date().toLocaleDateString('th-TH')} - ยอด ฿${(items.reduce((sum, item) => sum + item.amount, 0) + serviceCharge + vat - discount).toFixed(2)}`
+
+    void db.saveBill(currentBillId, title, state)
+    void db.setSetting('current-bill-id', currentBillId)
+
     // Auto-save history if the bill has any meaningful data
     if (items.length > 0 || members.length > 2 || Object.keys(paidByMember).length > 0 || manualBills.length > 0) {
-      addOrUpdateBill(currentBillId, `บิลวันที่ ${new Date().toLocaleDateString('th-TH')} - ยอด ฿${(items.reduce((sum, item) => sum + item.amount, 0) + serviceCharge + vat - discount).toFixed(2)}`)
+      addOrUpdateBill(currentBillId, title, state)
     }
-  }, [members, items, serviceCharge, vat, discount, allocationMode, paidByMember, settlementStatus, manualBills, receiptPayerMap, currentBillId, addOrUpdateBill])
+  }, [dbReady, members, items, serviceCharge, vat, discount, allocationMode, paidByMember, settlementStatus, manualBills, receiptPayerMap, currentBillId, addOrUpdateBill])
 
 
 
@@ -605,13 +639,8 @@ function App() {
     prevResultsLenRef.current = 0
   }, [reset])
 
-  const loadHistoryBill = useCallback((id: string) => {
-    let dataStr = localStorage.getItem(`bill-splitter-state-${id}`)
-    if (!dataStr && id === localStorage.getItem('bill-splitter-current-id') && localStorage.getItem('bill-splitter-state')) {
-      dataStr = localStorage.getItem('bill-splitter-state') // fallback for migration
-    }
-    if (!dataStr) return
-    const data = safeParseBillState(dataStr)
+  const loadHistoryBill = useCallback(async (id: string) => {
+    const data = await db.getBill(id)
     if (!data) return
     setCurrentBillId(id)
     setMembers(data.members)

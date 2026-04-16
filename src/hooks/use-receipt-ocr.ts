@@ -13,6 +13,12 @@ import { useCallback, useRef, useState, useMemo } from 'react'
 import { PSM, createWorker } from 'tesseract.js'
 
 import { parseReceiptText } from '../lib/receipt-parser'
+import {
+  scanWithGemini,
+  GeminiRateLimitError,
+  GeminiDisabledError,
+  GEMINI_PROXY_URL,
+} from '../lib/gemini-ocr'
 import type { OcrStatus, ParsedReceiptResult } from '../types/ocr'
 
 interface OcrProgress {
@@ -152,14 +158,35 @@ export function useReceiptOcr() {
       setStatus('recognizing')
       setProgress({ progress: 0, statusText: 'เตรียมภาพ...' })
 
+      // ── 1. Try Gemini Vision first (if proxy configured) ──────────────────
+      if (GEMINI_PROXY_URL) {
+        try {
+          setProgress({ progress: 10, statusText: '🤖 กำลังอ่านด้วย AI (Gemini)...' })
+          const geminiResult = await scanWithGemini(file)
+          setProgress({ progress: 100, statusText: `🤖 AI อ่านสำเร็จ — พบ ${geminiResult.items.length} รายการ ✓` })
+          setStatus('completed')
+          return geminiResult
+        } catch (err) {
+          if (err instanceof GeminiRateLimitError) {
+            setProgress({ progress: 12, statusText: '⚠️ AI เต็ม กำลังสลับไป OCR ปกติ...' })
+          } else if (err instanceof GeminiDisabledError) {
+            // No proxy configured, silently fall through
+          } else {
+            console.warn('[OCR] Gemini failed, falling back to Tesseract:', err)
+            setProgress({ progress: 12, statusText: '⚠️ AI ล้มเหลว กำลังสลับไป OCR ปกติ...' })
+          }
+        }
+      }
+
+      // ── 2. Tesseract fallback ─────────────────────────────────────────────
       try {
-        setProgress({ progress: 8, statusText: 'ปรับคุณภาพภาพ...' })
+        setProgress({ progress: 15, statusText: 'ปรับคุณภาพภาพ...' })
         const processedImage = await preprocessImage(file)
 
-        setProgress({ progress: 15, statusText: 'กำลังโหลดระบบอ่านตัวอักษร...' })
+        setProgress({ progress: 25, statusText: 'กำลังโหลดระบบอ่านตัวอักษร...' })
         const worker = await getWorker()
 
-        setProgress({ progress: 18, statusText: 'กำลังอ่านใบเสร็จ...' })
+        setProgress({ progress: 30, statusText: 'กำลังอ่านใบเสร็จ...' })
 
         const recognizePromise = worker.recognize(processedImage)
         const timeoutPromise = new Promise<never>((_, reject) =>

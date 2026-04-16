@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import * as db from '../lib/bill-db'
 
 export interface BillHistoryMeta {
   id: string
@@ -6,40 +7,43 @@ export interface BillHistoryMeta {
   updatedAt: number
 }
 
-const HISTORY_INDEX_KEY = 'bill-splitter-history-index'
-
 export function useBillHistory() {
-  const [history, setHistory] = useState<BillHistoryMeta[]>(() => {
-    try {
-      const idx = localStorage.getItem(HISTORY_INDEX_KEY)
-      return idx ? JSON.parse(idx) : []
-    } catch {
-      return []
-    }
-  })
+  const [history, setHistory] = useState<BillHistoryMeta[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
-  // We don't need the useEffect for initial load anymore.
-
-  const addOrUpdateBill = useCallback((id: string, title: string) => {
-    setHistory((prev) => {
-      const filtered = prev.filter((h) => h.id !== id)
-      const newHistory = [{ id, title, updatedAt: Date.now() }, ...filtered]
-      localStorage.setItem(HISTORY_INDEX_KEY, JSON.stringify(newHistory))
-      return newHistory
-    })
+  // Load history from IndexedDB on mount
+  useEffect(() => {
+    db.listBills()
+      .then((bills) => setHistory(bills))
+      .catch(() => setHistory([]))
+      .finally(() => setIsLoading(false))
   }, [])
 
-  const removeBill = useCallback((id: string) => {
-    setHistory((prev) => {
-      const newHistory = prev.filter((h) => h.id !== id)
-      localStorage.setItem(HISTORY_INDEX_KEY, JSON.stringify(newHistory))
-      localStorage.removeItem(`bill-splitter-state-${id}`)
-      return newHistory
-    })
+  const addOrUpdateBill = useCallback(async (id: string, title: string, state: object) => {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await db.saveBill(id, title, state as any)
+      setHistory((prev) => {
+        const filtered = prev.filter((h) => h.id !== id)
+        return [{ id, title, updatedAt: Date.now() }, ...filtered]
+      })
+    } catch (err) {
+      console.error('[useBillHistory] Failed to save bill:', err)
+    }
+  }, [])
+
+  const removeBill = useCallback(async (id: string) => {
+    try {
+      await db.deleteBill(id)
+      setHistory((prev) => prev.filter((h) => h.id !== id))
+    } catch (err) {
+      console.error('[useBillHistory] Failed to delete bill:', err)
+    }
   }, [])
 
   return {
     history,
+    isLoading,
     addOrUpdateBill,
     removeBill,
   }
