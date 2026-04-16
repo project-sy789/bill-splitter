@@ -17,8 +17,8 @@
 | ฟีเจอร์ | รายละเอียด |
 |---|---|
 | 📱 **ติดตั้งเป็นแอป (PWA)** | รองรับการติดตั้งลงบนหน้าจอโฮมมือถือ (Add to Home Screen) เป็นแอปและใช้งานแบบ **ออฟไลน์** ได้ 100% |
-| 🗂️ **ระบบบิลครอบจักรวาล** | เพิ่มบิลได้ทั้งแบบจดเอง หรือโยนสลิปให้ระบบอ่าน แยกกลุ่มบิลชัดเจน แถมตั้งชื่อบิลเองได้! |
-| 📷 **สแกนใบเสร็จอัตโนมัติ (AI-OCR)** | ถ่ายรูปหรืออัปโหลดสลิป ระบบสกัดรายการอาหารให้ทันที รองรับบิลไทยเต็มรูปแบบ |
+| 🗂️ **ระบบบิลครอบจักรวาล** | เพิ่มบิลได้ทั้งแบบจดเอง หรือโยนสลิปให้ระบบอ่าน แยกกลุ่มบิลชัดเจน แถมตั้งชื่อบิล/สลิปเองได้! |
+| 🤖 **AI อ่านสลิป (Gemini Vision)** | ถ่ายรูปสลิป — ระบบส่งให้ Gemini 2.0 Flash อ่านก่อน แม่นกว่า OCR ปกติมาก ถ้า limit เต็มก็ fallback ไป Tesseract อัตโนมัติ |
 | 👥 **จัดการแก๊งเพื่อน (Saved Groups)** | บันทึกกลุ่มเพื่อนประจำ ไม่ต้องพิมพ์ชื่อใหม่ทุกรอบ ดึง PromptPay ติดมาให้ด้วย |
 | 💸 **คำนวณเงินฉลาดสุดๆ** | หักลบกลบหนี้ให้อัตโนมัติ ลดจำนวนการโอนเงินไปมาให้เหลือ "น้อยที่สุด" |
 | 📊 **แชร์สรุปบิลสวยๆ (Export PNG)** | กด Export รูปสรุปเพื่อส่งเข้าแชท พร้อม QR Code PromptPay ให้เพื่อนเปิดสแกนโอนได้ทันที! |
@@ -45,6 +45,18 @@ npm run dev
 
 เปิด http://localhost:5173/bill-splitter/
 
+### Deploy Cloudflare Worker (สำหรับ AI OCR)
+
+```bash
+cd worker
+npm install
+npx wrangler login
+npx wrangler secret put GEMINI_API_KEY   # ใส่ Gemini API Key
+npx wrangler deploy
+```
+
+จากนั้นเพิ่ม `VITE_GEMINI_PROXY_URL=<worker-url>` ใน `.env.local` แล้ว build ใหม่
+
 ---
 
 ## 🧱 Tech Stack
@@ -52,9 +64,12 @@ npm run dev
 | ส่วน | เทคโนโลยี |
 |---|---|
 | UI Framework | React 19 + Vite + TypeScript |
-| Web Standards | Progressive Web App (PWA) + SEO Meta Tags |
+| Web Standards | Progressive Web App (PWA) + SEO + IndexedDB |
 | Styling | Tailwind CSS |
-| ปัญญาประดิษฐ์ | Tesseract.js (OCR วิ่งบนเครื่องผู้ใช้ทั้งหมด 100%) |
+| AI OCR (หลัก) | Google Gemini 2.0 Flash Vision — ผ่าน Cloudflare Workers Proxy |
+| OCR (สำรอง) | Tesseract.js (tha + eng) — fallback อัตโนมัติ |
+| API Proxy | Cloudflare Workers — ซ่อน Gemini API Key ฝั่ง server |
+| Database | IndexedDB (เก็บประวัติบิลในเครื่อง จุได้ไม่จำกัด) |
 
 ---
 
@@ -62,5 +77,6 @@ npm run dev
 
 **MIT License** — ใช้งาน ดัดแปลง หรือนำไปแจกจ่ายได้ฟรี 100%
 
-> 🔒 **ข้อมูลส่วนตัวของคุณ ปลอดภัยบนเครื่องคุณ 100%**<br/>
-> การคำนวณยอดเงินและการประมวลผล OCR ทั้งหมดเกิดขึ้น **ฝั่งผู้ใช้ (Client-side)** ไม่มีการส่งรูปภาพสลิป หรือข้อมูลเบอร์ PromptPay ของคุณกลับมาที่เซิร์ฟเวอร์ใดๆ ท้ังสิ้น!
+> 🔒 **ข้อมูลส่วนตัวของคุณ ปลอดภัยบนเครื่องคุณ**<br/>
+> บิล รายชื่อเพื่อน และเบอร์ PromptPay **ไม่เคยออกไปนอกเครื่องของคุณ** — เก็บใน IndexedDB บน browser ล้วนๆ<br/>
+> รูปสลิปที่สแกนจะถูกส่งผ่าน Cloudflare Workers Proxy ไปยัง Gemini เพื่ออ่านรายการ **ไม่มีการเก็บรูปหรือข้อมูลใดๆ** ไว้ที่ server ทั้งสิ้น
