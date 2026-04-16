@@ -684,7 +684,7 @@ function App() {
 
 
       {/* Header */}
-      <header className="sticky top-0 z-40 border-b border-gray-100 bg-white/80 backdrop-blur-md">
+      <header className="sticky top-0 z-40 border-b border-gray-100 bg-white/80 backdrop-blur-md" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-violet-600 text-white">
@@ -724,7 +724,7 @@ function App() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl space-y-4 px-4 py-5 pb-16">
+      <main className="mx-auto max-w-3xl space-y-4 px-4 py-5 pb-16" style={{ paddingBottom: 'max(4rem, env(safe-area-inset-bottom))' }}>
 
         {/* ── STEP 1: คนหาร ── */}
         <SectionCard>
