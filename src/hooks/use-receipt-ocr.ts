@@ -9,7 +9,7 @@
  * which froze the browser for 30+ seconds on normal phone photos.
  */
 
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useRef, useState, useMemo } from 'react'
 import { PSM, createWorker } from 'tesseract.js'
 
 import { parseReceiptText } from '../lib/receipt-parser'
@@ -204,7 +204,10 @@ export function useReceiptOcr() {
     setError(null)
   }, [])
 
-  const mergedItems = results.flatMap((r) => r.items)
+  const mergedItems = useMemo(() => {
+    return results.flatMap((r, i) => r.items.map(it => ({ ...it, billId: `ocr-${i}` })))
+  }, [results])
+  
   const lastSummary = results.length > 0 ? results[results.length - 1]?.summary : null
 
   return {
@@ -218,5 +221,6 @@ export function useReceiptOcr() {
     reset,
     terminate,
     isBusy: status === 'loading' || status === 'recognizing',
+    setResults,
   }
 }

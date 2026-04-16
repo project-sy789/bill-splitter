@@ -17,6 +17,7 @@ export interface BillItemDraft {
   consumerIds: string[]
   percentageByUser: Record<string, number>
   exactByUser: Record<string, number>
+  billId?: string
 }
 
 export interface ManualBill {

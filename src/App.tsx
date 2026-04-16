@@ -251,7 +251,7 @@ function App() {
     }
   }, [])
 
-  const { progress, results, mergedItems, error, scanFiles, reset, terminate, isBusy } = useReceiptOcr()
+  const { progress, results, mergedItems, error, scanFiles, reset, terminate, isBusy, setResults } = useReceiptOcr()
 
   // ── Persist to localStorage ──
   useEffect(() => {
@@ -279,8 +279,12 @@ function App() {
     setItems((prev) => {
       const next = [...prev]
       newOcrItems.forEach((oi) => {
-        // Grouping: Check if an exact match of (name + exact price) exists
-        const matchBaseIdx = next.findIndex((x) => (x.name === oi.name || x.name.startsWith(`${oi.name} (x`)) && Math.abs((x.amount / (parseInt(x.name.match(/\(x(\d+)\)$/)?.[1] || '1', 10))) - oi.amount) < 0.01)
+        // Grouping: Check if an exact match of (name + exact price) exists IN THE SAME BILL
+        const matchBaseIdx = next.findIndex((x) => 
+          (x.name === oi.name || x.name.startsWith(`${oi.name} (x`)) && 
+          Math.abs((x.amount / (parseInt(x.name.match(/\(x(\d+)\)$/)?.[1] || '1', 10))) - oi.amount) < 0.01 &&
+          x.billId === oi.billId
+        )
 
         if (matchBaseIdx !== -1) {
           const item = next[matchBaseIdx]!
@@ -300,6 +304,7 @@ function App() {
             id: oi.id,
             name: oi.name,
             amount: oi.amount,
+            billId: oi.billId,
             splitMode: 'equally' as SplitMode,
             consumerIds: members.map((m) => m.id),
             percentageByUser: Object.fromEntries(members.map((m) => [m.id, round2(100 / Math.max(members.length, 1))])),
@@ -463,12 +468,35 @@ function App() {
   }, [])
 
   const updateItem = useCallback(<K extends keyof BillItemDraft>(itemId: string, field: K, value: BillItemDraft[K]) => {
+    const oldItem = items.find((item) => item.id === itemId)
+    if (field === 'amount' && oldItem && oldItem.billId && oldItem.billId.startsWith('ocr-')) {
+      const diff = (value as number) - oldItem.amount
+      if (diff !== 0) {
+        const ocrIdx = parseInt(oldItem.billId.split('-')[1]!, 10)
+        setResults(res => res.map((r, i) => i === ocrIdx ? { ...r, summary: { ...r.summary, total: round2((r.summary.total || 0) + diff) } } : r))
+        
+        const payerId = receiptPayerMap[oldItem.billId]
+        if (payerId) {
+          setPaidByMember(payers => ({ ...payers, [payerId]: Math.max(0, round2((payers[payerId] || 0) + diff)) }))
+        }
+      }
+    }
     setItems((prev) => prev.map((item) => item.id === itemId ? { ...item, [field]: value } : item))
-  }, [])
+  }, [items, setResults, receiptPayerMap])
 
   const removeItem = useCallback((id: string) => {
+    const itemToDelete = items.find((item) => item.id === id)
+    if (itemToDelete && itemToDelete.billId && itemToDelete.billId.startsWith('ocr-')) {
+      const ocrIdx = parseInt(itemToDelete.billId.split('-')[1]!, 10)
+      setResults(res => res.map((r, i) => i === ocrIdx ? { ...r, summary: { ...r.summary, total: round2((r.summary.total || 0) - itemToDelete.amount) } } : r))
+      
+      const payerId = receiptPayerMap[itemToDelete.billId]
+      if (payerId) {
+        setPaidByMember(payers => ({ ...payers, [payerId]: Math.max(0, round2((payers[payerId] || 0) - itemToDelete.amount)) }))
+      }
+    }
     setItems((prev) => prev.filter((item) => item.id !== id))
-  }, [])
+  }, [items, setResults, receiptPayerMap])
 
   const addManualItem = useCallback(() => {
     const item = makeNewItem(members)
