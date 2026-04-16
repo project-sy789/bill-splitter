@@ -1,13 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  AlertTriangle,
   Camera,
   ChevronDown,
-  ChevronUp,
   Copy,
   Download,
   History,
-  Image,
   Loader2,
   Plus,
   QrCode as QrCodeIcon,
@@ -20,6 +17,7 @@ import {
   BookmarkPlus,
   Share,
   Check,
+  AlertCircle,
 } from 'lucide-react'
 import * as htmlToImage from 'html-to-image'
 
@@ -27,7 +25,7 @@ import { QrCode } from './components/qr-code'
 import { useReceiptOcr } from './hooks/use-receipt-ocr'
 import { useBillHistory } from './hooks/use-bill-history'
 import { useGroups } from './hooks/use-groups'
-import { buildPromptPayPayload, formatPromptPay, validatePromptPay, toPromptPayTarget } from './lib/promptpay'
+import { buildPromptPayPayload, formatPromptPay, toPromptPayTarget } from './lib/promptpay'
 import * as db from './lib/bill-db'
 import {
   type AllocationMode,
@@ -325,7 +323,7 @@ function App() {
     return totals
   }, [items, members])
 
-  const totalItemsAmount = useMemo(() => round2(items.reduce((s, i) => s + i.amount, 0)), [items])
+
 
   const adjustmentsByMember = useMemo(() => {
     const totalAdjustments: Record<string, number> = Object.fromEntries(members.map(m => [m.id, 0]))
@@ -383,10 +381,39 @@ function App() {
     return due
   }, [members, baseTotalsByMember, adjustmentsByMember])
 
+  const unifiedBills = useMemo(() => [
+    ...results.map((r, i) => {
+      const bId = `ocr-${i}`
+      const billItems = items.filter(it => it.billId === bId)
+      const subtotal = billItems.reduce((s, it) => s + it.amount, 0)
+      const calculatedTotal = round2(subtotal + (r.summary.serviceCharge ?? 0) + (r.vatIncluded ? 0 : (r.summary.vat ?? 0)) - (r.summary.discount ?? 0))
+      
+      return {
+        id: bId,
+        title: r.customName !== undefined ? r.customName : `สลิป ${i + 1}`,
+        subtitle: `${billItems.length} รายการ${r.vatIncluded ? ' (VAT รวมแล้ว)' : ''}`,
+        amount: r.summary.total ?? r.items.reduce((s, it) => s + it.amount, 0),
+        calculatedTotal,
+      }
+    }),
+    ...manualBills.map((m) => {
+      const billItems = items.filter(it => it.billId === m.id)
+      const subtotal = billItems.reduce((s, it) => s + it.amount, 0)
+      const calculatedTotal = round2(subtotal + m.serviceCharge + (m.vatIncluded ? 0 : m.vat) - m.discount)
+      
+      return {
+        id: m.id,
+        title: m.name,
+        subtitle: billItems.length > 0 ? `${billItems.length} รายการ` : 'ยอดใส่เอง',
+        amount: m.amount,
+        calculatedTotal,
+      }
+    })
+  ], [results, manualBills, items])
+
   const grandTotal = useMemo(() => {
-    // grandTotal is the absolute final sum of what everyone owes
-    return round2(totalItemsAmount + Object.values(adjustmentsByMember).reduce((s, a) => s + a, 0))
-  }, [totalItemsAmount, adjustmentsByMember])
+    return round2(unifiedBills.reduce((acc, b) => acc + b.amount, 0) + items.filter(it => !it.billId).reduce((acc, it) => acc + it.amount, 0))
+  }, [unifiedBills, items])
 
   // ── Persist to IndexedDB ──
   useEffect(() => {
@@ -488,49 +515,6 @@ function App() {
 
   useEffect(() => () => { void terminate() }, [terminate])
 
-  // ── Calculations ──
-
-
-
-
-
-
-
-
-
-
-  const unifiedBills = useMemo(() => [
-    ...results.map((r, i) => {
-      const bId = `ocr-${i}`
-      const billItems = items.filter(it => it.billId === bId)
-      const subtotal = billItems.reduce((s, it) => s + it.amount, 0)
-      const calculatedTotal = round2(subtotal + (r.summary.serviceCharge ?? 0) + (r.vatIncluded ? 0 : (r.summary.vat ?? 0)) - (r.summary.discount ?? 0))
-      
-      return {
-        id: bId,
-        title: r.customName !== undefined ? r.customName : `สลิป ${i + 1}`,
-        subtitle: `${billItems.length} รายการ${r.vatIncluded ? ' (VAT รวมแล้ว)' : ''}`,
-        amount: r.summary.total ?? r.items.reduce((s, it) => s + it.amount, 0),
-        calculatedTotal,
-      }
-    }),
-    ...manualBills.map((m) => {
-      const billItems = items.filter(it => it.billId === m.id)
-      const subtotal = billItems.reduce((s, it) => s + it.amount, 0)
-      const calculatedTotal = round2(subtotal + m.serviceCharge + (m.vatIncluded ? 0 : m.vat) - m.discount)
-      
-      return {
-        id: m.id,
-        title: m.name,
-        subtitle: billItems.length > 0 ? `${billItems.length} รายการ` : 'ยอดใส่เอง',
-        amount: m.amount,
-        calculatedTotal,
-      }
-    })
-  ], [results, manualBills, items])
-
-  const unifiedBillsSum = useMemo(() => round2(unifiedBills.reduce((s, b) => s + b.amount, 0)), [unifiedBills])
-
   const normalizedPaid = useMemo(() => {
     const out: Record<string, number> = {}
     members.forEach((m) => {
@@ -606,16 +590,6 @@ function App() {
     setMembers((prev) => prev.map((m) => m.id === id ? { ...m, [field]: value } : m))
   }, [])
 
-  const toggleConsumer = useCallback((itemId: string, memberId: string) => {
-    setItems((prev) =>
-      prev.map((item) => {
-        if (item.id !== itemId) return item
-        const has = item.consumerIds.includes(memberId)
-        return { ...item, consumerIds: has ? item.consumerIds.filter((c) => c !== memberId) : [...item.consumerIds, memberId] }
-      }),
-    )
-  }, [])
-
   const updateItem = useCallback(<K extends keyof BillItemDraft>(itemId: string, field: K, value: BillItemDraft[K]) => {
     const oldItem = items.find((item) => item.id === itemId)
     if (field === 'amount' && oldItem && oldItem.billId) {
@@ -637,46 +611,11 @@ function App() {
     setItems((prev) => prev.map((item) => item.id === itemId ? { ...item, [field]: value } : item))
   }, [items, setResults, receiptPayerMap])
 
-  const removeItem = useCallback((id: string) => {
-    const itemToDelete = items.find((item) => item.id === id)
-    if (itemToDelete && itemToDelete.billId) {
-      if (itemToDelete.billId.startsWith('ocr-')) {
-        const ocrIdx = parseInt(itemToDelete.billId.split('-')[1]!, 10)
-        setResults(res => res.map((r, i) => i === ocrIdx ? { ...r, summary: { ...r.summary, total: round2((r.summary.total || 0) - itemToDelete.amount) } } : r))
-      } else {
-        setManualBills(prev => prev.map(m => m.id === itemToDelete.billId ? { ...m, amount: Math.max(0, round2(m.amount - itemToDelete.amount)) } : m))
-      }
-      
-      const payerId = receiptPayerMap[itemToDelete.billId]
-      if (payerId) {
-        setPaidByMember(payers => ({ ...payers, [payerId]: Math.max(0, round2((payers[payerId] || 0) - itemToDelete.amount)) }))
-      }
-    }
-    setItems((prev) => prev.filter((item) => item.id !== id))
-  }, [items, setResults, receiptPayerMap])
-
   const addManualItem = useCallback((billId?: string) => {
     const item = makeNewItem(members)
     if (billId) item.billId = billId
     setItems((prev) => [...prev, item])
     setExpandedItems((prev) => new Set([...prev, item.id]))
-  }, [members])
-
-  const createManualBillAndItem = useCallback(() => {
-    const newBillId = crypto.randomUUID()
-    setManualBills(prev => [...prev, { 
-      id: newBillId, 
-      name: 'บิลใหม่', 
-      amount: 0,
-      serviceCharge: 0,
-      vat: 0,
-      discount: 0,
-      vatIncluded: false
-    }])
-    const item = makeNewItem(members)
-    item.billId = newBillId
-    setItems(prev => [...prev, item])
-    setExpandedItems(prev => new Set([...prev, item.id]))
   }, [members])
 
   const toggleExpanded = useCallback((id: string) => {
@@ -686,12 +625,6 @@ function App() {
       else next.add(id)
       return next
     })
-  }, [])
-
-  const copyText = useCallback(async (text: string, id: string) => {
-    await navigator.clipboard.writeText(text)
-    setCopiedId(id)
-    setTimeout(() => setCopiedId(null), 1500)
   }, [])
 
   const exportBill = useCallback(() => {
@@ -735,6 +668,12 @@ function App() {
     prevMergedLenRef.current = 0
     prevResultsLenRef.current = 0
   }, [reset])
+
+  const copyText = useCallback(async (text: string, id: string) => {
+    await navigator.clipboard.writeText(text)
+    setCopiedId(id)
+    setTimeout(() => setCopiedId(null), 1500)
+  }, [])
 
   const loadHistoryBill = useCallback(async (id: string) => {
     const data = await db.getBill(id)
@@ -820,9 +759,6 @@ function App() {
             </div>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="hidden sm:flex items-center gap-1 rounded-full bg-violet-50 border border-violet-200 px-2 py-1 text-xs font-medium text-violet-700">
-              ฟรี 100%
-            </span>
             <button
               onClick={() => setIsHistoryModalOpen(true)}
               className="rounded-xl border border-gray-200 p-2 text-gray-500 hover:bg-gray-50 transition-colors"
@@ -831,7 +767,7 @@ function App() {
               <History className="h-4 w-4" />
             </button>
             <button
-              onClick={triggerImportUpload}
+              onClick={() => importInputRef.current?.click()}
               className="rounded-xl border border-gray-200 p-2 text-gray-500 hover:bg-gray-50 transition-colors"
               title="โหลดข้อมูลทีบันทึกย้อนหลัง (JSON)"
             >
@@ -844,6 +780,15 @@ function App() {
             >
               <Download className="h-4 w-4" />
             </button>
+            <button
+              onClick={() => {
+                if(confirm('คุณแน่ใจหรือไม่ว่าต้องการล้างข้อมูลทั้งหมด?')) resetAll()
+              }}
+              className="rounded-xl border border-red-100 p-2 text-red-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+              title="ล้างข้อมูลทั้งหมด"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
           </div>
         </div>
       </header>
@@ -855,21 +800,27 @@ function App() {
           <div className="flex justify-between items-center mb-4">
             <StepBadge n={1} label="ใส่ชื่อคนที่จะหารบิล" />
             <div className="flex gap-2">
-              <button onClick={() => setGroupModalMode('save')} className="text-xs text-violet-600 bg-violet-50 hover:bg-violet-100 flex items-center gap-1 px-2 py-1.5 rounded-lg font-medium transition-colors border border-violet-100">
+              <button 
+                onClick={() => setGroupModalMode('save')} 
+                className="text-xs text-violet-600 bg-violet-50 hover:bg-violet-100 flex items-center gap-1 px-2 py-1.5 rounded-lg font-medium transition-colors border border-violet-100"
+              >
                 <BookmarkPlus className="w-3.5 h-3.5"/> บันทึกแก๊ง
               </button>
-              <button onClick={() => setGroupModalMode('load')} className="text-xs text-violet-600 bg-violet-50 hover:bg-violet-100 flex items-center gap-1 px-2 py-1.5 rounded-lg font-medium transition-colors border border-violet-100">
+              <button 
+                onClick={() => setGroupModalMode('load')} 
+                className="text-xs text-violet-600 bg-violet-50 hover:bg-violet-100 flex items-center gap-1 px-2 py-1.5 rounded-lg font-medium transition-colors border border-violet-100"
+              >
                 <Bookmark className="w-3.5 h-3.5"/> โหลดแก๊ง
               </button>
             </div>
           </div>
 
-          <div className="space-y-2.5">
+          <div className="space-y-3">
             {members.map((member, idx) => (
               <div key={member.id} className="flex flex-col gap-2 rounded-xl border border-gray-100 bg-gray-50 p-3">
                 <div className="flex items-center gap-2">
                   <span
-                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white shadow-sm"
                     style={{ backgroundColor: member.color }}
                   >
                     {member.name.slice(0, 1) || (idx + 1)}
@@ -878,7 +829,7 @@ function App() {
                     value={member.name}
                     onChange={(e) => updateMember(member.id, 'name', e.target.value)}
                     placeholder={`คนที่ ${idx + 1}`}
-                    className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-400"
+                    className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-400 transition-all shadow-sm"
                   />
                   <button
                     onClick={() => removeMember(member.id)}
@@ -889,169 +840,238 @@ function App() {
                   </button>
                 </div>
                 <div className="flex items-center gap-2 pl-9">
-                  <label className="text-xs text-gray-400 shrink-0">PromptPay:</label>
-                     <span className="text-[10px] text-amber-500 mr-1 uppercase">แบ่งจ่ายโดย:</span>
-                          {members.map((m) => {
-                            const checked = item.consumerIds.includes(m.id)
-                            return (
-                              <button key={m.id} onClick={() => toggleConsumer(item.id, m.id)} className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition-all ${checked ? 'text-white' : 'bg-gray-100 text-gray-400'}`} style={checked ? { backgroundColor: m.color } : {}}>
-                                {m.name}
-                              </button>
-                            )
-                          })}
-                        </div>
-                        {isExpanded && (
-                           <div className="border-t border-amber-100 bg-amber-50/50 p-3">
-                              <div className="flex flex-wrap gap-2 text-[11px] text-gray-500 uppercase font-medium mb-1">ยอดจ่ายจริง:</div>
-                              <div className="flex flex-wrap gap-2">
-                                {members.map((m) => (
-                                  <span key={m.id} className="text-xs text-gray-600">
-                                    <span className="font-medium">{m.name}</span> ฿{(split[m.id] ?? 0).toFixed(2)}
-                                  </span>
-                                ))}
-                              </div>
-                           </div>
-                        )}
-                      </div>
-                    )
-                  })}
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider shrink-0">PromptPay:</label>
+                  <input
+                    value={member.promptPayId || ''}
+                    onChange={(e) => updateMember(member.id, 'promptPayId', e.target.value)}
+                    placeholder="เบอร์โทร หรือ เลขบัตร"
+                    className="flex-1 bg-transparent border-none p-0 text-[11px] font-mono font-bold text-gray-600 focus:ring-0 placeholder:text-gray-300"
+                  />
                 </div>
-              )}
-
-              {/* Add New Bill globally */}
-              <button
-                onClick={createManualBillAndItem}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-200 py-3 text-sm font-semibold text-gray-400 transition hover:border-violet-300 hover:text-violet-600 hover:bg-violet-50/50 mt-4"
-              >
-                <Plus className="h-4 w-4" />
-                ➕ สร้างบิลใหม่เพื่อเพิ่มรายการ
-              </button>
-            </div>
-          )}
-
-          {/* Grand total summary */}
-          {items.length > 0 && (
-            <div className="mt-4 border-t border-gray-100 pt-3">
-              <div className="flex justify-between items-center text-sm font-semibold text-gray-700">
-                <span>ยอดรวมสุทธิที่ต้องจ่ายทั้งหมด</span>
-                <span className="text-base font-bold text-violet-700">฿{grandTotal.toFixed(2)}</span>
               </div>
-            </div>
-          )}
+            ))}
+          </div>
+
+          <button
+            onClick={addMember}
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-200 py-3 text-sm font-semibold text-gray-400 transition hover:border-violet-300 hover:text-violet-600 hover:bg-violet-50/50"
+          >
+            <Plus className="h-4 w-4" />
+            เพิ่มคนหารบิล
+          </button>
         </SectionCard>
-
-
 
         {/* ── STEP 2: ใบเสร็จ & รายการ ── */}
         {(results.length > 0 || manualBills.length > 0 || !isBusy || items.some(it => !it.billId)) && (
-          <SectionCard>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-              <div>
-                <StepBadge n={2} label="ใบเสร็จ & รายการ" />
-                <p className="text-[11px] text-gray-400 mt-1 ml-1">สแกน/เพิ่มบิล แล้วระบุว่าใครกินอะไรในใบเสร็จนั้นๆ</p>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => cameraInputRef.current?.click()}
-                  disabled={isBusy}
-                  className="flex-1 sm:flex-initial flex items-center justify-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-4 py-2 text-sm font-bold text-violet-700 hover:bg-violet-100 disabled:opacity-50 transition-all font-heading"
-                >
-                  {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
-                  {isBusy ? 'กำลังสแกน...' : 'ถ่ายบิลใหม่'}
-                </button>
-                <button
-                  onClick={() => setIsManualBillModalOpen(true)}
-                  className="flex-1 sm:flex-initial flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-bold text-white hover:bg-violet-700 transition-all shadow-lg active:scale-95 font-heading"
-                >
-                  <Plus className="h-4 w-4" /> เพิ่มบิลเอง
-                </button>
-              </div>
-            </div>
-
-            {/* OCR Progress & Errors */}
-            {isBusy && (
-              <div className="mb-6 rounded-2xl border border-violet-100 bg-violet-50 p-4 animate-pulse">
-                <div className="mb-2 flex items-center gap-2 text-xs font-bold text-violet-700 uppercase tracking-wider">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  {progress.statusText}
+          <div className="space-y-6">
+            <SectionCard>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <StepBadge n={2} label="ใบเสร็จ & รายการ" />
+                  <p className="text-[11px] text-gray-400 mt-1 ml-1">สแกน/เพิ่มบิล แล้วระบุว่าใครกินอะไร</p>
                 </div>
-                <div className="h-2 overflow-hidden rounded-full bg-violet-100">
-                  <div className="h-full rounded-full bg-violet-600 transition-all duration-300" style={{ width: `${progress.progress}%` }} />
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => cameraInputRef.current?.click()}
+                    disabled={isBusy}
+                    className="flex-1 sm:flex-initial flex items-center justify-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-4 py-2 text-sm font-bold text-violet-700 hover:bg-violet-100 disabled:opacity-50 transition-all font-heading"
+                  >
+                    {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+                    {isBusy ? 'กำลังสแกน...' : 'ถ่ายบิลใหม่'}
+                  </button>
+                  <button
+                    onClick={() => setIsManualBillModalOpen(true)}
+                    className="flex-1 sm:flex-initial flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-bold text-white hover:bg-violet-700 transition-all shadow-lg active:scale-95 font-heading"
+                  >
+                    <Plus className="h-4 w-4" /> เพิ่มบิลเอง
+                  </button>
                 </div>
               </div>
-            )}
-            
-            {error && (
-              <div className="mb-6 flex items-start gap-3 rounded-2xl border border-red-100 bg-red-50 p-4 text-xs text-red-700">
-                <AlertCircle className="h-4 w-4 shrink-0 text-red-500" />
-                <span>{error}</span>
-              </div>
-            )}
 
-            {/* Orphaned Items (Independent) */}
-            {items.some(it => !it.billId) && (
-              <div className="mb-10 p-5 bg-amber-50/20 rounded-3xl border border-amber-100 border-dashed relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-amber-100/20 rounded-full -mr-16 -mt-16 blur-3xl" />
-                <div className="flex items-center justify-between mb-5 relative z-10">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse shadow-[0_0_8px_rgba(245,158,11,0.5)]" />
-                    <span className="text-[11px] font-black text-amber-700 uppercase tracking-[0.15em]">รายการอิสระ (ไม่มีใบเสร็จ)</span>
+              {/* OCR Progress & Errors */}
+              {isBusy && (
+                <div className="mt-6 rounded-2xl border border-violet-100 bg-violet-50 p-4 animate-pulse">
+                  <div className="mb-2 flex items-center gap-2 text-xs font-bold text-violet-700 uppercase tracking-wider">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    {progress.statusText}
                   </div>
-                  <span className="text-[10px] text-amber-500/80 font-medium font-heading">ใบนอกรอบ</span>
+                  <div className="h-2 overflow-hidden rounded-full bg-violet-100">
+                    <div className="h-full rounded-full bg-violet-600 transition-all duration-300" style={{ width: `${progress.progress}%` }} />
+                  </div>
                 </div>
-                <div className="space-y-3 relative z-10">
-                  {items.filter(it => !it.billId).map((item) => (
-                    <div key={item.id} className="bg-white p-4 rounded-2xl border border-amber-200/50 shadow-sm transition-all hover:shadow-md hover:border-amber-300 group">
-                      <div className="flex items-center gap-3">
-                        <input
-                          value={item.name}
-                          onChange={(e) => updateItem(item.id, 'name', e.target.value)}
-                          placeholder="รายการอะไร?"
-                          className="flex-1 text-sm font-black text-gray-800 bg-transparent outline-none focus:ring-0 p-0 border-none placeholder:text-gray-300"
-                        />
-                        <div className="flex items-center gap-1.5 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-100 transition-all group-hover:bg-white group-hover:border-amber-200">
-                          <span className="text-[10px] font-bold text-gray-400">฿</span>
-                          <input
-                            type="number"
-                            value={item.amount || ''}
-                            onChange={(e) => updateItem(item.id, 'amount', Number(e.target.value) || 0)}
-                            placeholder="0"
-                            className="w-16 text-right text-sm font-black text-gray-900 outline-none bg-transparent"
-                          />
+              )}
+              
+              {error && (
+                <div className="mt-6 flex items-start gap-3 rounded-2xl border border-red-100 bg-red-50 p-4 text-xs text-red-700">
+                  <AlertCircle className="h-4 w-4 shrink-0 text-red-500" />
+                  <span>{error}</span>
+                </div>
+              )}
+            </SectionCard>
+
+            <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6 items-start">
+              {/* LEFT COLUMN: ITEM MANAGEMENT (รายการสินค้า) */}
+              <div className="lg:col-span-7 w-full space-y-4 order-2 lg:order-1">
+                <div className="flex items-center justify-between px-2">
+                  <h3 className="text-sm font-black text-gray-700 uppercase tracking-widest flex items-center gap-2">
+                    <ListFilter className="h-4 w-4 text-violet-500" />
+                    รายการสินค้า
+                  </h3>
+                  <span className="text-[10px] font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+                    {items.length} รายการ
+                  </span>
+                </div>
+
+                <div className="space-y-3">
+                  {items.map((item) => {
+                    const split = calcItemSplit(item, members)
+                    const isExpanded = expandedItems.has(item.id)
+                    const parentBill = unifiedBills.find(b => b.id === item.billId)
+                    
+                    return (
+                      <div key={item.id} className={`bg-white rounded-3xl border transition-all duration-300 ${isExpanded ? 'ring-2 ring-violet-100 border-violet-200 shadow-xl' : 'border-gray-100 shadow-sm hover:shadow-md'}`}>
+                        <div className="p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <input
+                                  value={item.name}
+                                  onChange={(e) => updateItem(item.id, 'name', e.target.value)}
+                                  placeholder="ชื่อรายการ"
+                                  className="text-sm font-black text-gray-800 bg-transparent outline-none p-0 border-none w-full"
+                                />
+                                {parentBill && (
+                                  <span className="shrink-0 text-[8px] font-black bg-violet-50 text-violet-500 px-1.5 py-0.5 rounded-md uppercase tracking-tighter">
+                                    {parentBill.title.slice(0, 10)}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex flex-wrap gap-1">
+                                {item.consumerIds.map(cid => (
+                                  <span key={cid} className="text-[9px] bg-gray-50 text-gray-400 px-1.5 py-0.5 rounded border border-gray-100 text-center min-w-[30px]">
+                                    {members.find(m => m.id === cid)?.name}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <div className="flex items-center gap-1.5 bg-gray-50 px-2 py-1 rounded-xl border border-gray-100">
+                                <span className="text-[10px] font-bold text-gray-400">฿</span>
+                                <input
+                                  type="number"
+                                  value={item.amount || ''}
+                                  onChange={(e) => updateItem(item.id, 'amount', Number(e.target.value) || 0)}
+                                  placeholder="0"
+                                  className="w-16 text-right text-sm font-black text-gray-900 bg-transparent outline-none"
+                                />
+                              </div>
+                              <div className="flex items-center justify-end gap-1 mt-2">
+                                <button 
+                                  onClick={() => setExpandedItems(prev => {
+                                    const next = new Set(prev)
+                                    if (next.has(item.id)) next.delete(item.id)
+                                    else next.add(item.id)
+                                    return next
+                                  })}
+                                  className="p-1 px-2 text-[10px] font-bold text-violet-600 hover:bg-violet-50 rounded-lg transition-colors border border-violet-100"
+                                >
+                                  {isExpanded ? 'ปิด' : 'ตั้งค่าหาร'}
+                                </button>
+                                <button 
+                                  onClick={() => setItems(prev => prev.filter(it => it.id !== item.id))}
+                                  className="p-1.5 text-red-200 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+
+                          {isExpanded && (
+                            <div className="mt-4 pt-4 border-t border-dashed border-gray-100 animate-in fade-in slide-in-from-top-2">
+                              <div className="flex items-center justify-between mb-3">
+                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">วิธีหารอาหารจานนี้</span>
+                                <div className="flex bg-gray-50 rounded-lg p-0.5 border border-gray-100">
+                                  {(['equally', 'percentage', 'exact'] as const).map((mode) => (
+                                    <button
+                                      key={mode}
+                                      onClick={() => updateItem(item.id, 'splitMode', mode)}
+                                      className={`rounded-md px-2 py-1 text-[10px] font-bold transition-all ${
+                                        item.splitMode === mode ? 'bg-violet-600 text-white shadow-sm' : 'text-gray-400 hover:text-gray-600'
+                                      }`}
+                                    >
+                                      {mode === 'equally' ? 'เท่ากัน' : mode === 'percentage' ? '%' : 'ระบุเอง'}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+
+                              <div className="flex flex-wrap gap-1.5 mb-4">
+                                {members.map((m) => {
+                                  const isActive = item.consumerIds.includes(m.id)
+                                  return (
+                                    <button
+                                      key={m.id}
+                                      onClick={() => {
+                                        const next = isActive ? item.consumerIds.filter(id => id !== m.id) : [...item.consumerIds, m.id]
+                                        updateItem(item.id, 'consumerIds', next)
+                                      }}
+                                      className={`px-3 py-1.5 rounded-xl text-[10px] font-bold transition-all transform active:scale-95 ${
+                                        isActive 
+                                          ? 'bg-violet-600 text-white shadow-lg' 
+                                          : 'bg-white border border-gray-200 text-gray-400 hover:border-violet-300'
+                                      }`}
+                                    >
+                                      {m.name}
+                                    </button>
+                                  )
+                                })}
+                              </div>
+
+                              {item.splitMode !== 'equally' && (
+                                <div className="space-y-2 mb-4 bg-gray-50 p-3 rounded-2xl border border-gray-100">
+                                  {item.consumerIds.map(cid => {
+                                    const m = members.find(x => x.id === cid)
+                                    if (!m) return null
+                                    return (
+                                      <div key={cid} className="flex items-center justify-between">
+                                        <span className="text-[10px] font-black text-gray-600">{m.name}</span>
+                                        <div className="flex items-center gap-1.5">
+                                          <span className="text-[10px] font-bold text-gray-300 italic">{item.splitMode === 'percentage' ? '%' : '฿'}</span>
+                                          <input 
+                                            type="number"
+                                            value={(item.splitMode === 'percentage' ? item.percentageByUser[cid] : item.exactByUser[cid]) ?? ''}
+                                            onChange={(e) => {
+                                              const field = item.splitMode === 'percentage' ? 'percentageByUser' : 'exactByUser'
+                                              updateItem(item.id, field, { ...item[field], [cid]: Number(e.target.value) || 0 })
+                                            }}
+                                            className="w-20 bg-white border border-gray-200 rounded-lg px-2 py-1 text-right text-[11px] font-black outline-none focus:ring-2 focus:ring-violet-400"
+                                          />
+                                        </div>
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              )}
+
+                              <div className="text-[10px] font-bold text-violet-400 flex justify-between items-center bg-violet-50/50 p-2 rounded-xl">
+                                <span>สรุปยอดหารต่อคน:</span>
+                                <div className="flex flex-wrap justify-end gap-x-3 gap-y-1 max-w-[70%]">
+                                  {item.consumerIds.map(cid => (
+                                    <span key={cid} className="font-mono">{members.find(x => x.id === cid)?.name} ฿{round2(split[cid] ?? 0).toFixed(1)}</span>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
-                        <button 
-                          onClick={() => setItems(prev => prev.filter(it => it.id !== item.id))}
-                          className="p-1.5 text-gray-200 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
                       </div>
-                      <div className="mt-4 flex flex-wrap gap-2 border-t border-amber-50 pt-4">
-                        {members.map(m => {
-                          const active = item.consumerIds.includes(m.id)
-                          return (
-                            <button
-                              key={m.id}
-                              onClick={() => {
-                                const next = active ? item.consumerIds.filter(id => id !== m.id) : [...item.consumerIds, m.id]
-                                updateItem(item.id, 'consumerIds', next)
-                              }}
-                              className={`px-3 py-1 rounded-full text-[10px] font-black transition-all transform active:scale-90 ${
-                                active 
-                                  ? 'bg-amber-600 text-white shadow-md shadow-amber-200' 
-                                  : 'bg-white border border-gray-200 text-gray-400 hover:border-gray-300'
-                              }`}
-                            >
-                              {m.name}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  ))}
+                    )
+                  })}
+
                   <button
                     onClick={() => {
-                       const item: BillItemDraft = {
+                      const item: BillItemDraft = {
                         id: crypto.randomUUID(),
                         name: '',
                         amount: 0,
@@ -1061,272 +1081,119 @@ function App() {
                         exactByUser: Object.fromEntries(members.map((m) => [m.id, 0])),
                       }
                       setItems((prev) => [...prev, item])
+                      setExpandedItems(prev => new Set(prev).add(item.id))
                     }}
-                    className="w-full py-3 border-2 border-dashed border-amber-200/50 rounded-2xl text-[10px] font-black text-amber-500 hover:border-amber-400 hover:bg-amber-50/50 transition-all uppercase tracking-widest flex items-center justify-center gap-2"
+                    className="w-full py-4 border-2 border-dashed border-gray-200 rounded-3xl text-[11px] font-black text-gray-400 hover:border-violet-300 hover:bg-violet-50/50 hover:text-violet-500 transition-all uppercase tracking-widest flex items-center justify-center gap-2 group"
                   >
-                    <Plus className="h-3.5 w-3.5" />
-                    เพิ่มรายการอิสระตรงนี้
+                    <Plus className="h-4 w-4 group-hover:scale-110 transition-transform" />
+                    เพิ่มรายการอาหาร/สินค้า
                   </button>
                 </div>
               </div>
-            )}
-            
-            <div className="space-y-12">
-                {unifiedBills.map((b) => {
-                  const assignedId = receiptPayerMap[b.id]
-                  const billItems = items.filter(it => it.billId === b.id)
-                  const isDiscrepant = Math.abs(b.amount - b.calculatedTotal) > 0.01
 
-                  return (
-                    <div key={b.id} className="receipt-serrated-top receipt-serrated-bottom receipt-thermal-texture rounded-b-sm border-x border-gray-100 shadow-xl overflow-hidden mb-6 group transition-all">
-                      {/* Receipt Header */}
-                      <div className="px-6 pt-8 pb-4 border-b border-dashed border-gray-200">
-                        <div className="flex justify-between items-start gap-4">
-                          <div className="flex-1 min-w-0">
-                            <input
-                              value={b.title}
-                              onChange={(e) => {
-                                if (b.id.startsWith('ocr-')) {
-                                  const idx = parseInt(b.id.split('-')[1]!, 10)
-                                  setResults(res => res.map((rr, ii) => ii === idx ? { ...rr, customName: e.target.value } : rr))
-                                } else {
-                                  setManualBills(prev => prev.map(m => m.id === b.id ? {...m, name: e.target.value} : m))
-                                }
-                              }}
-                              className="text-lg font-black text-gray-800 bg-transparent border-none w-full outline-none focus:ring-0 p-0 placeholder:text-gray-300 uppercase tracking-tight"
-                              placeholder={b.id.startsWith('ocr-') ? "ชื่อร้านค้า (สลิป)" : "ชื่อรายการบิล"}
-                            />
-                            <div className="flex items-center gap-2 mt-1">
-                              <span className="text-[10px] font-mono text-gray-400"># {b.id.slice(-8).toUpperCase()}</span>
-                              <span className="text-[10px] font-mono text-gray-400">• {new Date().toLocaleDateString('th-TH')}</span>
+              {/* RIGHT COLUMN: RECEIPTS & BILL SUMMARY (ใบเสร็จ & ยอดจ่าย) */}
+              <div className="lg:col-span-5 w-full space-y-6 order-1 lg:order-2">
+                <div className="px-2">
+                  <h3 className="text-sm font-black text-gray-700 uppercase tracking-widest flex items-center gap-2">
+                    <Receipt className="h-4 w-4 text-violet-500" />
+                    ใบเสร็จ & ยอดจ่าย
+                  </h3>
+                </div>
+
+                <div className="space-y-8">
+                  {unifiedBills.map((b) => {
+                    const isDiscrepant = Math.abs(round2(b.amount - b.calculatedTotal)) > 0.01
+                    const assignedId = receiptPayerMap[b.id]
+                    const currentItemsSum = items.filter(it => it.billId === b.id).reduce((s, it) => s + it.amount, 0)
+
+                    return (
+                      <div key={b.id} className="receipt-serrated-top receipt-serrated-bottom receipt-thermal-texture rounded-b shadow-2xl relative">
+                        <div className="px-5 pt-8 pb-4 border-b border-dashed border-gray-200">
+                          <input
+                            value={b.title}
+                            onChange={(e) => {
+                              if (b.id.startsWith('ocr-')) {
+                                setResults(res => res.map((rr, ii) => ii === parseInt(b.id.split('-')[1]!, 10) ? { ...rr, customName: e.target.value } : rr))
+                              } else {
+                                setManualBills(prev => prev.map(m => m.id === b.id ? {...m, name: e.target.value} : m))
+                              }
+                            }}
+                            className="text-lg font-black text-gray-800 bg-transparent border-none w-full outline-none focus:ring-0 p-0 placeholder:text-gray-300 uppercase tracking-tighter"
+                            placeholder="บิลรายการ"
+                          />
+                          <div className="flex justify-between items-end mt-1">
+                            <span className="text-[10px] font-mono text-gray-400 uppercase">Ref: {b.id.slice(-6)}</span>
+                            <div className="text-right">
+                              <p className="text-[10px] font-black text-gray-300 uppercase leading-none">Net Total</p>
+                              <p className="text-xl font-black text-violet-700 tabular-nums">฿{b.amount.toFixed(2)}</p>
                             </div>
-                          </div>
-                          <div className="text-right shrink-0">
-                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">ยอดรวมสุทธิ</p>
-                            <p className="text-2xl font-black text-violet-700 tabular-nums">฿{b.amount.toFixed(2)}</p>
                           </div>
                         </div>
-                      </div>
 
-                      {/* Items List (Internalized) */}
-                      <div className="px-6 py-4 space-y-1">
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest border-b border-gray-100 pb-2 mb-3">รายการอาหาร/สินค้า</p>
-                        
-                        {billItems.length === 0 ? (
-                          <div className="py-4 text-center border-2 border-dashed border-gray-100 rounded-xl">
-                            <p className="text-xs text-gray-400">ยังไม่มีรายการย่อย</p>
+                        <div className="px-5 py-4 space-y-3 bg-white/40">
+                          {/* Item check for this bill */}
+                          <div className="flex justify-between items-center text-[10px] font-black uppercase text-gray-400">
+                            <span>รายการสินค้าในบิล</span>
+                            <span>฿{currentItemsSum.toFixed(2)}</span>
                           </div>
-                        ) : (
-                          <div className="space-y-4">
-                            {billItems.map((item) => {
-                              const split = calcItemSplit(item, members)
-                              const isExpanded = expandedItems.has(item.id)
-                              return (
-                                <div key={item.id} className="relative">
-                                  <div className="flex items-start justify-between gap-4 group/item">
-                                    <div className="flex-1 min-w-0">
-                                      <div className="flex items-center gap-2">
-                                        <h5 className="text-sm font-bold text-gray-700 truncate">{item.name}</h5>
-                                        <button 
-                                          onClick={() => toggleItemExpand(item.id)}
-                                          className="p-0.5 hover:bg-gray-100 rounded transition-colors"
-                                        >
-                                          <ChevronDown className={`h-3 w-3 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-                                        </button>
-                                      </div>
-                                      <div className="flex flex-wrap gap-1.5 mt-1">
-                                        {item.consumerIds.map(cid => (
-                                          <span key={cid} className="text-[9px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-medium">
-                                            {members.find(m => m.id === cid)?.name}
-                                          </span>
-                                        ))}
-                                      </div>
-                                    </div>
-                                    <div className="text-right shrink-0">
-                                      <p className="text-sm font-bold text-gray-800 tabular-nums">฿{item.amount.toFixed(2)}</p>
-                                      <button 
-                                        onClick={() => setItems(prev => prev.filter(it => it.id !== item.id))}
-                                        className="text-[10px] text-red-400 hover:text-red-600 opacity-0 group-hover/item:opacity-100 transition-opacity"
-                                      >ลบ</button>
-                                    </div>
-                                  </div>
-                                  
-                                  {/* Internal Split Editor (Mini Version) */}
-                                  {isExpanded && (
-                                    <div className="mt-3 p-3 bg-gray-50/50 rounded-xl border border-gray-100 animate-in fade-in slide-in-from-top-1 duration-200">
-                                      <div className="flex items-center justify-between mb-2">
-                                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">วิธีหาร</span>
-                                        <div className="flex bg-white rounded-lg p-0.5 border border-gray-100">
-                                          {(['equally', 'percentage', 'exact'] as const).map((mode) => (
-                                            <button
-                                              key={mode}
-                                              onClick={() => updateItem(item.id, 'splitMode', mode)}
-                                              className={`rounded px-2 py-1 text-[10px] font-bold transition-all ${
-                                                item.splitMode === mode ? 'bg-violet-600 text-white shadow-sm' : 'text-gray-400 hover:text-gray-600'
-                                              }`}
-                                            >
-                                              {mode === 'equally' ? 'เท่ากัน' : mode === 'percentage' ? '%' : 'ระบุเอง'}
-                                            </button>
-                                          ))}
-                                        </div>
-                                      </div>
-                                      
-                                      {/* People selection for this item */}
-                                      <div className="flex flex-wrap gap-1.5 mb-3">
-                                        {members.map((m) => {
-                                          const isActive = item.consumerIds.includes(m.id)
-                                          return (
-                                            <button
-                                              key={m.id}
-                                              onClick={() => {
-                                                const next = isActive ? item.consumerIds.filter(id => id !== m.id) : [...item.consumerIds, m.id]
-                                                updateItem(item.id, 'consumerIds', next)
-                                              }}
-                                              className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-all ${
-                                                isActive ? 'bg-violet-100 border-violet-200 text-violet-700' : 'bg-white border-gray-100 text-gray-400 hover:border-violet-200'
-                                              }`}
-                                            >
-                                              {m.name}
-                                            </button>
-                                          )
-                                        })}
-                                      </div>
 
-                                      {/* Detail editors for non-equal modes */}
-                                      {item.splitMode !== 'equally' && (
-                                        <div className="space-y-1.5 mb-3 border-t border-gray-100 pt-3">
-                                          {item.consumerIds.map(cid => {
-                                            const m = members.find(x => x.id === cid)
-                                            if (!m) return null
-                                            return (
-                                              <div key={cid} className="flex items-center justify-between">
-                                                <span className="text-[10px] font-medium text-gray-600">{m.name}</span>
-                                                <div className="flex items-center gap-1">
-                                                  <span className="text-[10px] text-gray-400">{item.splitMode === '%' ? '%' : '฿'}</span>
-                                                  <input 
-                                                    type="number"
-                                                    value={(item.splitMode === 'percentage' ? item.percentageByUser[cid] : item.exactByUser[cid]) ?? ''}
-                                                    onChange={(e) => {
-                                                      const field = item.splitMode === 'percentage' ? 'percentageByUser' : 'exactByUser'
-                                                      updateItem(item.id, field, { ...item[field], [cid]: Number(e.target.value) || 0 })
-                                                    }}
-                                                    className="w-16 bg-white border border-gray-100 rounded px-1.5 py-0.5 text-right text-[10px] font-bold outline-none focus:ring-1 focus:ring-violet-400"
-                                                  />
-                                                </div>
-                                              </div>
-                                            )
-                                          })}
-                                        </div>
-                                      )}
+                          {/* Quick Add Discrepancy inside receipt if needed */}
+                          {(() => {
+                             const billFeesAdjust = (b.id.startsWith('ocr-') ? (results[parseInt(b.id.split('-')[1]!, 10)]?.summary.serviceCharge || 0) + (results[parseInt(b.id.split('-')[1]!, 10)]?.vatIncluded ? 0 : (results[parseInt(b.id.split('-')[1]!, 10)]?.summary.vat || 0)) - (results[parseInt(b.id.split('-')[1]!, 10)]?.summary.discount || 0) : manualBills.find(m => m.id === b.id)?.serviceCharge || 0 + (manualBills.find(m => m.id === b.id)?.vatIncluded ? 0 : (manualBills.find(m => m.id === b.id)?.vat || 0)) - (manualBills.find(m => m.id === b.id)?.discount || 0)) || 0
+                             const deficit = round2(b.amount - currentItemsSum - billFeesAdjust)
+                             if (deficit > 0.01) {
+                               return (
+                                 <button
+                                   onClick={() => {
+                                     const item: BillItemDraft = {
+                                       id: crypto.randomUUID(),
+                                       name: `ยอดส่วนต่าง ${b.title}`,
+                                       billId: b.id,
+                                       amount: deficit,
+                                       splitMode: 'equally',
+                                       consumerIds: members.map((m) => m.id),
+                                       percentageByUser: Object.fromEntries(members.map((m) => [m.id, 0])),
+                                       exactByUser: Object.fromEntries(members.map((m) => [m.id, 0])),
+                                     }
+                                     setItems((prev) => [...prev, item])
+                                   }}
+                                   className="w-full flex items-center justify-center gap-2 bg-amber-50 text-amber-600 py-1.5 rounded-lg border border-amber-100 text-[10px] font-black hover:bg-amber-100 transition-colors"
+                                 >
+                                   <Zap className="h-3 w-3" /> เพิ่มยอดตกหล่น ฿{deficit.toFixed(2)}
+                                 </button>
+                               )
+                             }
+                             return null
+                          })()}
 
-                                      <div className="text-[9px] text-gray-400 flex justify-between">
-                                        <span>สรุปยอดหารรายคน:</span>
-                                        <div className="flex gap-2">
-                                          {members.map(m => (
-                                            <span key={m.id} className="font-mono">{m.name} ฿{round2(split[m.id] ?? 0).toFixed(1)}</span>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              )
-                            })}
-                          </div>
-                        )}
-                        
-                        {/* Quick Add Discrepancy Button */}
-                        {(() => {
-                           const currentItemsSum = billItems.reduce((s, it) => s + it.amount, 0)
-                           // For individual bills, we compare subtotal vs (b.amount - SC - VAT + DS)
-                           const billFeesAdjust = (b.id.startsWith('ocr-') ? (results[parseInt(b.id.split('-')[1]!, 10)]?.summary.serviceCharge || 0) + (results[parseInt(b.id.split('-')[1]!, 10)]?.vatIncluded ? 0 : (results[parseInt(b.id.split('-')[1]!, 10)]?.summary.vat || 0)) - (results[parseInt(b.id.split('-')[1]!, 10)]?.summary.discount || 0) : manualBills.find(m => m.id === b.id)?.serviceCharge || 0 + (manualBills.find(m => m.id === b.id)?.vatIncluded ? 0 : (manualBills.find(m => m.id === b.id)?.vat || 0)) - (manualBills.find(m => m.id === b.id)?.discount || 0)) || 0
-                           const deficit = round2(b.amount - currentItemsSum - billFeesAdjust)
-                           
-                           if (deficit > 0.01) {
-                             return (
-                               <button
-                                 onClick={() => {
-                                   const item: BillItemDraft = {
-                                     id: crypto.randomUUID(),
-                                     name: `รายการตกหล่นของ ${b.title}`,
-                                     billId: b.id,
-                                     amount: deficit,
-                                     splitMode: 'equally',
-                                     consumerIds: members.map((m) => m.id),
-                                     percentageByUser: Object.fromEntries(members.map((m) => [m.id, round2(100 / Math.max(members.length, 1))])),
-                                     exactByUser: Object.fromEntries(members.map((m) => [m.id, round2(deficit / Math.max(members.length, 1))])),
-                                   }
-                                   setItems((prev) => [...prev, item])
-                                 }}
-                                 className="w-full mt-4 flex items-center justify-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] font-bold text-amber-700 hover:bg-amber-100 transition-colors"
-                               >
-                                 <Plus className="h-3 w-3" /> เพิ่มรายการส่วนต่าง ฿{deficit.toFixed(2)} เข้าบิลนี้
-                               </button>
-                             )
-                           }
-                           return null
-                        })()}
-
-                        <button
-                          onClick={() => addManualItem(b.id)}
-                          className="w-full mt-2 flex items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-gray-100 bg-gray-50/30 py-3 text-[10px] font-bold text-gray-400 hover:border-violet-200 hover:text-violet-600 transition-all uppercase tracking-widest"
-                        >
-                          <Plus className="h-3.5 w-3.5" /> เพิ่มรายการสินค้าในใบเสร็จ
-                        </button>
-                      </div>
-
-                      {/* Receipt Footer (Fees & Payer) */}
-                      <div className="px-6 pb-8 pt-4 bg-gray-50/30 border-t border-dashed border-gray-200">
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">สรุปยอดท้ายบิล & ค่าธรรมเนียม</p>
-                        
-                        <div className="space-y-2.5 rounded-xl bg-white p-3 border border-gray-100 shadow-sm relative overflow-hidden">
-                          {isDiscrepant && (
-                            <div className="absolute top-0 right-0 px-2 py-0.5 bg-amber-500 text-[8px] font-black text-white uppercase tracking-tighter rounded-bl">
-                              ยอดไม่ตรง!
+                          {/* Fees Editor Section */}
+                          <div className="space-y-2 pt-2 border-t border-dashed border-gray-100">
+                            {/* Service Charge */}
+                            <div className="flex items-center justify-between group/sc">
+                              <span className="text-[10px] font-black text-gray-500 uppercase">Service +10%</span>
+                              <div className="flex items-center gap-1">
+                                <span className="text-[10px] text-gray-300">฿</span>
+                                <input
+                                  type="number"
+                                  value={(b.id.startsWith('ocr-') ? results[parseInt(b.id.split('-')[1]!, 10)]?.summary.serviceCharge : manualBills.find(m => m.id === b.id)?.serviceCharge) || ''}
+                                  onChange={(e) => {
+                                    const val = Number(e.target.value) || 0
+                                    if (b.id.startsWith('ocr-')) {
+                                      setResults(res => res.map((rr, ii) => ii === parseInt(b.id.split('-')[1]!, 10) ? { ...rr, summary: { ...rr.summary, serviceCharge: val } } : rr))
+                                    } else {
+                                      setManualBills(prev => prev.map(mm => mm.id === b.id ? { ...mm, serviceCharge: val } : mm))
+                                    }
+                                  }}
+                                  className="w-16 bg-transparent text-right font-black text-xs outline-none focus:text-violet-600"
+                                  placeholder="0"
+                                />
+                              </div>
                             </div>
-                          )}
 
-                          {/* Service Charge Row */}
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] font-bold text-gray-500 uppercase">Service Charge</span>
+                            {/* VAT Section */}
+                            <div className="flex items-center justify-between">
                               <button
                                 onClick={() => {
-                                  const billItemsAmount = items.filter(it => it.billId === b.id).reduce((s, it) => s + it.amount, 0)
-                                  const val = round2(billItemsAmount * 0.1)
-                                  if (b.id.startsWith('ocr-')) {
-                                    setResults(res => res.map((rr, ii) => ii === parseInt(b.id.split('-')[1]!, 10) ? { ...rr, summary: { ...rr.summary, serviceCharge: val } } : rr))
-                                  } else {
-                                    setManualBills(prev => prev.map(mm => mm.id === b.id ? { ...mm, serviceCharge: val } : mm))
-                                  }
-                                }}
-                                className="text-[9px] bg-gray-50 text-gray-400 hover:text-violet-600 px-1 py-0.5 rounded border border-gray-100 transition-colors"
-                              >+10%</button>
-                            </div>
-                            <div className="flex items-center gap-1.5 justify-end">
-                              <span className="text-[10px] text-gray-300">฿</span>
-                              <input
-                                type="number"
-                                value={(b.id.startsWith('ocr-') ? results[parseInt(b.id.split('-')[1]!, 10)]?.summary.serviceCharge : manualBills.find(m => m.id === b.id)?.serviceCharge) || ''}
-                                onChange={(e) => {
-                                  const val = Number(e.target.value) || 0
-                                  if (b.id.startsWith('ocr-')) {
-                                    setResults(res => res.map((rr, ii) => ii === parseInt(b.id.split('-')[1]!, 10) ? { ...rr, summary: { ...rr.summary, serviceCharge: val } } : rr))
-                                  } else {
-                                    setManualBills(prev => prev.map(mm => mm.id === b.id ? { ...mm, serviceCharge: val } : mm))
-                                  }
-                                }}
-                                className="w-16 bg-gray-50/50 rounded border-none px-1.5 py-0.5 text-xs text-right font-bold text-gray-700 outline-none focus:ring-1 focus:ring-violet-400 transition-all font-mono"
-                                placeholder="0"
-                              />
-                            </div>
-                          </div>
-
-                          {/* VAT Row */}
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-2">
-                              <button
-                                 onClick={() => {
                                   const isInc = b.id.startsWith('ocr-') ? results[parseInt(b.id.split('-')[1]!, 10)]?.vatIncluded : manualBills.find(m => m.id === b.id)?.vatIncluded
                                   if (b.id.startsWith('ocr-')) {
                                     setResults(res => res.map((rr, ii) => ii === parseInt(b.id.split('-')[1]!, 10) ? { ...rr, vatIncluded: !isInc } : rr))
@@ -1334,97 +1201,130 @@ function App() {
                                     setManualBills(prev => prev.map(mm => mm.id === b.id ? { ...mm, vatIncluded: !isInc } : mm))
                                   }
                                 }}
-                                className={`text-[9px] px-1.5 py-0.5 rounded border font-black transition-colors ${
+                                className={`text-[9px] font-black px-1.5 py-0.5 rounded border transition-colors ${
                                   (b.id.startsWith('ocr-') ? results[parseInt(b.id.split('-')[1]!, 10)]?.vatIncluded : manualBills.find(m => m.id === b.id)?.vatIncluded)
-                                  ? 'bg-amber-100 text-amber-700 border-amber-200'
-                                  : 'bg-gray-50 text-gray-400 border-gray-100'
+                                  ? 'bg-amber-100 text-amber-600 border-amber-200'
+                                  : 'text-gray-400 border-gray-100 bg-gray-50'
                                 }`}
                               >
-                                { (b.id.startsWith('ocr-') ? results[parseInt(b.id.split('-')[1]!, 10)]?.vatIncluded : manualBills.find(m => m.id === b.id)?.vatIncluded) ? 'VAT รวมแล้ว' : 'VAT แยก 7%' }
+                                { (b.id.startsWith('ocr-') ? results[parseInt(b.id.split('-')[1]!, 10)]?.vatIncluded : manualBills.find(m => m.id === b.id)?.vatIncluded) ? 'VAT รวมแล้ว' : 'VAT แยก +7%' }
                               </button>
-                               {!(b.id.startsWith('ocr-') ? results[parseInt(b.id.split('-')[1]!, 10)]?.vatIncluded : manualBills.find(m => m.id === b.id)?.vatIncluded) && (
-                                 <button
-                                 onClick={() => {
-                                   const billItemsAmount = items.filter(it => it.billId === b.id).reduce((s, it) => s + it.amount, 0)
-                                   const sc = (b.id.startsWith('ocr-') ? results[parseInt(b.id.split('-')[1]!, 10)]?.summary.serviceCharge : manualBills.find(m => m.id === b.id)?.serviceCharge) || 0
-                                   const ds = (b.id.startsWith('ocr-') ? results[parseInt(b.id.split('-')[1]!, 10)]?.summary.discount : manualBills.find(m => m.id === b.id)?.discount) || 0
-                                   const val = round2((billItemsAmount + sc - ds) * 0.07)
-                                   if (b.id.startsWith('ocr-')) {
-                                     setResults(res => res.map((rr, ii) => ii === parseInt(b.id.split('-')[1]!, 10) ? { ...rr, summary: { ...rr.summary, vat: val } } : rr))
-                                   } else {
-                                     setManualBills(prev => prev.map(mm => mm.id === b.id ? { ...mm, vat: val } : mm))
-                                   }
-                                 }}
-                                 className="text-[9px] bg-gray-50 text-gray-400 hover:text-violet-600 px-1 py-0.5 rounded border border-gray-100 transition-colors"
-                               >+7%</button>
-                              )}
+                              <div className="flex items-center gap-1">
+                                <span className="text-[10px] text-gray-300">฿</span>
+                                <input
+                                  type="number"
+                                  value={(b.id.startsWith('ocr-') ? results[parseInt(b.id.split('-')[1]!, 10)]?.summary.vat : manualBills.find(m => m.id === b.id)?.vat) || ''}
+                                  onChange={(e) => {
+                                    const val = Number(e.target.value) || 0
+                                    if (b.id.startsWith('ocr-')) {
+                                      setResults(res => res.map((rr, ii) => ii === parseInt(b.id.split('-')[1]!, 10) ? { ...rr, summary: { ...rr.summary, vat: val } } : rr))
+                                    } else {
+                                      setManualBills(prev => prev.map(mm => mm.id === b.id ? { ...mm, vat: val } : mm))
+                                    }
+                                  }}
+                                  disabled={(b.id.startsWith('ocr-') ? results[parseInt(b.id.split('-')[1]!, 10)]?.vatIncluded : manualBills.find(m => m.id === b.id)?.vatIncluded)}
+                                  className="w-16 bg-transparent text-right font-black text-xs outline-none disabled:opacity-30"
+                                  placeholder="0"
+                                />
+                              </div>
                             </div>
-                            <div className="flex items-center gap-1.5 justify-end">
-                              <span className="text-[10px] text-gray-300">฿</span>
-                              <input
-                                type="number"
-                                value={(b.id.startsWith('ocr-') ? results[parseInt(b.id.split('-')[1]!, 10)]?.summary.vat : manualBills.find(m => m.id === b.id)?.vat) || ''}
-                                onChange={(e) => {
-                                  const val = Number(e.target.value) || 0
-                                  if (b.id.startsWith('ocr-')) {
-                                    setResults(res => res.map((rr, ii) => ii === parseInt(b.id.split('-')[1]!, 10) ? { ...rr, summary: { ...rr.summary, vat: val } } : rr))
-                                  } else {
-                                    setManualBills(prev => prev.map(mm => mm.id === b.id ? { ...mm, vat: val } : mm))
-                                  }
-                                }}
-                                disabled={(b.id.startsWith('ocr-') ? results[parseInt(b.id.split('-')[1]!, 10)]?.vatIncluded : manualBills.find(m => m.id === b.id)?.vatIncluded)}
-                                className={`w-16 rounded border-none px-1.5 py-0.5 text-xs text-right font-bold outline-none transition-all font-mono ${
-                                  (b.id.startsWith('ocr-') ? results[parseInt(b.id.split('-')[1]!, 10)]?.vatIncluded : manualBills.find(m => m.id === b.id)?.vatIncluded)
-                                  ? 'bg-amber-50 text-amber-600'
-                                  : 'bg-gray-50/50 text-gray-700'
-                                }`}
-                                placeholder="0"
-                              />
+
+                            {/* Discount */}
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-black text-pink-500 uppercase">Discount (-)</span>
+                              <div className="flex items-center gap-1">
+                                <span className="text-[10px] text-pink-300">฿</span>
+                                <input
+                                  type="number"
+                                  value={(b.id.startsWith('ocr-') ? results[parseInt(b.id.split('-')[1]!, 10)]?.summary.discount : manualBills.find(m => m.id === b.id)?.discount) || ''}
+                                  onChange={(e) => {
+                                    const val = Number(e.target.value) || 0
+                                    if (b.id.startsWith('ocr-')) {
+                                      setResults(res => res.map((rr, ii) => ii === parseInt(b.id.split('-')[1]!, 10) ? { ...rr, summary: { ...rr.summary, discount: val } } : rr))
+                                    } else {
+                                      setManualBills(prev => prev.map(mm => mm.id === b.id ? { ...mm, discount: val } : mm))
+                                    }
+                                  }}
+                                  className="w-16 bg-transparent text-right font-black text-xs outline-none text-pink-600"
+                                  placeholder="0"
+                                />
+                              </div>
                             </div>
                           </div>
 
-                          {/* Discount Row */}
-                          <div className="flex items-center justify-between gap-3">
-                            <span className="text-[10px] font-bold text-gray-500 uppercase">Discount</span>
-                            <div className="flex items-center gap-1.5 justify-end">
-                              <span className="text-[10px] text-gray-300">฿</span>
-                              <input
-                                type="number"
-                                value={(b.id.startsWith('ocr-') ? results[parseInt(b.id.split('-')[1]!, 10)]?.summary.discount : manualBills.find(m => m.id === b.id)?.discount) || ''}
-                                onChange={(e) => {
-                                  const val = Number(e.target.value) || 0
-                                  if (b.id.startsWith('ocr-')) {
-                                    setResults(res => res.map((rr, ii) => ii === parseInt(b.id.split('-')[1]!, 10) ? { ...rr, summary: { ...rr.summary, discount: val } } : rr))
-                                  } else {
-                                    setManualBills(prev => prev.map(mm => mm.id === b.id ? { ...mm, discount: val } : mm))
-                                  }
-                                }}
-                                className="w-16 bg-gray-50/50 rounded border-none px-1.5 py-0.5 text-xs text-right font-bold text-pink-600 outline-none focus:ring-1 focus:ring-pink-400 transition-all font-mono"
-                                placeholder="0"
-                              />
-                            </div>
-                          </div>
-
-                          {/* Calculated Total Row */}
-                          <div className="mt-2 pt-2 border-t border-gray-100 flex items-center justify-between">
-                            <span className="text-[10px] font-black text-gray-700 uppercase">Calculated Total</span>
-                            <span className={`text-xs font-black tabular-nums ${isDiscrepant ? 'text-amber-600' : 'text-emerald-600'}`}>
+                          <div className="pt-3 mt-1 border-t-2 border-dashed border-gray-100 flex items-center justify-between">
+                            <span className="text-[11px] font-black text-gray-700 uppercase">Calc. Total</span>
+                            <span className={`text-base font-black tabular-nums ${isDiscrepant ? 'text-amber-500 animate-pulse' : 'text-emerald-500'}`}>
                               ฿{b.calculatedTotal.toFixed(2)}
                             </span>
                           </div>
 
-                          {/* Payer Block */}
-                          <div className="mt-2 pt-3 border-t-2 border-dashed border-gray-100 flex items-center justify-between">
-                             <div className="flex flex-col">
-                               <span className="text-[10px] font-black text-violet-700 uppercase">Payer</span>
-                               <span className="text-[8px] text-gray-400 uppercase italic leading-none">ใครควักเงินจ่ายบิลนี้?</span>
+                          {/* Payer Selector */}
+                          <div className="mt-4 bg-violet-50/80 rounded-2xl p-3 border border-violet-100">
+                             <div className="flex items-center justify-between mb-2">
+                               <div className="flex flex-col">
+                                 <span className="text-[10px] font-black text-violet-700 uppercase">ใครจ่ายเงินก้อนนี้?</span>
+                                 <span className="text-[8px] text-violet-400 font-bold italic leading-none">Payer of this bill</span>
+                               </div>
+                               <Receipt className="h-4 w-4 text-violet-300" />
                              </div>
                              <select
-                              value={assignedId ?? ''}
-                              onChange={(e) => {
-                                const newPayerId = e.target.value
-                                const oldPayerId = receiptPayerMap[b.id]
-                                if (oldPayerId === newPayerId) return
+                               value={assignedId || ''}
+                               onChange={(e) => {
+                                 const newPayerId = e.target.value
+                                 const oldPayerId = receiptPayerMap[b.id]
+                                 if (oldPayerId === newPayerId) return
+                                 setPaidByMember((prev) => {
+                                    const next = { ...prev }
+                                    if (oldPayerId) next[oldPayerId] = Math.max(0, round2((next[oldPayerId] ?? 0) - b.amount))
+                                    if (newPayerId) next[newPayerId] = round2((next[newPayerId] ?? 0) + b.amount)
+                                    return next
+                                 })
+                                 setReceiptPayerMap(prev => ({ ...prev, [b.id]: newPayerId }))
+                               }}
+                               className="w-full bg-white border-2 border-violet-100 rounded-xl px-3 py-2 text-sm font-black text-violet-700 outline-none focus:border-violet-400 shadow-sm appearance-none cursor-pointer"
+                             >
+                               <option value="">-- ยังไม่มีคนจ่าย --</option>
+                               {members.map(m => (
+                                 <option key={m.id} value={m.id}>{m.name}</option>
+                               ))}
+                             </select>
+                          </div>
+                   
+                          {!b.id.startsWith('ocr-') && (
+                            <div className="mt-4 flex justify-center">
+                              <button
+                                onClick={() => {
+                                  const payerId = receiptPayerMap[b.id]
+                                  if (payerId) {
+                                    setPaidByMember(p => ({ ...p, [payerId]: Math.max(0, round2((p[payerId] || 0) - b.amount)) }))
+                                    setReceiptPayerMap(prev => { const n = {...prev}; delete n[b.id]; return n })
+                                  }
+                                  setManualBills(prev => prev.filter(m => m.id !== b.id))
+                                }}
+                                className="text-[9px] font-black text-red-300 hover:text-red-500 uppercase tracking-tighter flex items-center gap-1 p-1"
+                              >
+                                <Trash2 className="h-3 w-3" /> ลบบิลนี้
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+
+                  {unifiedBills.length === 0 && (
+                    <div className="py-12 text-center border-2 border-dashed border-gray-100 rounded-[32px] bg-white/50">
+                      <Receipt className="h-8 w-8 text-gray-200 mx-auto mb-3" />
+                      <p className="text-sm font-black text-gray-400 uppercase tracking-widest leading-tight">ยังไม่มีใบเสร็จ<br /><span className="text-[10px] font-bold text-gray-300">สแกนหรือเพิ่มบิลด้านบน</span></p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+                               if (oldPayerId === newPayerId) return
 
                                 setPaidByMember((prev) => {
                                   const next = { ...prev }
@@ -1470,18 +1370,9 @@ function App() {
                     </div>
                   )
                 })}
-                              <Trash2 className="h-3 w-3" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
               </div>
-            )}
-          </SectionCard>
-        )}
+            </SectionCard>
+          )}
 
         {/* ── STEP 3: Who paid? ── */}
         {items.length > 0 && (
