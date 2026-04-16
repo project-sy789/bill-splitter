@@ -266,6 +266,32 @@ function App() {
   // Merge OCR results into items list when mergedItems changes
   const prevMergedLenRef = useRef(0)
   const prevResultsLenRef = useRef(0)
+
+  // ── Recover orphaned OCR items across page reloads ──
+  useEffect(() => {
+    const knownIds = new Set([
+      ...manualBills.map(m => m.id),
+      ...results.map((_, i) => `ocr-${i}`)
+    ])
+    const orphans = items.filter(i => i.billId && !knownIds.has(i.billId))
+    if (orphans.length > 0) {
+      const orphanGroups = new Map<string, number>()
+      orphans.forEach(i => {
+        if (i.billId) orphanGroups.set(i.billId, (orphanGroups.get(i.billId) || 0) + i.amount)
+      })
+      
+      const recovered: ManualBill[] = []
+      orphanGroups.forEach((amt, bId) => {
+         const ocrIdx = bId.match(/ocr-(\d+)/)?.[1]
+         recovered.push({
+           id: bId,
+           name: ocrIdx !== undefined ? `สลิปอดีต ${parseInt(ocrIdx)+1}` : `บิลอดีต`,
+           amount: amt,
+         })
+      })
+      setManualBills(prev => [...prev, ...recovered])
+    }
+  }, [items, manualBills, results])
   useEffect(() => {
     if (mergedItems.length === prevMergedLenRef.current) return
     const newOcrItems = mergedItems.slice(prevMergedLenRef.current)
@@ -1462,10 +1488,17 @@ function App() {
             </div>
 
             {settlements.length === 0 ? (
-              <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-4 text-center">
-                <p className="text-sm font-semibold text-emerald-700">🎉 ทุกคนเคลียร์แล้ว!</p>
-                <p className="text-xs text-emerald-500 mt-1">ไม่มีใครต้องโอนเพิ่ม</p>
-              </div>
+              Object.values(normalizedPaid).reduce((sum, amt) => sum + amt, 0) < grandTotal - 0.01 ? (
+                <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 text-center">
+                  <p className="text-sm font-semibold text-amber-700">⚠️ โปรดระบุว่าใครเป็นคนจ่ายเงิน</p>
+                  <p className="text-xs text-amber-600 mt-1">เพื่อให้ระบบคำนวณยอดโอนได้อย่างถูกต้อง</p>
+                </div>
+              ) : (
+                <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-4 text-center">
+                  <p className="text-sm font-semibold text-emerald-700">🎉 ทุกคนเคลียร์แล้ว!</p>
+                  <p className="text-xs text-emerald-500 mt-1">ไม่มีใครต้องโอนเพิ่ม</p>
+                </div>
+              )
             ) : (
               <div className="space-y-3">
                 {settlements.map((s, idx) => {
