@@ -298,7 +298,19 @@ export function parseReceiptText(rawText: string): ParsedReceiptResult {
 
   const vatIncluded = VAT_INCLUDED_RE.test(rawText)
 
-  return { rawText, lines, items, summary: { subtotal, vat, total }, vatIncluded }
+  return {
+    rawText,
+    lines,
+    items,
+    summary: { 
+      subtotal, 
+      vat, 
+      serviceCharge: null, 
+      discount: null, 
+      total 
+    },
+    vatIncluded
+  }
 }
 
 // ──────────────────────────────────────────────

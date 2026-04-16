@@ -1,6 +1,6 @@
 {
-  "name": "Han Jai (หารใจ)",
-  "short_name": "Han Jai",
+  "name": "หารบิลกัน",
+  "short_name": "หารบิลกัน",
   "description": "แอปหารค่าใช้จ่าย สแกนสลิปด้วย AI ออฟไลน์ คำนวณยอด + PromptPay QR",
   "start_url": "/bill-splitter/",
   "scope": "/bill-splitter/",

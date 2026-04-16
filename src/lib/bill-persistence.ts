@@ -24,6 +24,10 @@ export interface ManualBill {
   id: string
   name: string
   amount: number
+  serviceCharge: number
+  vat: number
+  discount: number
+  vatIncluded: boolean
 }
 
 export interface PersistedBillState {
