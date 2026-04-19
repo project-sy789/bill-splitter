@@ -715,7 +715,7 @@ function App() {
   // ──────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-violet-50 via-white to-sky-50">
+    <div className="min-h-screen bg-gradient-to-br from-violet-50 via-white to-sky-50 text-[15px] leading-6 sm:text-base">
       {/* Hidden inputs */}
       <input
         ref={cameraInputRef}
@@ -745,7 +745,7 @@ function App() {
 
       {/* Header */}
       <header className="sticky top-0 z-40 border-b border-gray-100 bg-white/80 backdrop-blur-md" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
+        <div className="mx-auto flex max-w-3xl items-center justify-between px-3 py-2.5 sm:px-4 sm:py-3">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-violet-600 text-white">
               <Receipt className="h-4 w-4" />
@@ -790,11 +790,11 @@ function App() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl space-y-4 px-4 py-5 pb-16" style={{ paddingBottom: 'max(4rem, env(safe-area-inset-bottom))' }}>
+      <main className="mx-auto max-w-3xl space-y-4 px-3 py-4 pb-14 sm:px-4 sm:py-5 sm:pb-16" style={{ paddingBottom: 'max(3.5rem, env(safe-area-inset-bottom))' }}>
 
         {/* ── STEP 1: คนหาร ── */}
         <SectionCard>
-          <div className="flex justify-between items-center mb-4">
+          <div className="flex items-start justify-between gap-3 mb-4">
             <StepBadge n={1} label="ใส่ชื่อคนที่จะหารบิล" />
             <div className="flex gap-2">
               <button 
@@ -850,7 +850,7 @@ function App() {
 
           <button
             onClick={addMember}
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-200 py-3 text-sm font-semibold text-gray-400 transition hover:border-violet-300 hover:text-violet-600 hover:bg-violet-50/50"
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-200 py-2.5 text-sm font-semibold text-gray-400 transition hover:border-violet-300 hover:text-violet-600 hover:bg-violet-50/50 sm:mt-4 sm:py-3"
           >
             <Plus className="h-4 w-4" />
             เพิ่มคนหารบิล
@@ -861,7 +861,7 @@ function App() {
         {(results.length > 0 || manualBills.length > 0 || !isBusy || items.some(it => !it.billId)) && (
           <div className="space-y-6">
             <SectionCard>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
                 <div>
                   <StepBadge n={2} label="ใบเสร็จ & รายการ" />
                   <p className="text-[11px] text-gray-400 mt-1 ml-1">สแกน/เพิ่มบิล แล้วระบุว่าใครกินอะไร</p>
@@ -870,14 +870,14 @@ function App() {
                   <button
                     onClick={() => cameraInputRef.current?.click()}
                     disabled={isBusy}
-                    className="flex-1 sm:flex-initial flex items-center justify-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-4 py-2 text-sm font-bold text-violet-700 hover:bg-violet-100 disabled:opacity-50 transition-all font-heading"
+                    className="flex-1 sm:flex-initial flex items-center justify-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-sm font-bold text-violet-700 hover:bg-violet-100 disabled:opacity-50 transition-all font-heading sm:px-4"
                   >
                     {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
                     {isBusy ? 'กำลังสแกน...' : 'ถ่ายบิลใหม่'}
                   </button>
                   <button
                     onClick={() => setIsManualBillModalOpen(true)}
-                    className="flex-1 sm:flex-initial flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-bold text-white hover:bg-violet-700 transition-all shadow-lg active:scale-95 font-heading"
+                    className="flex-1 sm:flex-initial flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-3 py-2 text-sm font-bold text-white hover:bg-violet-700 transition-all shadow-lg active:scale-95 font-heading sm:px-4"
                   >
                     <Plus className="h-4 w-4" /> เพิ่มบิลเอง
                   </button>
@@ -907,14 +907,14 @@ function App() {
 
             <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6 items-start">
               {/* LEFT COLUMN: ITEM MANAGEMENT (รายการสินค้า) */}
-              <div className="lg:col-span-7 w-full space-y-4 order-2 lg:order-1">
-                <div className="flex items-end justify-between px-2">
+              <div className="lg:col-span-7 w-full space-y-3 sm:space-y-4 order-2 lg:order-1">
+                <div className="flex items-end justify-between gap-3 px-2">
                   <div>
-                    <h3 className="text-sm font-black text-gray-800 uppercase tracking-[0.18em] flex items-center gap-2">
+                    <h3 className="text-[13px] font-black text-gray-800 uppercase tracking-[0.16em] flex items-center gap-2">
                       <ListFilter className="h-4 w-4 text-violet-500" />
                       รายการสินค้า
                     </h3>
-                    <p className="mt-1 text-[11px] text-gray-400">เพิ่มชื่อ รายการ ราคา และตั้งค่าวิธีหารได้ทีละรายการ</p>
+                    <p className="mt-1 text-[11px] leading-5 text-gray-400">เพิ่มชื่อ รายการ ราคา และตั้งค่าวิธีหารได้ทีละรายการ</p>
                   </div>
                   <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[10px] font-bold text-gray-500">
                     {items.length} รายการ
