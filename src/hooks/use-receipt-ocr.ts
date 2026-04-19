@@ -16,7 +16,6 @@ import { parseReceiptText } from '../lib/receipt-parser'
 import {
   scanWithGemini,
   GeminiRateLimitError,
-  GeminiDisabledError,
   GEMINI_PROXY_URL,
 } from '../lib/gemini-ocr'
 import type { OcrStatus, ParsedReceiptResult } from '../types/ocr'
@@ -112,6 +111,7 @@ export function useReceiptOcr() {
   const [progress, setProgress] = useState<OcrProgress>({ progress: 0, statusText: 'พร้อมใช้งาน' })
   const [results, setResults] = useState<ParsedReceiptResult[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [lastSource, setLastSource] = useState<'gemini' | 'tesseract' | null>(null)
 
   const getWorker = useCallback(async (psm: PSM = PSM.SINGLE_BLOCK) => {
     if (workerRef.current) {
@@ -164,12 +164,11 @@ export function useReceiptOcr() {
           const geminiResult = await scanWithGemini(file)
           setProgress({ progress: 100, statusText: `🤖 AI อ่านสำเร็จ — พบ ${geminiResult.items.length} รายการ ✓` })
           setStatus('completed')
+          setLastSource('gemini')
           return geminiResult
         } catch (err) {
           if (err instanceof GeminiRateLimitError) {
             setProgress({ progress: 12, statusText: '⚠️ AI เต็ม กำลังสลับไป OCR ปกติ...' })
-          } else if (err instanceof GeminiDisabledError) {
-            // No proxy configured, silently fall through
           } else {
             console.warn('[OCR] Gemini failed, falling back to Tesseract:', err)
             setProgress({ progress: 12, statusText: '⚠️ AI ล้มเหลว กำลังสลับไป OCR ปกติ...' })
@@ -216,6 +215,7 @@ export function useReceiptOcr() {
         if (best) {
           setProgress({ progress: 100, statusText: `อ่านสำเร็จ — พบ ${best.items.length} รายการ ✓` })
           setStatus('completed')
+          setLastSource('tesseract')
           return best
         }
 
@@ -249,6 +249,7 @@ export function useReceiptOcr() {
     setProgress({ progress: 0, statusText: 'พร้อมใช้งาน' })
     setResults([])
     setError(null)
+    setLastSource(null)
   }, [])
 
   const mergedItems = useMemo(() => {
@@ -264,6 +265,7 @@ export function useReceiptOcr() {
     mergedItems,
     lastSummary,
     error,
+    lastSource,
     scanFiles,
     reset,
     terminate,

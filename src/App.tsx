@@ -9,7 +9,6 @@ import {
   QrCode as QrCodeIcon,
   Receipt,
   ListFilter,
-  Zap,
   Trash2,
   Upload,
   Users,
@@ -23,6 +22,7 @@ import {
 import * as htmlToImage from 'html-to-image'
 
 import { QrCode } from './components/qr-code'
+import { BillCard } from './components/bill-card'
 import { useReceiptOcr } from './hooks/use-receipt-ocr'
 import { useBillHistory } from './hooks/use-bill-history'
 import { useGroups } from './hooks/use-groups'
@@ -249,7 +249,6 @@ function App() {
   })) ?? [])
   const [receiptPayerMap, setReceiptPayerMap] = useState<Record<string, string>>(initialState?.receiptPayerMap ?? {}) // unifiedBillId → memberId
   const [activeSettlementIdx, setActiveSettlementIdx] = useState<number | null>(null)
-  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set())
   const [copiedId, setCopiedId] = useState<string | null>(null)
 
   const { groups, saveGroup, deleteGroup } = useGroups()
@@ -299,7 +298,7 @@ function App() {
     }
   }, [])
 
-  const { progress, results, mergedItems, error, scanFiles, reset, terminate, isBusy, setResults } = useReceiptOcr()
+  const { progress, results, mergedItems, error, lastSource, scanFiles, reset, terminate, isBusy, setResults } = useReceiptOcr()
 
   // ── Calculations ──
   const baseTotalsByMember = useMemo(() => {
@@ -558,6 +557,12 @@ function App() {
     [scanFiles],
   )
 
+  const handleInputChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    e.target.value = ''
+    await handleFilesSelected(files)
+  }, [handleFilesSelected])
+
   const addMember = useCallback(() => {
     const name = newMemberName.trim()
     if (!name) return
@@ -723,7 +728,7 @@ function App() {
         accept="image/*"
         capture="environment"
         className="hidden"
-        onChange={(e) => void handleFilesSelected(e.target.files)}
+        onChange={handleInputChange}
       />
       <input
         ref={fileInputRef}
@@ -731,7 +736,7 @@ function App() {
         accept="image/*"
         multiple
         className="hidden"
-        onChange={(e) => void handleFilesSelected(e.target.files)}
+        onChange={handleInputChange}
       />
       <input
         ref={importInputRef}
@@ -869,16 +874,24 @@ function App() {
                 </div>
                 <div className="flex gap-2">
                   <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isBusy}
+                    className="flex-1 sm:flex-initial flex items-center justify-center gap-2 rounded-2xl border border-sky-100 bg-white/80 px-3 py-2 text-sm font-semibold text-sky-700 shadow-[0_8px_24px_rgba(14,165,233,0.08)] backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:bg-sky-50 hover:shadow-[0_14px_30px_rgba(14,165,233,0.12)] active:translate-y-0 disabled:translate-y-0 disabled:opacity-50 font-heading sm:px-4"
+                  >
+                    <Upload className="h-4 w-4" />
+                    จากอัลบั้ม
+                  </button>
+                  <button
                     onClick={() => cameraInputRef.current?.click()}
                     disabled={isBusy}
-                    className="flex-1 sm:flex-initial flex items-center justify-center gap-2 rounded-2xl border border-violet-100 bg-white/75 px-3 py-2 text-sm font-bold text-violet-700 shadow-[0_8px_24px_rgba(124,58,237,0.08)] backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:bg-violet-50 hover:shadow-[0_14px_30px_rgba(124,58,237,0.12)] active:translate-y-0 disabled:translate-y-0 disabled:opacity-50 disabled:hover:shadow-[0_8px_24px_rgba(124,58,237,0.08)] font-heading sm:px-4"
+                    className="flex-1 sm:flex-initial flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-violet-600 via-violet-500 to-fuchsia-500 px-3 py-2 text-sm font-bold text-white shadow-[0_14px_34px_rgba(124,58,237,0.28)] transition-all hover:-translate-y-0.5 hover:shadow-[0_18px_40px_rgba(124,58,237,0.34)] active:translate-y-0 font-heading sm:px-4"
                   >
                     {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
                     {isBusy ? 'กำลังสแกน...' : 'ถ่ายบิลใหม่'}
                   </button>
                   <button
                     onClick={() => setIsManualBillModalOpen(true)}
-                    className="flex-1 sm:flex-initial flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-violet-600 via-violet-500 to-fuchsia-500 px-3 py-2 text-sm font-bold text-white shadow-[0_14px_34px_rgba(124,58,237,0.28)] transition-all hover:-translate-y-0.5 hover:shadow-[0_18px_40px_rgba(124,58,237,0.34)] active:translate-y-0 font-heading sm:px-4"
+                    className="flex-1 sm:flex-initial flex items-center justify-center gap-2 rounded-2xl border border-white/80 bg-white/75 px-3 py-2 text-sm font-semibold text-gray-700 shadow-[0_8px_24px_rgba(15,23,42,0.06)] backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:bg-white hover:shadow-[0_14px_30px_rgba(15,23,42,0.10)] active:translate-y-0 font-heading sm:px-4"
                   >
                     <Plus className="h-4 w-4" /> เพิ่มบิลเอง
                   </button>
@@ -887,13 +900,18 @@ function App() {
 
               {/* OCR Progress & Errors */}
               {isBusy && (
-                <div className="mt-6 rounded-2xl border border-violet-100 bg-violet-50 p-4 animate-pulse">
-                  <div className="mb-2 flex items-center gap-2 text-xs font-bold text-violet-700 uppercase tracking-wider">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    {progress.statusText}
+                <div className="mt-6 rounded-3xl border border-white/80 bg-gradient-to-br from-violet-50/95 via-white to-fuchsia-50/80 p-4 shadow-[0_14px_34px_rgba(124,58,237,0.10)] backdrop-blur-xl">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 text-[11px] font-semibold text-violet-700">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      {progress.statusText}
+                    </div>
+                    <span className="rounded-full bg-white/80 px-2 py-1 text-[10px] font-semibold text-violet-600 shadow-sm">
+                      {lastSource === 'gemini' ? 'Gemini' : lastSource === 'tesseract' ? 'OCR' : 'กำลังอ่าน'}
+                    </span>
                   </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-violet-100">
-                    <div className="h-full rounded-full bg-violet-600 transition-all duration-300" style={{ width: `${progress.progress}%` }} />
+                  <div className="h-2 overflow-hidden rounded-full bg-white/80 shadow-inner">
+                    <div className="h-full rounded-full bg-gradient-to-r from-violet-600 via-violet-500 to-fuchsia-500 transition-all duration-300" style={{ width: `${progress.progress}%` }} />
                   </div>
                 </div>
               )}
@@ -907,190 +925,22 @@ function App() {
             </SectionCard>
 
             <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6 items-start">
-              {/* LEFT COLUMN: ITEM MANAGEMENT (รายการสินค้า) */}
+              {/* LEFT COLUMN: helper note */}
               <div className="lg:col-span-7 w-full space-y-3 sm:space-y-4 order-2 lg:order-1">
-                <div className="flex items-end justify-between gap-3 px-2">
-                  <div>
-                    <h3 className="text-[13px] font-black text-gray-800 uppercase tracking-[0.16em] flex items-center gap-2">
-                      <ListFilter className="h-4 w-4 text-violet-500" />
-                      รายการสินค้า
-                    </h3>
-                    <p className="mt-1 text-[11px] leading-5 text-gray-400">เพิ่มชื่อ รายการ ราคา และตั้งค่าวิธีหารได้ทีละรายการ</p>
+                <SectionCard className="bg-gradient-to-b from-white via-white to-violet-50/30 shadow-[0_16px_40px_rgba(15,23,42,0.05)]">
+                  <div className="flex items-start justify-between gap-3 px-2">
+                    <div>
+                      <h3 className="text-[13px] font-black text-gray-800 uppercase tracking-[0.16em] flex items-center gap-2">
+                        <ListFilter className="h-4 w-4 text-violet-500" />
+                        วิธีใช้งาน
+                      </h3>
+                      <p className="mt-1 text-[11px] leading-5 text-gray-400">กด <span className="font-semibold text-violet-600">+ เพิ่มรายการในบิลนี้</span> ในการ์ดของใบเสร็จแต่ละใบ เพื่อสร้างและจัดการรายการสินค้าภายในบิลนั้นได้ทันที</p>
+                    </div>
+                    <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[10px] font-bold text-gray-500">
+                      {items.length} รายการ
+                    </span>
                   </div>
-                  <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[10px] font-bold text-gray-500">
-                    {items.length} รายการ
-                  </span>
-                </div>
-
-                <div className="space-y-3 sm:space-y-4">
-                  {items.map((item) => {
-                    const split = calcItemSplit({ ...item, amount: round2(Math.max(0, item.amount - (item.itemDiscount ?? 0))) }, members)
-                    const isExpanded = expandedItems.has(item.id)
-                    const parentBill = unifiedBills.find(b => b.id === item.billId)
-                    
-                    return (
-                      <div key={item.id} className={`bg-white rounded-[28px] border transition-all duration-300 ${isExpanded ? 'ring-2 ring-violet-100 border-violet-200 shadow-[0_20px_40px_rgba(15,23,42,0.08)]' : 'border-gray-100 shadow-sm hover:shadow-md'}`}>
-                        <div className="p-4 sm:p-5">
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
-                                <input
-                                  value={item.name}
-                                  onChange={(e) => updateItem(item.id, 'name', e.target.value)}
-                                  placeholder="ชื่อรายการ"
-                                  className="w-full bg-transparent p-0 text-base font-black tracking-tight text-gray-900 outline-none placeholder:text-gray-300"
-                                />
-                                {parentBill && (
-                                  <span className="shrink-0 text-[8px] font-black bg-violet-50 text-violet-500 px-1.5 py-0.5 rounded-md uppercase tracking-tighter">
-                                    {parentBill.title.slice(0, 10)}
-                                  </span>
-                                )}
-                              </div>
-                              <div className="flex flex-wrap gap-1">
-                                {item.consumerIds.map(cid => (
-                                  <span key={cid} className="text-[9px] bg-gray-50 text-gray-400 px-1.5 py-0.5 rounded border border-gray-100 text-center min-w-[30px]">
-                                    {members.find(m => m.id === cid)?.name}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                            <div className="text-right shrink-0">
-                              <div className="flex items-center gap-2 rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2 shadow-sm">
-                                <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400">฿</span>
-                                <input
-                                  type="number"
-                                  inputMode="decimal"
-                                  value={item.amount || ''}
-                                  onChange={(e) => updateItem(item.id, 'amount', Number(e.target.value) || 0)}
-                                  placeholder="0.00"
-                                  className="w-20 bg-transparent text-right text-sm font-semibold tabular-nums text-gray-900 outline-none placeholder:text-gray-300 sm:w-24"
-                                />
-                              </div>
-                              <div className="mt-2 flex items-center justify-end gap-1.5">
-                                <button 
-                                  onClick={() => setExpandedItems(prev => {
-                                    const next = new Set(prev)
-                                    if (next.has(item.id)) next.delete(item.id)
-                                    else next.add(item.id)
-                                    return next
-                                  })}
-                                  className="rounded-lg border border-violet-100 px-2.5 py-1 text-[10px] font-bold text-violet-700 hover:bg-violet-50 transition-colors"
-                                >
-                                  {isExpanded ? 'ปิด' : 'ตั้งค่าหาร'}
-                                </button>
-                                <button 
-                                  onClick={() => setItems(prev => prev.filter(it => it.id !== item.id))}
-                                  className="rounded-lg p-1.5 text-red-200 transition-all hover:bg-red-50 hover:text-red-500"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-
-                          {isExpanded && (
-                            <div className="mt-4 pt-4 border-t border-dashed border-gray-100 animate-in fade-in slide-in-from-top-2">
-                              <div className="flex items-center justify-between mb-3">
-                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">วิธีหารรายการนี้</span>
-                                <div className="flex rounded-lg border border-gray-100 bg-gray-50 p-0.5 shadow-inner">
-                                  {(['equally', 'percentage', 'exact'] as const).map((mode) => (
-                                    <button
-                                      key={mode}
-                                      onClick={() => updateItem(item.id, 'splitMode', mode)}
-                                      className={`rounded-md px-2.5 py-1.5 text-[10px] font-semibold transition-all ${
-                                        item.splitMode === mode ? 'bg-violet-600 text-white shadow-sm' : 'text-gray-400 hover:text-gray-600'
-                                      }`}
-                                    >
-                                      {mode === 'equally' ? 'เท่ากัน' : mode === 'percentage' ? '%' : 'ระบุเอง'}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-
-                              <div className="flex flex-wrap gap-1.5 mb-4">
-                                {members.map((m) => {
-                                  const isActive = item.consumerIds.includes(m.id)
-                                  return (
-                                    <button
-                                      key={m.id}
-                                      onClick={() => {
-                                        const next = isActive ? item.consumerIds.filter(id => id !== m.id) : [...item.consumerIds, m.id]
-                                        updateItem(item.id, 'consumerIds', next)
-                                      }}
-                                      className={`px-3 py-1.5 rounded-xl text-[10px] font-bold transition-all transform active:scale-95 ${
-                                        isActive 
-                                          ? 'bg-violet-600 text-white shadow-lg' 
-                                          : 'bg-white border border-gray-200 text-gray-400 hover:border-violet-300'
-                                      }`}
-                                    >
-                                      {m.name}
-                                    </button>
-                                  )
-                                })}
-                              </div>
-
-                              {item.splitMode !== 'equally' && (
-                                <div className="space-y-2 mb-4 bg-gray-50 p-3 rounded-2xl border border-gray-100">
-                                  {item.consumerIds.map(cid => {
-                                    const m = members.find(x => x.id === cid)
-                                    if (!m) return null
-                                    return (
-                                      <div key={cid} className="flex items-center justify-between">
-                                        <span className="text-[10px] font-black text-gray-600">{m.name}</span>
-                                        <div className="flex items-center gap-1.5">
-                                          <span className="text-[10px] font-bold text-gray-300 italic">{item.splitMode === 'percentage' ? '%' : '฿'}</span>
-                                          <input 
-                                            type="number"
-                                            value={(item.splitMode === 'percentage' ? item.percentageByUser[cid] : item.exactByUser[cid]) ?? ''}
-                                            onChange={(e) => {
-                                              const field = item.splitMode === 'percentage' ? 'percentageByUser' : 'exactByUser'
-                                              updateItem(item.id, field, { ...item[field], [cid]: Number(e.target.value) || 0 })
-                                            }}
-                                            className="w-20 bg-white border border-gray-200 rounded-lg px-2 py-1 text-right text-[11px] font-black outline-none focus:ring-2 focus:ring-violet-400"
-                                          />
-                                        </div>
-                                      </div>
-                                    )
-                                  })}
-                                </div>
-                              )}
-
-                              <div className="text-[10px] font-bold text-violet-400 flex justify-between items-center bg-violet-50/50 p-2 rounded-xl">
-                                <span>สรุปยอดหารต่อคน:</span>
-                                <div className="flex flex-wrap justify-end gap-x-3 gap-y-1 max-w-[70%]">
-                                  {item.consumerIds.map(cid => (
-                                    <span key={cid} className="font-mono">{members.find(x => x.id === cid)?.name} ฿{round2(split[cid] ?? 0).toFixed(1)}</span>
-                                  ))}
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  })}
-
-                  <button
-                    onClick={() => {
-                      const item: BillItemDraft = {
-                        id: crypto.randomUUID(),
-                        name: '',
-                        amount: 0,
-                        itemDiscount: 0,
-                        splitMode: 'equally',
-                        consumerIds: members.map((m) => m.id),
-                        percentageByUser: Object.fromEntries(members.map((m) => [m.id, 0])),
-                        exactByUser: Object.fromEntries(members.map((m) => [m.id, 0])),
-                      }
-                      setItems((prev) => [...prev, item])
-                      setExpandedItems(prev => new Set(prev).add(item.id))
-                    }}
-                    className="w-full py-4 border-2 border-dashed border-gray-200 rounded-[28px] text-[11px] font-black text-gray-400 hover:border-violet-300 hover:bg-violet-50/50 hover:text-violet-500 transition-all uppercase tracking-widest flex items-center justify-center gap-2 group"
-                  >
-                    <Plus className="h-4 w-4 group-hover:scale-110 transition-transform" />
-                    เพิ่มรายการอาหาร/สินค้า
-                  </button>
-                </div>
+                </SectionCard>
               </div>
 
               {/* RIGHT COLUMN: RECEIPTS & BILL SUMMARY (ใบเสร็จ & ยอดจ่าย) */}
@@ -1102,205 +952,109 @@ function App() {
                   </h3>
                 </div>
 
-                <div className="space-y-8">
+                <div className="space-y-6">
                   {unifiedBills.map((b) => {
                     const isDiscrepant = Math.abs(round2(b.amount - b.calculatedTotal)) > 0.01
-                    const assignedId = receiptPayerMap[b.id]
-                    const currentItemsSum = items.filter(it => it.billId === b.id).reduce((s, it) => s + it.amount, 0)
-
                     return (
-                      <div key={b.id} className="receipt-serrated-top receipt-serrated-bottom receipt-thermal-texture rounded-b shadow-[0_18px_40px_rgba(15,23,42,0.12)] relative">
-                        <div className="px-4 pt-7 pb-4 border-b border-dashed border-gray-200 sm:px-5">
-                          <input
-                            value={b.title}
-                            onChange={(e) => {
-                              if (b.id.startsWith('ocr-')) {
-                                setResults(res => res.map((rr, ii) => ii === parseInt(b.id.split('-')[1]!, 10) ? { ...rr, customName: e.target.value } : rr))
-                              } else {
-                                setManualBills(prev => prev.map(m => m.id === b.id ? {...m, name: e.target.value} : m))
-                              }
-                            }}
-                            className="w-full bg-transparent border-none p-0 text-[17px] font-semibold tracking-tight text-gray-900 outline-none focus:ring-0 placeholder:text-gray-300 sm:text-lg"
-                            placeholder="บิลรายการ"
-                          />
-                          <div className="mt-1 flex items-end justify-between">
-                            <div className="ml-auto text-right">
-                              <p className="text-[10px] font-black uppercase leading-none tracking-[0.16em] text-gray-300">Net Total</p>
-                              <p className="text-2xl font-semibold tabular-nums tracking-tight text-violet-700 font-mono">฿{b.amount.toFixed(2)}</p>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="px-5 py-4 space-y-3 bg-white/40">
-                          {/* Item check for this bill */}
-                          <div className="flex justify-between items-center text-[10px] font-black uppercase text-gray-400">
-                            <span>รายการสินค้าในบิล</span>
-                            <span>฿{currentItemsSum.toFixed(2)}</span>
-                          </div>
-
-                          {/* Quick Add Discrepancy inside receipt if needed */}
-                          {(() => {
-                                                        const billFeeSource = b.id.startsWith('ocr-') ? results[parseInt(b.id.split('-')[1]!, 10)] : manualBills.find(m => m.id === b.id)
-                             const billFeesAdjust = b.id.startsWith('ocr-')
-                               ? (() => {
-                                   const r = billFeeSource as (typeof results)[number] | undefined
-                                   return r ? (r.summary.serviceCharge ?? 0) + (r.vatIncluded ? 0 : (r.summary.vat ?? 0)) - (r.summary.billDiscount ?? r.summary.discount ?? 0) : 0
-                                 })()
-                               : (() => {
-                                   const m = billFeeSource as ManualBill | undefined
-                                   return m ? (m.serviceCharge ?? 0) + (m.vatIncluded ? 0 : (m.vat ?? 0)) - (m.billDiscount ?? m.discount ?? 0) : 0
-                                 })()
-                             const deficit = round2(b.amount - currentItemsSum - billFeesAdjust)
-                             if (deficit > 0.01) {
-                               return (
-                                 <button
-                                   onClick={() => {
-                                     const item: BillItemDraft = {
-                                       id: crypto.randomUUID(),
-                                       name: `ส่วนต่างของ ${b.title}`,
-                                       billId: b.id,
-                                       amount: deficit,
-                                       itemDiscount: 0,
-                                       splitMode: 'equally',
-                                       consumerIds: members.map((m) => m.id),
-                                       percentageByUser: Object.fromEntries(members.map((m) => [m.id, 0])),
-                                       exactByUser: Object.fromEntries(members.map((m) => [m.id, 0])),
-                                     }
-                                     setItems((prev) => [...prev, item])
-                                   }}
-                                   className="w-full flex items-center justify-center gap-2 rounded-xl border border-amber-100 bg-amber-50 py-2 text-[10px] font-black text-amber-600 shadow-sm transition-all hover:-translate-y-0.5 hover:bg-amber-100 hover:shadow-md active:translate-y-0"
-                                 >
-                                   <Zap className="h-3 w-3" /> เพิ่มส่วนต่าง ฿{deficit.toFixed(2)}
-                                 </button>
-                               )
-                             }
-                             return null
-                          })()}
-
-                          <div className="space-y-3 rounded-2xl border border-violet-100 bg-white p-3 shadow-sm">
-                            <div className="flex items-center justify-between gap-3">
-                              <span className="text-[10px] font-black text-gray-500 uppercase">Service +10%</span>
-                              <div className="flex items-center gap-2">
-                                <span className="text-[10px] text-gray-300">฿</span>
-                                <input
-                                  type="number"
-                                  value={(b.id.startsWith('ocr-') ? results[parseInt(b.id.split('-')[1]!, 10)]?.summary.serviceCharge : manualBills.find(m => m.id === b.id)?.serviceCharge) || ''}
-                                  onChange={(e) => {
-                                    const val = Number(e.target.value) || 0
-                                    if (b.id.startsWith('ocr-')) {
-                                      setResults(res => res.map((rr, ii) => ii === parseInt(b.id.split('-')[1]!, 10) ? { ...rr, summary: { ...rr.summary, serviceCharge: val } } : rr))
-                                    } else {
-                                      setManualBills(prev => prev.map(mm => mm.id === b.id ? { ...mm, serviceCharge: val } : mm))
-                                    }
-                                  }}
-                                  className="w-20 rounded-xl border border-violet-100 bg-white px-2 py-1 text-xs text-right font-bold text-gray-700 outline-none focus:ring-2 focus:ring-violet-400"
-                                  placeholder="0"
-                                />
-                              </div>
-                            </div>
-
-                            <div className="flex items-center justify-between gap-3">
-                              <button
-                                onClick={() => {
-                                  const isInc = b.id.startsWith('ocr-') ? results[parseInt(b.id.split('-')[1]!, 10)]?.vatIncluded : manualBills.find(m => m.id === b.id)?.vatIncluded
-                                  if (b.id.startsWith('ocr-')) {
-                                    setResults(res => res.map((rr, ii) => ii === parseInt(b.id.split('-')[1]!, 10) ? { ...rr, vatIncluded: !isInc } : rr))
-                                  } else {
-                                    setManualBills(prev => prev.map(mm => mm.id === b.id ? { ...mm, vatIncluded: !isInc } : mm))
-                                  }
-                                }}
-                                className={`rounded-full px-2.5 py-1 text-[10px] font-black border transition-colors ${
-                                  (b.id.startsWith('ocr-') ? results[parseInt(b.id.split('-')[1]!, 10)]?.vatIncluded : manualBills.find(m => m.id === b.id)?.vatIncluded)
-                                  ? 'bg-amber-100 text-amber-700 border-amber-200'
-                                  : 'bg-violet-50 text-violet-700 border-violet-100'
-                                }`}
-                              >
-                                { (b.id.startsWith('ocr-') ? results[parseInt(b.id.split('-')[1]!, 10)]?.vatIncluded : manualBills.find(m => m.id === b.id)?.vatIncluded) ? 'VAT รวมแล้ว' : 'VAT แยก +7%' }
-                              </button>
-                              <div className="flex items-center gap-1">
-                                <span className="text-[10px] text-gray-300">฿</span>
-                                <input
-                                  type="number"
-                                  value={(b.id.startsWith('ocr-') ? results[parseInt(b.id.split('-')[1]!, 10)]?.summary.vat : manualBills.find(m => m.id === b.id)?.vat) || ''}
-                                  onChange={(e) => {
-                                    const val = Number(e.target.value) || 0
-                                    if (b.id.startsWith('ocr-')) {
-                                      setResults(res => res.map((rr, ii) => ii === parseInt(b.id.split('-')[1]!, 10) ? { ...rr, summary: { ...rr.summary, vat: val } } : rr))
-                                    } else {
-                                      setManualBills(prev => prev.map(mm => mm.id === b.id ? { ...mm, vat: val } : mm))
-                                    }
-                                  }}
-                                  disabled={(b.id.startsWith('ocr-') ? results[parseInt(b.id.split('-')[1]!, 10)]?.vatIncluded : manualBills.find(m => m.id === b.id)?.vatIncluded)}
-                                  className="w-20 rounded-xl border border-violet-100 bg-white px-2 py-1 text-xs text-right font-bold text-gray-700 outline-none focus:ring-2 focus:ring-violet-400 disabled:bg-gray-50 disabled:text-gray-400"
-                                  placeholder="0"
-                                />
-                              </div>
-                            </div>
-
-                            {/* Discount */}
-                            <div className="flex items-center justify-between">
-                              <span className="text-[10px] font-black text-pink-500 uppercase">Discount (-)</span>
-                              <div className="flex items-center gap-1">
-                                <span className="text-[10px] text-pink-300">฿</span>
-                                <input
-                                  type="number"
-                                  value={(b.id.startsWith('ocr-') ? (results[parseInt(b.id.split('-')[1]!, 10)]?.summary.billDiscount ?? results[parseInt(b.id.split('-')[1]!, 10)]?.summary.discount) : (manualBills.find(m => m.id === b.id)?.billDiscount ?? manualBills.find(m => m.id === b.id)?.discount)) || ''}
-                                  onChange={(e) => {
-                                    const val = Number(e.target.value) || 0
-                                    if (b.id.startsWith('ocr-')) {
-                                      setResults(res => res.map((rr, ii) => ii === parseInt(b.id.split('-')[1]!, 10) ? { ...rr, summary: { ...rr.summary, billDiscount: val, discount: val } } : rr))
-                                    } else {
-                                      setManualBills(prev => prev.map(mm => mm.id === b.id ? { ...mm, billDiscount: val, discount: val } : mm))
-                                    }
-                                  }}
-                                  className="w-16 bg-transparent text-right font-black text-xs outline-none text-pink-600"
-                                  placeholder="0"
-                                />
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="pt-3 mt-1 border-t-2 border-dashed border-gray-100 flex items-center justify-between">
-                            <span className="text-[11px] font-black text-gray-700 uppercase">Calc. Total</span>
-                            <span className={`text-base font-black tabular-nums ${isDiscrepant ? 'text-amber-500 animate-pulse' : 'text-emerald-500'}`}>
-                              ฿{b.calculatedTotal.toFixed(2)}
-                            </span>
-                          </div>
-
-                          {/* Payer Selector */}
-                          <div className="mt-4 rounded-2xl border border-violet-100 bg-violet-50/80 p-3">
-                             <div className="mb-2 flex items-center justify-between">
-                               <div className="flex flex-col">
-                                 <span className="text-[10px] font-black uppercase tracking-[0.2em] text-violet-700">ใครจ่ายเงินก้อนนี้?</span>
-                                 <span className="text-[8px] font-medium italic leading-none text-violet-400">Payer of this bill</span>
-                               </div>
-                               <Receipt className="h-4 w-4 text-violet-300" />
-                             </div>
-                             <select
-                               value={assignedId || ''}
-                               onChange={(e) => {
-                                 const newPayerId = e.target.value
-                                 const oldPayerId = receiptPayerMap[b.id]
-                                 if (oldPayerId === newPayerId) return
-                                 setReceiptPayerMap(prev => ({ ...prev, [b.id]: newPayerId }))
-                               }}
-                               className="w-full appearance-none rounded-xl border-2 border-violet-100 bg-white px-3 py-2 text-sm font-black text-violet-700 shadow-sm outline-none transition-colors focus:border-violet-400"
-                             >
-                               <option value="">-- ยังไม่มีคนจ่าย --</option>
-                               {members.map(m => (
-                                 <option key={m.id} value={m.id}>{m.name}</option>
-                               ))}
-                             </select>
-                          </div>
-                        </div>
-                      </div>
+                      <BillCard
+                        key={b.id}
+                        bill={b}
+                        items={items}
+                        members={members}
+                        results={results}
+                        manualBills={manualBills}
+                        assignedId={receiptPayerMap[b.id]}
+                        isDiscrepant={isDiscrepant}
+                        onAddItem={(billId) => {
+                          const item: BillItemDraft = {
+                            id: crypto.randomUUID(),
+                            name: '',
+                            amount: 0,
+                            itemDiscount: 0,
+                            billId,
+                            splitMode: 'equally',
+                            consumerIds: members.map((m) => m.id),
+                            percentageByUser: Object.fromEntries(members.map((m) => [m.id, 0])),
+                            exactByUser: Object.fromEntries(members.map((m) => [m.id, 0])),
+                          }
+                          setItems((prev) => [...prev, item])
+                        }}
+                        onAddDifference={(billId, deficit) => {
+                          const item: BillItemDraft = {
+                            id: crypto.randomUUID(),
+                            name: `ส่วนต่างของ ${b.title}`,
+                            billId,
+                            amount: deficit,
+                            itemDiscount: 0,
+                            splitMode: 'equally',
+                            consumerIds: members.map((m) => m.id),
+                            percentageByUser: Object.fromEntries(members.map((m) => [m.id, 0])),
+                            exactByUser: Object.fromEntries(members.map((m) => [m.id, 0])),
+                          }
+                          setItems((prev) => [...prev, item])
+                        }}
+                        onSetServiceCharge={(billId, value) => {
+                          if (billId.startsWith('ocr-')) {
+                            setResults(res => res.map((rr, ii) => ii === parseInt(billId.split('-')[1]!, 10) ? { ...rr, summary: { ...rr.summary, serviceCharge: value } } : rr))
+                          } else {
+                            setManualBills(prev => prev.map(mm => mm.id === billId ? { ...mm, serviceCharge: value } : mm))
+                          }
+                        }}
+                        onToggleVatIncluded={(billId, next) => {
+                          if (billId.startsWith('ocr-')) {
+                            setResults(res => res.map((rr, ii) => ii === parseInt(billId.split('-')[1]!, 10) ? { ...rr, vatIncluded: next } : rr))
+                          } else {
+                            setManualBills(prev => prev.map(mm => mm.id === billId ? { ...mm, vatIncluded: next } : mm))
+                          }
+                        }}
+                        onSetVat={(billId, value) => {
+                          if (billId.startsWith('ocr-')) {
+                            setResults(res => res.map((rr, ii) => ii === parseInt(billId.split('-')[1]!, 10) ? { ...rr, summary: { ...rr.summary, vat: value } } : rr))
+                          } else {
+                            setManualBills(prev => prev.map(mm => mm.id === billId ? { ...mm, vat: value } : mm))
+                          }
+                        }}
+                        onSetDiscount={(billId, value) => {
+                          if (billId.startsWith('ocr-')) {
+                            setResults(res => res.map((rr, ii) => ii === parseInt(billId.split('-')[1]!, 10) ? { ...rr, summary: { ...rr.summary, billDiscount: value, discount: value } } : rr))
+                          } else {
+                            setManualBills(prev => prev.map(mm => mm.id === billId ? { ...mm, billDiscount: value, discount: value } : mm))
+                          }
+                        }}
+                        onSetName={(billId, name) => {
+                          if (billId.startsWith('ocr-')) {
+                            setResults(res => res.map((rr, ii) => ii === parseInt(billId.split('-')[1]!, 10) ? { ...rr, customName: name } : rr))
+                          } else {
+                            setManualBills(prev => prev.map(mm => mm.id === billId ? { ...mm, name } : mm))
+                          }
+                        }}
+                        onSetPayer={(billId, memberId) => {
+                          setReceiptPayerMap(prev => ({ ...prev, [billId]: memberId }))
+                          if (memberId) setPaidByMember(prev => ({ ...prev, [memberId]: round2((prev[memberId] ?? 0) + b.amount) }))
+                        }}
+                        onEditItem={(itemId, field, value) => updateItem(itemId, field as keyof BillItemDraft, value as never)}
+                        onRemoveItem={(itemId) => setItems(prev => prev.filter(it => it.id !== itemId))}
+                        onAddItemToBill={(billId) => {
+                          const item: BillItemDraft = {
+                            id: crypto.randomUUID(),
+                            name: '',
+                            amount: 0,
+                            itemDiscount: 0,
+                            billId,
+                            splitMode: 'equally',
+                            consumerIds: members.map((m) => m.id),
+                            percentageByUser: Object.fromEntries(members.map((m) => [m.id, 0])),
+                            exactByUser: Object.fromEntries(members.map((m) => [m.id, 0])),
+                          }
+                          setItems((prev) => [...prev, item])
+                        }}
+                      />
                     )
                   })}
-
                   {unifiedBills.length === 0 && (
-                    <div className="py-12 text-center border-2 border-dashed border-gray-100 rounded-[32px] bg-white/50">
-                      <Receipt className="h-8 w-8 text-gray-200 mx-auto mb-3" />
-                      <p className="text-sm font-black text-gray-400 uppercase tracking-widest leading-tight">ยังไม่มีใบเสร็จ<br /><span className="text-[10px] font-bold text-gray-300">สแกนหรือเพิ่มบิลด้านบน</span></p>
+                    <div className="rounded-[32px] border-2 border-dashed border-gray-100 bg-white/50 py-12 text-center">
+                      <Receipt className="mx-auto mb-3 h-8 w-8 text-gray-200" />
+                      <p className="text-sm font-black uppercase tracking-widest leading-tight text-gray-400">ยังไม่มีใบเสร็จ<br /><span className="text-[10px] font-bold text-gray-300">สแกนหรือเพิ่มบิลด้านบน</span></p>
                     </div>
                   )}
                 </div>
@@ -1313,11 +1067,26 @@ function App() {
         {items.length > 0 && (
           <SectionCard>
             <StepBadge n={3} label="ใครจ่ายไปแล้วเท่าไหร่?" />
-            <p className="mb-3 -mt-2 text-[11px] leading-5 text-gray-400">กรอกยอดที่แต่ละคนจ่ายจริง หรือเลือกคนจ่ายจากบิลด้านบน</p>
+            <p className="mb-3 -mt-2 text-[11px] leading-5 text-gray-400">ยอดจากบิลที่เลือกคนจ่ายจะนับให้อัตโนมัติ ส่วนช่องนี้ใช้กรอกยอดเพิ่ม/แก้ไขจริง</p>
+
+            <div className="mb-4 grid grid-cols-1 gap-3 rounded-2xl bg-gradient-to-r from-violet-50 to-fuchsia-50 p-3 sm:grid-cols-3">
+              <div className="rounded-xl bg-white/80 p-3 shadow-sm">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-gray-400">ยอดรวม</p>
+                <p className="mt-1 text-lg font-black text-violet-700">฿{grandTotal.toFixed(2)}</p>
+              </div>
+              <div className="rounded-xl bg-white/80 p-3 shadow-sm">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-gray-400">จ่ายแล้วทั้งหมด</p>
+                <p className="mt-1 text-lg font-black text-emerald-600">฿{Object.values(totalPaidByMember).reduce((sum, amt) => sum + amt, 0).toFixed(2)}</p>
+              </div>
+              <div className="rounded-xl bg-white/80 p-3 shadow-sm">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-gray-400">คงเหลือ</p>
+                <p className="mt-1 text-lg font-black text-amber-600">฿{Math.max(0, grandTotal - Object.values(totalPaidByMember).reduce((sum, amt) => sum + amt, 0)).toFixed(2)}</p>
+              </div>
+            </div>
 
             <div className="space-y-2">
               {members.map((m) => (
-                <div key={m.id} className="flex items-center gap-3">
+                <div key={m.id} className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-white px-3 py-2 shadow-sm">
                   <span
                     className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
                     style={{ backgroundColor: m.color }}

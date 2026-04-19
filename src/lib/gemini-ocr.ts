@@ -66,21 +66,35 @@ export async function scanWithGemini(file: File): Promise<ParsedReceiptResult> {
   const imageBase64 = await fileToBase64(file)
   const mimeType = file.type || 'image/jpeg'
 
-  const res = await fetch(`${GEMINI_PROXY_URL}/ocr`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ imageBase64, mimeType }),
-  })
+  const endpoints = [
+    GEMINI_PROXY_URL,
+    `${GEMINI_PROXY_URL.replace(/\/$/, '')}/ocr`,
+  ]
 
-  if (res.status === 429) {
-    throw new GeminiRateLimitError()
+  let lastError: unknown = null
+  for (const endpoint of endpoints) {
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageBase64, mimeType }),
+      })
+
+      if (res.status === 429) {
+        throw new GeminiRateLimitError()
+      }
+
+      if (!res.ok) {
+        const err = await res.text()
+        throw new Error(`Proxy error ${res.status}: ${err}`)
+      }
+
+      const result = await res.json() as ParsedReceiptResult
+      return result
+    } catch (err) {
+      lastError = err
+    }
   }
 
-  if (!res.ok) {
-    const err = await res.text()
-    throw new Error(`Proxy error ${res.status}: ${err}`)
-  }
-
-  const result = await res.json() as ParsedReceiptResult
-  return result
+  throw lastError instanceof Error ? lastError : new Error('Gemini proxy request failed')
 }
