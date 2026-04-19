@@ -8,6 +8,7 @@ export interface ParsedReceiptSummary {
   subtotal: number | null
   vat: number | null
   serviceCharge: number | null
+  billDiscount: number | null
   discount: number | null
   total: number | null
 }

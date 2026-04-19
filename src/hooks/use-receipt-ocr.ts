@@ -27,12 +27,13 @@ interface OcrProgress {
 }
 
 const OCR_TIMEOUT_MS = 120_000
+const OCR_FALLBACK_MODES = [PSM.SINGLE_BLOCK, PSM.SPARSE_TEXT, PSM.AUTO]
 
 // ──────────────────────────────────────────────
 // Image preprocessing (fast)
 // ──────────────────────────────────────────────
 
-async function preprocessImage(file: File): Promise<Blob> {
+async function preprocessImage(file: File, aggressive = false): Promise<Blob> {
   const url = URL.createObjectURL(file)
   try {
     const img = await new Promise<HTMLImageElement>((resolve, reject) => {
@@ -45,12 +46,8 @@ async function preprocessImage(file: File): Promise<Blob> {
     const { width: origW, height: origH } = img
     const longestSide = Math.max(origW, origH)
 
-    // Target longest side = 1600 px.
-    // Upscale small images (screenshots/thumbnails) up to 2× for readability.
-    const TARGET = 1600
-    const scale = longestSide < TARGET
-      ? Math.min(TARGET / longestSide, 2)
-      : TARGET / longestSide
+    const TARGET = aggressive ? 1800 : 1600
+    const scale = longestSide < TARGET ? Math.min(TARGET / longestSide, aggressive ? 2.5 : 2) : TARGET / longestSide
 
     const w = Math.max(1, Math.round(origW * scale))
     const h = Math.max(1, Math.round(origH * scale))
@@ -60,25 +57,23 @@ async function preprocessImage(file: File): Promise<Blob> {
     canvas.height = h
     const ctx = canvas.getContext('2d')!
 
-    // Step 1 — Grayscale + contrast via CSS filter (GPU-accelerated, instant)
-    ctx.filter = 'grayscale(1) contrast(1.8) brightness(1.05)'
+    ctx.filter = aggressive
+      ? 'grayscale(1) contrast(2.1) brightness(1.08)'
+      : 'grayscale(1) contrast(1.8) brightness(1.05)'
     ctx.drawImage(img, 0, 0, w, h)
     ctx.filter = 'none'
 
-    // Step 2 — Otsu global threshold: O(n), no nested loops, ~10-50 ms
     const imageData = ctx.getImageData(0, 0, w, h)
     const data = imageData.data
     const total = w * h
 
-    // Build luminance histogram from R channel (== G == B after grayscale filter)
     const hist = new Float64Array(256)
     for (let p = 0; p < total; p++) hist[data[p * 4]!]++
 
-    // Find threshold that maximises inter-class variance (Otsu 1979)
     let sum = 0
     for (let i = 0; i < 256; i++) sum += i * hist[i]!
 
-    let sumB = 0, wB = 0, maxVar = 0, threshold = 128
+    let sumB = 0, wB = 0, maxVar = 0, threshold = aggressive ? 140 : 128
     for (let t = 0; t < 256; t++) {
       wB += hist[t]!
       if (wB === 0) continue
@@ -91,7 +86,6 @@ async function preprocessImage(file: File): Promise<Blob> {
       if (between > maxVar) { maxVar = between; threshold = t }
     }
 
-    // Apply binarization: dark pixels → black (text), bright → white (background)
     for (let p = 0; p < total; p++) {
       const v = data[p * 4]! > threshold ? 255 : 0
       data[p * 4] = data[p * 4 + 1] = data[p * 4 + 2] = v
@@ -100,7 +94,7 @@ async function preprocessImage(file: File): Promise<Blob> {
     ctx.putImageData(imageData, 0, 0)
 
     const blob = await new Promise<Blob | null>((res) =>
-      canvas.toBlob((b) => res(b), 'image/png'), // PNG = lossless, better for OCR
+      canvas.toBlob((b) => res(b), 'image/png'),
     )
     return blob ?? file
   } finally {
@@ -119,8 +113,14 @@ export function useReceiptOcr() {
   const [results, setResults] = useState<ParsedReceiptResult[]>([])
   const [error, setError] = useState<string | null>(null)
 
-  const getWorker = useCallback(async () => {
-    if (workerRef.current) return workerRef.current
+  const getWorker = useCallback(async (psm: PSM = PSM.SINGLE_BLOCK) => {
+    if (workerRef.current) {
+      await workerRef.current.setParameters({
+        tessedit_pageseg_mode: psm,
+        preserve_interword_spaces: '1',
+      })
+      return workerRef.current
+    }
 
     setStatus('loading')
     setProgress({ progress: 3, statusText: 'โหลดระบบ OCR...' })
@@ -136,9 +136,8 @@ export function useReceiptOcr() {
       },
     })
 
-    // PSM 6 = single block — good for receipt columns
     await worker.setParameters({
-      tessedit_pageseg_mode: PSM.SINGLE_BLOCK,
+      tessedit_pageseg_mode: psm,
       preserve_interword_spaces: '1',
     })
 
@@ -184,22 +183,43 @@ export function useReceiptOcr() {
         const processedImage = await preprocessImage(file)
 
         setProgress({ progress: 25, statusText: 'กำลังโหลดระบบอ่านตัวอักษร...' })
-        const worker = await getWorker()
 
-        setProgress({ progress: 30, statusText: 'กำลังอ่านใบเสร็จ...' })
+        let best: ParsedReceiptResult | null = null
+        let bestCount = -1
+        let lastError: unknown = null
 
-        const recognizePromise = worker.recognize(processedImage)
-        const timeoutPromise = new Promise<never>((_, reject) =>
-          window.setTimeout(() => reject(new Error('หมดเวลา: OCR ใช้นานเกิน 2 นาที')), OCR_TIMEOUT_MS),
-        )
+        for (const psm of OCR_FALLBACK_MODES) {
+          for (const aggressive of [false, true]) {
+            try {
+              setProgress({ progress: 30, statusText: `กำลังอ่านใบเสร็จ (${psm}${aggressive ? ', enhanced' : ''})...` })
+              const worker = await getWorker(psm)
+              const imageForPass = aggressive ? await preprocessImage(file, true) : processedImage
+              const recognizePromise = worker.recognize(imageForPass)
+              const timeoutPromise = new Promise<never>((_, reject) =>
+                window.setTimeout(() => reject(new Error('หมดเวลา: OCR ใช้นานเกิน 2 นาที')), OCR_TIMEOUT_MS),
+              )
 
-        const recognized = await Promise.race([recognizePromise, timeoutPromise])
-        setProgress({ progress: 95, statusText: 'แปลงผลลัพธ์...' })
+              const recognized = await Promise.race([recognizePromise, timeoutPromise])
+              const parsed = parseReceiptText(recognized.data.text)
+              if (parsed.items.length > bestCount) {
+                best = parsed
+                bestCount = parsed.items.length
+              }
+              if (parsed.items.length >= 7) break
+            } catch (err) {
+              lastError = err
+            }
+          }
+          if (bestCount >= 7) break
+        }
 
-        const parsed = parseReceiptText(recognized.data.text)
-        setProgress({ progress: 100, statusText: `อ่านสำเร็จ — พบ ${parsed.items.length} รายการ ✓` })
-        setStatus('completed')
-        return parsed
+        if (best) {
+          setProgress({ progress: 100, statusText: `อ่านสำเร็จ — พบ ${best.items.length} รายการ ✓` })
+          setStatus('completed')
+          return best
+        }
+
+        throw lastError instanceof Error ? lastError : new Error('OCR ไม่สำเร็จ')
       } catch (err) {
         const message = err instanceof Error ? err.message : 'สแกนไม่สำเร็จ'
         if (message.includes('หมดเวลา')) await terminate()

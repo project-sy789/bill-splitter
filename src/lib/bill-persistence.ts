@@ -13,6 +13,7 @@ export interface BillItemDraft {
   id: string
   name: string
   amount: number
+  itemDiscount: number
   splitMode: SplitMode
   consumerIds: string[]
   percentageByUser: Record<string, number>
@@ -26,16 +27,21 @@ export interface ManualBill {
   amount: number
   serviceCharge: number
   vat: number
-  discount: number
+  itemDiscount: number
+  billDiscount: number
+  discount?: number
   vatIncluded: boolean
 }
 
 export interface PersistedBillState {
+  version: number
   members: MemberDraft[]
   items: BillItemDraft[]
-  serviceCharge: number
-  vat: number
-  discount: number
+  serviceCharge?: number
+  vat?: number
+  itemDiscount?: number
+  billDiscount?: number
+  discount?: number
   allocationMode: AllocationMode
   paidByMember: Record<string, number>
   settlementStatus?: Record<string, boolean>
@@ -43,14 +49,29 @@ export interface PersistedBillState {
   receiptPayerMap?: Record<string, string>
 }
 
-export const STORAGE_KEY = 'bill-splitter:v2'
+export const STORAGE_KEY = 'bill-splitter:v4'
+export const PERSISTED_BILL_STATE_VERSION = 4
 
 export function safeParseBillState(raw: string | null): PersistedBillState | null {
   if (!raw) return null
   try {
-    const parsed = JSON.parse(raw) as PersistedBillState
+    const parsed = JSON.parse(raw) as Partial<PersistedBillState> & { version?: number }
     if (!Array.isArray(parsed.members) || !Array.isArray(parsed.items)) return null
-    return parsed
+    return {
+      version: parsed.version ?? 1,
+      members: parsed.members,
+      items: parsed.items,
+      serviceCharge: parsed.serviceCharge ?? 0,
+      vat: parsed.vat ?? 0,
+      itemDiscount: parsed.itemDiscount ?? 0,
+      billDiscount: parsed.billDiscount ?? parsed.discount ?? 0,
+      discount: parsed.billDiscount ?? parsed.discount ?? 0,
+      allocationMode: parsed.allocationMode ?? 'proportional',
+      paidByMember: parsed.paidByMember ?? {},
+      settlementStatus: parsed.settlementStatus ?? {},
+      manualBills: parsed.manualBills ?? [],
+      receiptPayerMap: parsed.receiptPayerMap ?? {},
+    }
   } catch {
     return null
   }

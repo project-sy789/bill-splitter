@@ -10,7 +10,7 @@
  *   settings — { key, value }
  */
 
-import type { PersistedBillState } from './bill-persistence'
+import { PERSISTED_BILL_STATE_VERSION, type PersistedBillState } from './bill-persistence'
 
 const DB_NAME = 'bill-splitter-db'
 const DB_VERSION = 1
@@ -113,7 +113,7 @@ export async function saveBill(
   title: string,
   state: PersistedBillState,
 ): Promise<void> {
-  const record: BillRecord = { id, title, updatedAt: Date.now(), state }
+  const record: BillRecord = { id, title, updatedAt: Date.now(), state: { ...state, version: PERSISTED_BILL_STATE_VERSION } }
   await txPut('bills', record)
 }
 
@@ -165,7 +165,7 @@ export async function migrateFromLocalStorage(): Promise<string | null> {
         if (stateRaw) {
           try {
             const state = JSON.parse(stateRaw) as PersistedBillState
-            await saveBill(id, title, state)
+            await saveBill(id, title, { ...state, version: state.version ?? 1 })
             localStorage.removeItem(`bill-splitter-state-${id}`)
           } catch {
             // Skip malformed entries

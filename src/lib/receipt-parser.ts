@@ -118,6 +118,9 @@ const PURE_NONWORD_RE = /^[\d\s.,฿%+*/()[\]:.=-]+$/
 /** At least 2 meaningful characters */
 const WORD_RE = /[\u0E00-\u0E7F]{2,}|[a-zA-Z]{2,}/
 
+/** Lines that look like a continuation fragment, not a full item */
+const CONTINUATION_RE = /^(?:x\d+|\d+[x×*]\d+|[\p{L}\p{M}\p{N}][\p{L}\p{M}\p{N}\s().,'\-/]{0,32})$/u
+
 // ──────────────────────────────────────────────
 // Helpers
 // ──────────────────────────────────────────────
@@ -156,16 +159,26 @@ function extractTrailingPrice(raw: string): number | null {
 
 function cleanName(raw: string): string {
   return raw
-    .replace(BRACKET_TAG_RE, '')         // [N], [IGT], [IES]
-    .replace(PAREN_FLAVOR_RE, '')        // (ราคาปกติ, Flavor: กะทิ)
-    .replace(LEADING_NUM_RE, '')         // leading item number
-    .replace(QTY_X_PRICE_RE, '')        // 2x60
-    .replace(TRAILING_MONEY_RE, '')     // trailing price + suffix
-    .replace(BAHT_INLINE_RE, '')        // inline ฿
+    .replace(BRACKET_TAG_RE, '')
+    .replace(PAREN_FLAVOR_RE, '')
+    .replace(LEADING_NUM_RE, '')
+    .replace(QTY_X_PRICE_RE, '')
+    .replace(TRAILING_MONEY_RE, '')
+    .replace(BAHT_INLINE_RE, '')
     .replace(/[฿$%]/g, '')
     .replace(/\s{2,}/g, ' ')
     .replace(/[-.\u2013\u2014]+$/, '')
     .trim()
+}
+
+function isContinuationLine(raw: string): boolean {
+  const stripped = cleanName(raw)
+  if (!stripped) return false
+  if (stripped.length > 40) return false
+  if (extractTrailingPrice(raw) !== null) return false
+  if (PURE_NONWORD_RE.test(stripped)) return false
+  if (/\d/.test(stripped) && /[\u0E00-\u0E7Fa-zA-Z]/.test(stripped)) return false
+  return CONTINUATION_RE.test(stripped)
 }
 
 function median(vals: number[]): number {
@@ -240,23 +253,33 @@ export function parseReceiptText(rawText: string): ParsedReceiptResult {
   while (i < infos.length) {
     const info = infos[i]!
 
-    // Skip non-item lines
     if (info.isSummary || info.isHeader || info.isDecorative || info.isTxId) { i++; continue }
-    if (!info.hasMeaningfulWord) { i++; continue }
-    if (PURE_NONWORD_RE.test(info.raw)) { i++; continue }
-    if (info.nameCandidate.length < 2) { i++; continue }
-    if (!WORD_RE.test(info.nameCandidate)) { i++; continue }
+    if (!info.hasMeaningfulWord || PURE_NONWORD_RE.test(info.raw) || info.nameCandidate.length < 2 || !WORD_RE.test(info.nameCandidate)) { i++; continue }
 
     const price = info.price
 
-    // Negative price → skip (already handled as discount in Phase 2)
     if (price !== null && price < 0) { i++; continue }
-
-    // Zero price → skip (free promo items, OCR artifacts like 0.00N)
     if (price !== null && price === 0) { i++; continue }
 
+    const canJoinNext = !price && !/\d/.test(info.raw)
+    const next = infos[i + 1]
+    if (canJoinNext && next && isContinuationLine(next.raw)) {
+      const joinedName = `${info.nameCandidate} ${cleanName(next.raw)}`.trim()
+      const joinedPrice = next.price
+      const third = infos[i + 2]
+      if (joinedPrice !== null && joinedPrice > 0 && joinedName.length >= 2) {
+        candidates.push({ name: joinedName, amount: joinedPrice })
+        i += 2
+        continue
+      }
+      if (third && third.price !== null && third.price > 0 && isContinuationLine(next.raw) && !third.isSummary) {
+        candidates.push({ name: joinedName, amount: third.price })
+        i += 3
+        continue
+      }
+    }
+
     if (price !== null && price > 0) {
-      // Handle qty×price pattern
       let finalPrice = price
       const qm = info.raw.match(QTY_X_PRICE_RE)
       if (qm) {
@@ -264,23 +287,15 @@ export function parseReceiptText(rawText: string): ParsedReceiptResult {
         const unit = parseMoney(qm[2] ?? '')
         if (unit !== null && qty > 0) {
           const computed = round2(qty * unit)
-          if (Math.abs(price - computed) < 2) finalPrice = price // trailing wins
+          if (Math.abs(price - computed) < 2) finalPrice = price
         }
       }
       candidates.push({ name: info.nameCandidate, amount: finalPrice })
       i++
     } else {
-      // No price — check if next line is price-only (Pattern D)
-      const next = infos[i + 1]
-      if (
-        next &&
-        next.price !== null &&
-        next.price > 0 &&
-        !next.hasMeaningfulWord &&
-        PURE_NONWORD_RE.test(next.raw) &&
-        !next.isSummary
-      ) {
-        candidates.push({ name: info.nameCandidate, amount: next.price })
+      const nextPrice = infos[i + 1]
+      if (nextPrice && nextPrice.price !== null && nextPrice.price > 0 && !nextPrice.hasMeaningfulWord && PURE_NONWORD_RE.test(nextPrice.raw) && !nextPrice.isSummary) {
+        candidates.push({ name: info.nameCandidate, amount: nextPrice.price })
         i += 2
       } else {
         i++
@@ -302,12 +317,13 @@ export function parseReceiptText(rawText: string): ParsedReceiptResult {
     rawText,
     lines,
     items,
-    summary: { 
-      subtotal, 
-      vat, 
-      serviceCharge: null, 
-      discount: null, 
-      total 
+    summary: {
+      subtotal,
+      vat,
+      serviceCharge: null,
+      billDiscount: null,
+      discount: null,
+      total,
     },
     vatIncluded
   }
@@ -320,17 +336,18 @@ export function parseReceiptText(rawText: string): ParsedReceiptResult {
 function filterOutliers(
   candidates: Array<{ name: string; amount: number }>,
 ): ParsedReceiptItem[] {
-  if (candidates.length <= 3) {
+  // Receipts often contain one or two expensive/cheap items, so avoid aggressive filtering.
+  if (candidates.length <= 2) {
     return candidates.map((c) => ({ ...c, id: crypto.randomUUID() }))
   }
 
   const prices = candidates.map((c) => c.amount)
   const med = median(prices)
   const mad = median(prices.map((p) => Math.abs(p - med)))
-  const spread = mad === 0 ? med * 0.5 : mad * 10
+  const spread = mad === 0 ? Math.max(med * 0.75, 1) : mad * 12
 
   return candidates
-    .filter((c) => Math.abs(c.amount - med) <= Math.max(spread, med * 3))
+    .filter((c) => Math.abs(c.amount - med) <= Math.max(spread, med * 5))
     .map((c) => ({ ...c, id: crypto.randomUUID() }))
 }
 
