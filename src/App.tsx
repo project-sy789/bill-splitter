@@ -132,18 +132,18 @@ function simplifyDebts(netByMember: Record<string, number>): Settlement[] {
 
 function StepBadge({ n, label }: { n: number; label: string }) {
   return (
-    <div className="flex items-center gap-2 mb-4">
-      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-violet-600 text-sm font-bold text-white">
+    <div className="mb-4 flex items-center gap-2.5">
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-violet-600 text-sm font-bold text-white shadow-sm">
         {n}
       </span>
-      <span className="text-base font-bold text-gray-800">{label}</span>
+      <span className="text-[15px] font-semibold tracking-tight text-gray-900">{label}</span>
     </div>
   )
 }
 
 function SectionCard({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <section className={`rounded-2xl border border-gray-200 bg-white p-4 sm:p-5 shadow-sm ${className}`}>
+    <section className={`rounded-[28px] border border-gray-200 bg-white p-4 shadow-sm sm:p-5 ${className}`}>
       {children}
     </section>
   )
@@ -715,7 +715,7 @@ function App() {
   // ──────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-violet-50 via-white to-sky-50 text-[15px] leading-6 sm:text-base">
+    <div className="min-h-screen bg-gradient-to-br from-violet-50 via-white to-sky-50 text-[15px] leading-6 tracking-[0.01em] sm:text-base">
       {/* Hidden inputs */}
       <input
         ref={cameraInputRef}
@@ -744,15 +744,15 @@ function App() {
 
 
       {/* Header */}
-      <header className="sticky top-0 z-40 border-b border-gray-100 bg-white/80 backdrop-blur-md" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-3 py-2.5 sm:px-4 sm:py-3">
+      <header className="sticky top-0 z-40 border-b border-gray-100 bg-white/90 backdrop-blur-xl" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+        <div className="mx-auto flex max-w-3xl items-center justify-between px-3 py-2 sm:px-4 sm:py-3">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-violet-600 text-white">
               <Receipt className="h-4 w-4" />
             </div>
             <div>
-              <h1 className="text-base font-bold leading-none text-gray-900">หารบิลกัน</h1>
-              <p className="text-xs text-gray-400 leading-none mt-0.5">หารค่าใช้จ่ายกับเพื่อน</p>
+              <h1 className="text-[17px] font-semibold tracking-tight leading-none text-gray-900">หารบิลกัน</h1>
+              <p className="mt-0.5 text-[11px] leading-none tracking-wide text-gray-400">หารค่าใช้จ่ายกับเพื่อน</p>
             </div>
           </div>
           <div className="flex items-center gap-1.5">
@@ -921,14 +921,14 @@ function App() {
                   </span>
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-3 sm:space-y-4">
                   {items.map((item) => {
                     const split = calcItemSplit({ ...item, amount: round2(Math.max(0, item.amount - (item.itemDiscount ?? 0))) }, members)
                     const isExpanded = expandedItems.has(item.id)
                     const parentBill = unifiedBills.find(b => b.id === item.billId)
                     
                     return (
-                      <div key={item.id} className={`bg-white rounded-3xl border transition-all duration-300 ${isExpanded ? 'ring-2 ring-violet-100 border-violet-200 shadow-xl' : 'border-gray-100 shadow-sm hover:shadow-md'}`}>
+                      <div key={item.id} className={`bg-white rounded-[28px] border transition-all duration-300 ${isExpanded ? 'ring-2 ring-violet-100 border-violet-200 shadow-xl' : 'border-gray-100 shadow-sm hover:shadow-md'}`}>
                         <div className="p-4 sm:p-5">
                           <div className="flex items-start justify-between gap-4">
                             <div className="flex-1 min-w-0">
@@ -958,10 +958,11 @@ function App() {
                                 <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400">฿</span>
                                 <input
                                   type="number"
+                                  inputMode="decimal"
                                   value={item.amount || ''}
                                   onChange={(e) => updateItem(item.id, 'amount', Number(e.target.value) || 0)}
-                                  placeholder="0"
-                                  className="w-20 bg-transparent text-right text-sm font-black tabular-nums text-gray-900 outline-none placeholder:text-gray-300"
+                                  placeholder="0.00"
+                                  className="w-20 bg-transparent text-right text-sm font-semibold tabular-nums text-gray-900 outline-none placeholder:text-gray-300 sm:w-24"
                                 />
                               </div>
                               <div className="mt-2 flex items-center justify-end gap-1.5">
@@ -990,12 +991,12 @@ function App() {
                             <div className="mt-4 pt-4 border-t border-dashed border-gray-100 animate-in fade-in slide-in-from-top-2">
                               <div className="flex items-center justify-between mb-3">
                                 <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">วิธีหารรายการนี้</span>
-                                <div className="flex bg-gray-50 rounded-lg p-0.5 border border-gray-100">
+                                <div className="flex rounded-lg border border-gray-100 bg-gray-50 p-0.5 shadow-inner">
                                   {(['equally', 'percentage', 'exact'] as const).map((mode) => (
                                     <button
                                       key={mode}
                                       onClick={() => updateItem(item.id, 'splitMode', mode)}
-                                      className={`rounded-md px-2 py-1 text-[10px] font-bold transition-all ${
+                                      className={`rounded-md px-2.5 py-1.5 text-[10px] font-semibold transition-all ${
                                         item.splitMode === mode ? 'bg-violet-600 text-white shadow-sm' : 'text-gray-400 hover:text-gray-600'
                                       }`}
                                     >
@@ -1083,7 +1084,7 @@ function App() {
                       setItems((prev) => [...prev, item])
                       setExpandedItems(prev => new Set(prev).add(item.id))
                     }}
-                    className="w-full py-4 border-2 border-dashed border-gray-200 rounded-3xl text-[11px] font-black text-gray-400 hover:border-violet-300 hover:bg-violet-50/50 hover:text-violet-500 transition-all uppercase tracking-widest flex items-center justify-center gap-2 group"
+                    className="w-full py-4 border-2 border-dashed border-gray-200 rounded-[28px] text-[11px] font-black text-gray-400 hover:border-violet-300 hover:bg-violet-50/50 hover:text-violet-500 transition-all uppercase tracking-widest flex items-center justify-center gap-2 group"
                   >
                     <Plus className="h-4 w-4 group-hover:scale-110 transition-transform" />
                     เพิ่มรายการอาหาร/สินค้า
@@ -1094,7 +1095,7 @@ function App() {
               {/* RIGHT COLUMN: RECEIPTS & BILL SUMMARY (ใบเสร็จ & ยอดจ่าย) */}
               <div className="lg:col-span-5 w-full space-y-6 order-1 lg:order-2">
                 <div className="px-2">
-                  <h3 className="text-sm font-black text-gray-700 uppercase tracking-widest flex items-center gap-2">
+                  <h3 className="text-sm font-black text-gray-800 uppercase tracking-[0.18em] flex items-center gap-2">
                     <Receipt className="h-4 w-4 text-violet-500" />
                     ใบเสร็จ & ยอดจ่าย
                   </h3>
@@ -1108,7 +1109,7 @@ function App() {
 
                     return (
                       <div key={b.id} className="receipt-serrated-top receipt-serrated-bottom receipt-thermal-texture rounded-b shadow-2xl relative">
-                        <div className="px-5 pt-8 pb-4 border-b border-dashed border-gray-200">
+                        <div className="px-4 pt-7 pb-4 border-b border-dashed border-gray-200 sm:px-5">
                           <input
                             value={b.title}
                             onChange={(e) => {
@@ -1118,13 +1119,13 @@ function App() {
                                 setManualBills(prev => prev.map(m => m.id === b.id ? {...m, name: e.target.value} : m))
                               }
                             }}
-                            className="text-lg font-black text-gray-800 bg-transparent border-none w-full outline-none focus:ring-0 p-0 placeholder:text-gray-300 uppercase tracking-tighter"
+                            className="w-full bg-transparent border-none p-0 text-[17px] font-semibold tracking-tight text-gray-900 outline-none focus:ring-0 placeholder:text-gray-300 sm:text-lg"
                             placeholder="บิลรายการ"
                           />
-                          <div className="flex justify-between items-end mt-1">
-                            <div className="text-right ml-auto">
-                              <p className="text-[10px] font-black text-gray-300 uppercase leading-none">Net Total</p>
-                              <p className="text-xl font-black text-violet-700 tabular-nums">฿{b.amount.toFixed(2)}</p>
+                          <div className="mt-1 flex items-end justify-between">
+                            <div className="ml-auto text-right">
+                              <p className="text-[10px] font-black uppercase leading-none tracking-[0.16em] text-gray-300">Net Total</p>
+                              <p className="text-2xl font-semibold tabular-nums tracking-tight text-violet-700 font-mono">฿{b.amount.toFixed(2)}</p>
                             </div>
                           </div>
                         </div>
@@ -1311,7 +1312,7 @@ function App() {
         {items.length > 0 && (
           <SectionCard>
             <StepBadge n={3} label="ใครจ่ายไปแล้วเท่าไหร่?" />
-            <p className="mb-3 -mt-2 text-xs text-gray-400">กรอกยอดที่แต่ละคนจ่ายจริง หรือเลือกคนจ่ายจากบิลด้านบน</p>
+            <p className="mb-3 -mt-2 text-[11px] leading-5 text-gray-400">กรอกยอดที่แต่ละคนจ่ายจริง หรือเลือกคนจ่ายจากบิลด้านบน</p>
 
             <div className="space-y-2">
               {members.map((m) => (
@@ -1334,7 +1335,7 @@ function App() {
                       onChange={(e) =>
                         setPaidByMember((prev) => ({ ...prev, [m.id]: Number(e.target.value) || 0 }))
                       }
-                      className="w-28 rounded-xl border border-gray-200 px-3 py-2 text-right text-sm outline-none focus:ring-2 focus:ring-violet-400"
+                      className="w-28 rounded-xl border border-gray-200 px-3 py-2 text-right text-sm font-mono font-semibold tabular-nums outline-none focus:ring-2 focus:ring-violet-400"
                     />
                   </div>
                   <span className="w-16 text-right text-xs font-semibold">
