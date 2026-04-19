@@ -744,7 +744,7 @@ function App() {
 
 
       {/* Header */}
-      <header className="sticky top-0 z-40 border-b border-gray-100 bg-white/90 backdrop-blur-xl shadow-[0_1px_0_rgba(255,255,255,0.8),0_8px_30px_rgba(124,58,237,0.04)]" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+      <header className="sticky top-0 z-40 border-b border-white/60 bg-white/75 backdrop-blur-2xl shadow-[0_1px_0_rgba(255,255,255,0.9),0_20px_60px_rgba(124,58,237,0.10)]" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         <div className="mx-auto flex max-w-3xl items-center justify-between px-3 py-2 sm:px-4 sm:py-3">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-violet-600 text-white">
@@ -791,9 +791,10 @@ function App() {
       </header>
 
       <main className="mx-auto max-w-3xl space-y-4 px-3 py-4 pb-14 sm:px-4 sm:py-5 sm:pb-16" style={{ paddingBottom: 'max(3.5rem, env(safe-area-inset-bottom))' }}>
+        <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(124,58,237,0.10),transparent_28%),radial-gradient(circle_at_bottom,rgba(14,165,233,0.08),transparent_22%)]" />
 
         {/* ── STEP 1: คนหาร ── */}
-        <SectionCard>
+        <SectionCard className="shadow-[0_10px_30px_rgba(15,23,42,0.04)]">
           <div className="flex items-start justify-between gap-3 mb-4">
             <StepBadge n={1} label="ใส่ชื่อคนที่จะหารบิล" />
             <div className="flex gap-2">
@@ -814,7 +815,7 @@ function App() {
 
           <div className="space-y-3">
             {members.map((member, idx) => (
-              <div key={member.id} className="flex flex-col gap-2 rounded-xl border border-gray-100 bg-gray-50 p-3">
+              <div key={member.id} className="flex flex-col gap-2 rounded-2xl border border-white/70 bg-white/70 p-3 shadow-[0_8px_24px_rgba(15,23,42,0.04)] backdrop-blur-xl">
                 <div className="flex items-center gap-2">
                   <span
                     className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white shadow-sm"
@@ -826,7 +827,7 @@ function App() {
                     value={member.name}
                     onChange={(e) => updateMember(member.id, 'name', e.target.value)}
                     placeholder={`คนที่ ${idx + 1}`}
-                    className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-400 transition-all shadow-sm"
+                    className="flex-1 rounded-xl border border-white/80 bg-white/90 px-3 py-2.5 text-sm outline-none shadow-[0_1px_0_rgba(255,255,255,0.8),0_6px_16px_rgba(15,23,42,0.05)] transition-all placeholder:text-gray-300 focus:ring-2 focus:ring-violet-400"
                   />
                   <button
                     onClick={() => removeMember(member.id)}
@@ -850,7 +851,7 @@ function App() {
 
           <button
             onClick={addMember}
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-200 py-2.5 text-sm font-semibold text-gray-400 transition hover:border-violet-300 hover:text-violet-600 hover:bg-violet-50/50 sm:mt-4 sm:py-3"
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-white/70 bg-white/70 py-3 text-sm font-semibold text-gray-500 shadow-[0_8px_24px_rgba(15,23,42,0.04)] backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:border-violet-200 hover:bg-white hover:text-violet-700 hover:shadow-[0_16px_30px_rgba(124,58,237,0.10)] active:translate-y-0 sm:mt-4 sm:py-3.5"
           >
             <Plus className="h-4 w-4" />
             เพิ่มคนหารบิล
@@ -870,14 +871,14 @@ function App() {
                   <button
                     onClick={() => cameraInputRef.current?.click()}
                     disabled={isBusy}
-                    className="flex-1 sm:flex-initial flex items-center justify-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-sm font-bold text-violet-700 shadow-sm transition-all hover:-translate-y-0.5 hover:bg-violet-100 hover:shadow-md active:translate-y-0 disabled:translate-y-0 disabled:opacity-50 disabled:hover:shadow-sm font-heading sm:px-4"
+                    className="flex-1 sm:flex-initial flex items-center justify-center gap-2 rounded-2xl border border-violet-100 bg-white/75 px-3 py-2 text-sm font-bold text-violet-700 shadow-[0_8px_24px_rgba(124,58,237,0.08)] backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:bg-violet-50 hover:shadow-[0_14px_30px_rgba(124,58,237,0.12)] active:translate-y-0 disabled:translate-y-0 disabled:opacity-50 disabled:hover:shadow-[0_8px_24px_rgba(124,58,237,0.08)] font-heading sm:px-4"
                   >
                     {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
                     {isBusy ? 'กำลังสแกน...' : 'ถ่ายบิลใหม่'}
                   </button>
                   <button
                     onClick={() => setIsManualBillModalOpen(true)}
-                    className="flex-1 sm:flex-initial flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-3 py-2 text-sm font-bold text-white shadow-[0_10px_24px_rgba(124,58,237,0.22)] transition-all hover:-translate-y-0.5 hover:bg-violet-700 hover:shadow-[0_14px_30px_rgba(124,58,237,0.28)] active:translate-y-0 font-heading sm:px-4"
+                    className="flex-1 sm:flex-initial flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-violet-600 via-violet-500 to-fuchsia-500 px-3 py-2 text-sm font-bold text-white shadow-[0_14px_34px_rgba(124,58,237,0.28)] transition-all hover:-translate-y-0.5 hover:shadow-[0_18px_40px_rgba(124,58,237,0.34)] active:translate-y-0 font-heading sm:px-4"
                   >
                     <Plus className="h-4 w-4" /> เพิ่มบิลเอง
                   </button>

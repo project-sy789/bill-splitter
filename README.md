@@ -1,25 +1,27 @@
+<div align="center">
+
 # หารบิลกัน
 
-แอปหารค่าใช้จ่ายบนมือถือที่ดูเรียบร้อย ใช้ง่าย และทำงานได้ออฟไลน์
+**แอปหารบิลบนมือถือ ใช้ง่าย สแกนได้ จดเองได้ และหาเงินที่ต้องโอนกันได้เร็ว**
+
+[Demo](https://project-sy789.github.io/bill-splitter/) • PWA • Offline-first • MIT
+
+</div>
 
 ## ทำอะไรได้บ้าง
+- แยกบิลหลายใบในรอบเดียว
+- สแกนสลิปหรือเพิ่มบิลเอง
+- ตั้ง `Service`, `VAT`, `Discount` แยกต่อบิล
+- บันทึกแก๊งเพื่อนและ PromptPay
+- สรุปว่าใครต้องโอนให้ใครแบบอัตโนมัติ
+- ใช้งานแบบ PWA และออฟไลน์ได้
 
-- เพิ่มหลายบิลในรอบเดียว
-- ใส่คนหาร, รายการสินค้า, และยอดที่จ่ายจริง
-- แยก Service Charge / VAT / ส่วนลด รายบิลได้
-- สแกนสลิปด้วย AI OCR หรือกรอกเอง
-- บันทึกกลุ่มเพื่อนและ PromptPay ได้
-- แชร์สรุปเป็นรูป PNG
+## เปิดใช้งาน
+1. เข้าเว็บ Demo
+2. บน iPhone กด `Share` แล้วเลือก `Add to Home Screen`
+3. บน Android กดเมนู `⋮` แล้วเลือก `Install App`
 
-## เด่นสุด
-
-- PWA ติดตั้งเป็นแอปได้
-- ข้อมูลเก็บในเครื่อง ไม่ส่งบิลออกไปเอง
-- UI มือถือเน้นแตะง่าย อ่านง่าย
-- รองรับ OCR สำรองเมื่ออ่านสลิปไม่ครบ
-
-## ใช้งานเร็ว
-
+## รันในเครื่อง
 ```bash
 git clone https://github.com/project-sy789/bill-splitter.git
 cd bill-splitter
@@ -27,10 +29,7 @@ npm install
 npm run dev
 ```
 
-เปิด `http://localhost:5173/bill-splitter/`
-
-## Deploy OCR Worker
-
+## OCR ฝั่ง Worker
 ```bash
 cd worker
 npm install
@@ -39,17 +38,8 @@ npx wrangler secret put GEMINI_API_KEY
 npx wrangler deploy
 ```
 
-ตั้งค่า `VITE_GEMINI_PROXY_URL=<worker-url>` ใน `.env.local`
-
-## Stack
-
-- React + Vite + TypeScript
-- Tailwind CSS
-- IndexedDB
-- Cloudflare Workers สำหรับ OCR proxy
+## Tech
+React 19 • Vite • TypeScript • Tailwind CSS • IndexedDB • Cloudflare Workers • Gemini Vision • Tesseract fallback
 
 ## Privacy
-
-ข้อมูลบิลและรายชื่อเก็บในเครื่องคุณเป็นหลัก
-
-
+ข้อมูลบิลและรายชื่อเก็บบนเครื่องผู้ใช้เป็นหลัก
