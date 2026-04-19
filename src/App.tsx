@@ -908,12 +908,15 @@ function App() {
             <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6 items-start">
               {/* LEFT COLUMN: ITEM MANAGEMENT (รายการสินค้า) */}
               <div className="lg:col-span-7 w-full space-y-4 order-2 lg:order-1">
-                <div className="flex items-center justify-between px-2">
-                  <h3 className="text-sm font-black text-gray-700 uppercase tracking-widest flex items-center gap-2">
-                    <ListFilter className="h-4 w-4 text-violet-500" />
-                    รายการสินค้า
-                  </h3>
-                  <span className="text-[10px] font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+                <div className="flex items-end justify-between px-2">
+                  <div>
+                    <h3 className="text-sm font-black text-gray-800 uppercase tracking-[0.18em] flex items-center gap-2">
+                      <ListFilter className="h-4 w-4 text-violet-500" />
+                      รายการสินค้า
+                    </h3>
+                    <p className="mt-1 text-[11px] text-gray-400">เพิ่มชื่อ รายการ ราคา และตั้งค่าวิธีหารได้ทีละรายการ</p>
+                  </div>
+                  <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[10px] font-bold text-gray-500">
                     {items.length} รายการ
                   </span>
                 </div>
@@ -926,15 +929,15 @@ function App() {
                     
                     return (
                       <div key={item.id} className={`bg-white rounded-3xl border transition-all duration-300 ${isExpanded ? 'ring-2 ring-violet-100 border-violet-200 shadow-xl' : 'border-gray-100 shadow-sm hover:shadow-md'}`}>
-                        <div className="p-4">
-                          <div className="flex items-start justify-between gap-3">
+                        <div className="p-4 sm:p-5">
+                          <div className="flex items-start justify-between gap-4">
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-1">
                                 <input
                                   value={item.name}
                                   onChange={(e) => updateItem(item.id, 'name', e.target.value)}
                                   placeholder="ชื่อรายการ"
-                                  className="text-sm font-black text-gray-800 bg-transparent outline-none p-0 border-none w-full"
+                                  className="w-full bg-transparent p-0 text-base font-black tracking-tight text-gray-900 outline-none placeholder:text-gray-300"
                                 />
                                 {parentBill && (
                                   <span className="shrink-0 text-[8px] font-black bg-violet-50 text-violet-500 px-1.5 py-0.5 rounded-md uppercase tracking-tighter">
@@ -951,17 +954,17 @@ function App() {
                               </div>
                             </div>
                             <div className="text-right shrink-0">
-                              <div className="flex items-center gap-1.5 bg-gray-50 px-2 py-1 rounded-xl border border-gray-100">
-                                <span className="text-[10px] font-bold text-gray-400">฿</span>
+                              <div className="flex items-center gap-2 rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2 shadow-sm">
+                                <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400">฿</span>
                                 <input
                                   type="number"
                                   value={item.amount || ''}
                                   onChange={(e) => updateItem(item.id, 'amount', Number(e.target.value) || 0)}
                                   placeholder="0"
-                                  className="w-16 text-right text-sm font-black text-gray-900 bg-transparent outline-none"
+                                  className="w-20 bg-transparent text-right text-sm font-black tabular-nums text-gray-900 outline-none placeholder:text-gray-300"
                                 />
                               </div>
-                              <div className="flex items-center justify-end gap-1 mt-2">
+                              <div className="mt-2 flex items-center justify-end gap-1.5">
                                 <button 
                                   onClick={() => setExpandedItems(prev => {
                                     const next = new Set(prev)
@@ -969,13 +972,13 @@ function App() {
                                     else next.add(item.id)
                                     return next
                                   })}
-                                  className="p-1 px-2 text-[10px] font-bold text-violet-600 hover:bg-violet-50 rounded-lg transition-colors border border-violet-100"
+                                  className="rounded-lg border border-violet-100 px-2.5 py-1 text-[10px] font-bold text-violet-700 hover:bg-violet-50 transition-colors"
                                 >
                                   {isExpanded ? 'ปิด' : 'ตั้งค่าหาร'}
                                 </button>
                                 <button 
                                   onClick={() => setItems(prev => prev.filter(it => it.id !== item.id))}
-                                  className="p-1.5 text-red-200 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                                  className="rounded-lg p-1.5 text-red-200 transition-all hover:bg-red-50 hover:text-red-500"
                                 >
                                   <Trash2 className="h-3.5 w-3.5" />
                                 </button>
@@ -1263,11 +1266,11 @@ function App() {
                           </div>
 
                           {/* Payer Selector */}
-                          <div className="mt-4 bg-violet-50/80 rounded-2xl p-3 border border-violet-100">
-                             <div className="flex items-center justify-between mb-2">
+                          <div className="mt-4 rounded-2xl border border-violet-100 bg-violet-50/80 p-3">
+                             <div className="mb-2 flex items-center justify-between">
                                <div className="flex flex-col">
-                                 <span className="text-[10px] font-black text-violet-700 uppercase">ใครจ่ายเงินก้อนนี้?</span>
-                                 <span className="text-[8px] text-violet-400 font-bold italic leading-none">Payer of this bill</span>
+                                 <span className="text-[10px] font-black uppercase tracking-[0.2em] text-violet-700">ใครจ่ายเงินก้อนนี้?</span>
+                                 <span className="text-[8px] font-medium italic leading-none text-violet-400">Payer of this bill</span>
                                </div>
                                <Receipt className="h-4 w-4 text-violet-300" />
                              </div>
@@ -1279,7 +1282,7 @@ function App() {
                                  if (oldPayerId === newPayerId) return
                                  setReceiptPayerMap(prev => ({ ...prev, [b.id]: newPayerId }))
                                }}
-                               className="w-full bg-white border-2 border-violet-100 rounded-xl px-3 py-2 text-sm font-black text-violet-700 outline-none focus:border-violet-400 shadow-sm appearance-none cursor-pointer"
+                               className="w-full appearance-none rounded-xl border-2 border-violet-100 bg-white px-3 py-2 text-sm font-black text-violet-700 shadow-sm outline-none transition-colors focus:border-violet-400"
                              >
                                <option value="">-- ยังไม่มีคนจ่าย --</option>
                                {members.map(m => (
