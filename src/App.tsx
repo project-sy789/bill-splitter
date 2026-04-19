@@ -836,13 +836,12 @@ function App() {
                     <X className="h-4 w-4" />
                   </button>
                 </div>
-                <div className="flex items-center gap-2 pl-9">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider shrink-0">PromptPay:</label>
+                <div className="pl-9">
                   <input
                     value={member.promptPayId || ''}
                     onChange={(e) => updateMember(member.id, 'promptPayId', e.target.value)}
-                    placeholder="เบอร์โทร หรือ เลขบัตร"
-                    className="flex-1 bg-transparent border-none p-0 text-[11px] font-mono font-bold text-gray-600 focus:ring-0 placeholder:text-gray-300"
+                    placeholder="PromptPay: เบอร์โทร หรือ เลขบัตร"
+                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-[11px] font-mono font-bold text-gray-700 outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 placeholder:text-gray-300"
                   />
                 </div>
               </div>
@@ -987,7 +986,7 @@ function App() {
                           {isExpanded && (
                             <div className="mt-4 pt-4 border-t border-dashed border-gray-100 animate-in fade-in slide-in-from-top-2">
                               <div className="flex items-center justify-between mb-3">
-                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">วิธีหารอาหารจานนี้</span>
+                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">วิธีหารรายการนี้</span>
                                 <div className="flex bg-gray-50 rounded-lg p-0.5 border border-gray-100">
                                   {(['equally', 'percentage', 'exact'] as const).map((mode) => (
                                     <button
@@ -1120,13 +1119,11 @@ function App() {
                             placeholder="บิลรายการ"
                           />
                           <div className="flex justify-between items-end mt-1">
-                            <span className="text-[10px] font-mono text-gray-400 uppercase">Ref: {b.id.slice(-6)}</span>
-                            <div className="text-right">
+                            <div className="text-right ml-auto">
                               <p className="text-[10px] font-black text-gray-300 uppercase leading-none">Net Total</p>
                               <p className="text-xl font-black text-violet-700 tabular-nums">฿{b.amount.toFixed(2)}</p>
                             </div>
                           </div>
-                          <p className="mt-1 text-sm font-bold text-violet-700">฿{b.amount.toFixed(2)}</p>
                         </div>
 
                         <div className="px-5 py-4 space-y-3 bg-white/40">
@@ -1155,7 +1152,7 @@ function App() {
                                    onClick={() => {
                                      const item: BillItemDraft = {
                                        id: crypto.randomUUID(),
-                                       name: `ยอดส่วนต่าง ${b.title}`,
+                                       name: `ส่วนต่างของ ${b.title}`,
                                        billId: b.id,
                                        amount: deficit,
                                        itemDiscount: 0,
@@ -1168,19 +1165,17 @@ function App() {
                                    }}
                                    className="w-full flex items-center justify-center gap-2 bg-amber-50 text-amber-600 py-1.5 rounded-lg border border-amber-100 text-[10px] font-black hover:bg-amber-100 transition-colors"
                                  >
-                                   <Zap className="h-3 w-3" /> เพิ่มยอดตกหล่น ฿{deficit.toFixed(2)}
+                                   <Zap className="h-3 w-3" /> เพิ่มส่วนต่าง ฿{deficit.toFixed(2)}
                                  </button>
                                )
                              }
                              return null
                           })()}
 
-                          {/* Fees Editor Section */}
-                          <div className="space-y-2 pt-2 border-t border-dashed border-gray-100">
-                            {/* Service Charge */}
-                            <div className="flex items-center justify-between group/sc">
+                          <div className="space-y-3 rounded-2xl border border-violet-100 bg-white p-3 shadow-sm">
+                            <div className="flex items-center justify-between gap-3">
                               <span className="text-[10px] font-black text-gray-500 uppercase">Service +10%</span>
-                              <div className="flex items-center gap-1">
+                              <div className="flex items-center gap-2">
                                 <span className="text-[10px] text-gray-300">฿</span>
                                 <input
                                   type="number"
@@ -1193,14 +1188,13 @@ function App() {
                                       setManualBills(prev => prev.map(mm => mm.id === b.id ? { ...mm, serviceCharge: val } : mm))
                                     }
                                   }}
-                                  className="w-16 bg-transparent text-right font-black text-xs outline-none focus:text-violet-600"
+                                  className="w-20 rounded-xl border border-violet-100 bg-white px-2 py-1 text-xs text-right font-bold text-gray-700 outline-none focus:ring-2 focus:ring-violet-400"
                                   placeholder="0"
                                 />
                               </div>
                             </div>
 
-                            {/* VAT Section */}
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-between gap-3">
                               <button
                                 onClick={() => {
                                   const isInc = b.id.startsWith('ocr-') ? results[parseInt(b.id.split('-')[1]!, 10)]?.vatIncluded : manualBills.find(m => m.id === b.id)?.vatIncluded
@@ -1210,10 +1204,10 @@ function App() {
                                     setManualBills(prev => prev.map(mm => mm.id === b.id ? { ...mm, vatIncluded: !isInc } : mm))
                                   }
                                 }}
-                                className={`text-[9px] font-black px-1.5 py-0.5 rounded border transition-colors ${
+                                className={`rounded-full px-2.5 py-1 text-[10px] font-black border transition-colors ${
                                   (b.id.startsWith('ocr-') ? results[parseInt(b.id.split('-')[1]!, 10)]?.vatIncluded : manualBills.find(m => m.id === b.id)?.vatIncluded)
-                                  ? 'bg-amber-100 text-amber-600 border-amber-200'
-                                  : 'text-gray-400 border-gray-100 bg-gray-50'
+                                  ? 'bg-amber-100 text-amber-700 border-amber-200'
+                                  : 'bg-violet-50 text-violet-700 border-violet-100'
                                 }`}
                               >
                                 { (b.id.startsWith('ocr-') ? results[parseInt(b.id.split('-')[1]!, 10)]?.vatIncluded : manualBills.find(m => m.id === b.id)?.vatIncluded) ? 'VAT รวมแล้ว' : 'VAT แยก +7%' }
@@ -1232,7 +1226,7 @@ function App() {
                                     }
                                   }}
                                   disabled={(b.id.startsWith('ocr-') ? results[parseInt(b.id.split('-')[1]!, 10)]?.vatIncluded : manualBills.find(m => m.id === b.id)?.vatIncluded)}
-                                  className="w-16 bg-transparent text-right font-black text-xs outline-none disabled:opacity-30"
+                                  className="w-20 rounded-xl border border-violet-100 bg-white px-2 py-1 text-xs text-right font-bold text-gray-700 outline-none focus:ring-2 focus:ring-violet-400 disabled:bg-gray-50 disabled:text-gray-400"
                                   placeholder="0"
                                 />
                               </div>
@@ -1314,7 +1308,7 @@ function App() {
         {items.length > 0 && (
           <SectionCard>
             <StepBadge n={3} label="ใครจ่ายไปแล้วเท่าไหร่?" />
-            <p className="mb-3 -mt-2 text-xs text-gray-400">ใส่ยอดที่แต่ละคนจ่ายไปแล้ว หรือเลือกคนจ่ายจากบิลด้านบน</p>
+            <p className="mb-3 -mt-2 text-xs text-gray-400">กรอกยอดที่แต่ละคนจ่ายจริง หรือเลือกคนจ่ายจากบิลด้านบน</p>
 
             <div className="space-y-2">
               {members.map((m) => (
