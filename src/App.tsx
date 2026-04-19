@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Camera,
-  ChevronDown,
   Copy,
   Download,
   History,
@@ -9,6 +8,8 @@ import {
   Plus,
   QrCode as QrCodeIcon,
   Receipt,
+  ListFilter,
+  Zap,
   Trash2,
   Upload,
   Users,
@@ -123,19 +124,6 @@ function simplifyDebts(netByMember: Record<string, number>): Settlement[] {
     if (creditor.amount <= 0.01) j++
   }
   return settlements
-}
-
-function makeNewItem(members: MemberDraft[]): BillItemDraft {
-  return {
-    id: crypto.randomUUID(),
-    name: '',
-    amount: 0,
-    itemDiscount: 0,
-    splitMode: 'equally',
-    consumerIds: members.map((m) => m.id),
-    percentageByUser: Object.fromEntries(members.map((m) => [m.id, round2(100 / Math.max(members.length, 1))])),
-    exactByUser: Object.fromEntries(members.map((m) => [m.id, 0])),
-  }
 }
 
 // ──────────────────────────────────────────────
@@ -343,21 +331,11 @@ function App() {
         items: items.filter((it) => it.billId === m.id),
         serviceCharge: m.serviceCharge,
         vat: m.vat,
-        billDiscount: m.billDiscount ?? m.discount ?? 0,
+        billDiscount: m.billDiscount ?? (m.discount ?? 0),
         vatIncluded: m.vatIncluded,
       })),
     ]
   }, [results, manualBills, items])
-
-  const billAmountById = useMemo(() => {
-    const map = new Map<string, number>()
-    billContexts.forEach((bill) => {
-      const itemsAmount = bill.items.reduce((s, it) => s + Math.max(0, it.amount - (it.itemDiscount ?? 0)), 0)
-      const total = round2(itemsAmount + bill.serviceCharge + (bill.vatIncluded ? 0 : bill.vat) - bill.billDiscount)
-      map.set(bill.id, total)
-    })
-    return map
-  }, [billContexts])
 
   const billBaseByMemberMap = useMemo(() => {
     const map = new Map<string, Record<string, number>>()
@@ -400,28 +378,30 @@ function App() {
   const unifiedBills = useMemo(() => [
     ...results.map((r, i) => {
       const bId = `ocr-${i}`
-      const billItems = items.filter(it => it.billId === bId)
-      const subtotal = billItems.reduce((s, it) => s + it.amount, 0)
-      const calculatedTotal = round2(subtotal + (r.summary.serviceCharge ?? 0) + (r.vatIncluded ? 0 : (r.summary.vat ?? 0)) - (r.summary.discount ?? 0))
-      
+      const billItems = items.filter((it) => it.billId === bId)
+      const subtotal = billItems.reduce((s, it) => s + Math.max(0, it.amount - (it.itemDiscount ?? 0)), 0)
+      const billDiscount = r.summary.billDiscount ?? r.summary.discount ?? 0
+      const calculatedTotal = round2(subtotal + (r.summary.serviceCharge ?? 0) + (r.vatIncluded ? 0 : (r.summary.vat ?? 0)) - billDiscount)
+
       return {
         id: bId,
         title: r.customName !== undefined ? r.customName : `สลิป ${i + 1}`,
         subtitle: `${billItems.length} รายการ${r.vatIncluded ? ' (VAT รวมแล้ว)' : ''}`,
-        amount: r.summary.total ?? r.items.reduce((s, it) => s + it.amount, 0),
+        amount: r.summary.total ?? round2(subtotal + (r.summary.serviceCharge ?? 0) + (r.vatIncluded ? 0 : (r.summary.vat ?? 0)) - billDiscount),
         calculatedTotal,
       }
     }),
     ...manualBills.map((m) => {
-      const billItems = items.filter(it => it.billId === m.id)
-      const subtotal = billItems.reduce((s, it) => s + it.amount, 0)
-      const calculatedTotal = round2(subtotal + m.serviceCharge + (m.vatIncluded ? 0 : m.vat) - m.discount)
-      
+      const billItems = items.filter((it) => it.billId === m.id)
+      const subtotal = billItems.reduce((s, it) => s + Math.max(0, it.amount - (it.itemDiscount ?? 0)), 0)
+      const billDiscount = m.billDiscount ?? (m.discount ?? 0)
+      const calculatedTotal = round2(subtotal + m.serviceCharge + (m.vatIncluded ? 0 : m.vat) - billDiscount)
+
       return {
         id: m.id,
         title: m.name,
         subtitle: billItems.length > 0 ? `${billItems.length} รายการ` : 'ยอดใส่เอง',
-        amount: m.amount,
+        amount: round2(Math.max(0, m.amount - (m.itemDiscount ?? 0)) + m.serviceCharge + (m.vatIncluded ? 0 : m.vat) - billDiscount),
         calculatedTotal,
       }
     })
@@ -434,7 +414,7 @@ function App() {
   // ── Persist to IndexedDB ──
   useEffect(() => {
     if (!dbReady) return
-    const state: PersistedBillState = { version: 4, members, items, serviceCharge: 0, vat: 0, billDiscount: 0, discount: 0, allocationMode, paidByMember: totalPaidByMember, settlementStatus, manualBills, receiptPayerMap }
+    const state: PersistedBillState = { version: 4, members, items, serviceCharge: 0, vat: 0, billDiscount: 0, discount: 0, allocationMode, paidByMember, settlementStatus, manualBills, receiptPayerMap }
     const title = `บิลวันที่ ${new Date().toLocaleDateString('th-TH')} - ยอด ฿${grandTotal.toFixed(2)}`
 
     void db.saveBill(currentBillId, title, state)
@@ -444,7 +424,7 @@ function App() {
     if (items.length > 0 || members.length > 2 || Object.keys(paidByMember).length > 0 || manualBills.length > 0) {
       addOrUpdateBill(currentBillId, title, state)
     }
-  }, [dbReady, members, items, allocationMode, totalPaidByMember, settlementStatus, manualBills, receiptPayerMap, currentBillId, addOrUpdateBill, grandTotal])
+  }, [dbReady, members, items, allocationMode, paidByMember, settlementStatus, manualBills, receiptPayerMap, currentBillId, addOrUpdateBill, grandTotal])
 
 
 
@@ -532,6 +512,14 @@ function App() {
   }, [mergedItems, results, members])
 
   useEffect(() => () => { void terminate() }, [terminate])
+
+  const totalPaidByMember = useMemo(() => {
+    const totals: Record<string, number> = Object.fromEntries(members.map((m) => [m.id, 0]))
+    Object.entries(paidByMember).forEach(([memberId, amt]) => {
+      if (totals[memberId] !== undefined) totals[memberId] = round2((totals[memberId] ?? 0) + (amt ?? 0))
+    })
+    return totals
+  }, [members, paidByMember])
 
   const normalizedPaid = useMemo(() => {
     const out: Record<string, number> = {}
@@ -625,27 +613,19 @@ function App() {
     setItems((prev) => prev.map((item) => item.id === itemId ? { ...item, [field]: value } : item))
   }, [items, setResults])
 
-  const addManualItem = useCallback((billId?: string) => {
-    const item = makeNewItem(members)
-    if (billId) item.billId = billId
-    setItems((prev) => [...prev, item])
-    setExpandedItems((prev) => new Set([...prev, item.id]))
-  }, [members])
-
-  const toggleExpanded = useCallback((id: string) => {
-    setExpandedItems((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }, [])
-
   const exportBill = useCallback(() => {
     const state: PersistedBillState = {
       version: 4,
-      members, items, serviceCharge: 0, vat: 0, billDiscount: 0,
-      allocationMode, paidByMember, settlementStatus, manualBills, receiptPayerMap
+      members,
+      items,
+      serviceCharge: 0,
+      vat: 0,
+      billDiscount: 0,
+      allocationMode,
+      paidByMember,
+      settlementStatus,
+      manualBills,
+      receiptPayerMap,
     }
     const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
@@ -941,7 +921,7 @@ function App() {
 
                 <div className="space-y-3">
                   {items.map((item) => {
-                    const split = calcItemSplit(item, members)
+                    const split = calcItemSplit({ ...item, amount: round2(Math.max(0, item.amount - (item.itemDiscount ?? 0))) }, members)
                     const isExpanded = expandedItems.has(item.id)
                     const parentBill = unifiedBills.find(b => b.id === item.billId)
                     
@@ -1092,6 +1072,7 @@ function App() {
                         id: crypto.randomUUID(),
                         name: '',
                         amount: 0,
+                        itemDiscount: 0,
                         splitMode: 'equally',
                         consumerIds: members.map((m) => m.id),
                         percentageByUser: Object.fromEntries(members.map((m) => [m.id, 0])),
@@ -1157,7 +1138,16 @@ function App() {
 
                           {/* Quick Add Discrepancy inside receipt if needed */}
                           {(() => {
-                             const billFeesAdjust = (b.id.startsWith('ocr-') ? (results[parseInt(b.id.split('-')[1]!, 10)]?.summary.serviceCharge || 0) + (results[parseInt(b.id.split('-')[1]!, 10)]?.vatIncluded ? 0 : (results[parseInt(b.id.split('-')[1]!, 10)]?.summary.vat || 0)) - (results[parseInt(b.id.split('-')[1]!, 10)]?.summary.discount || 0) : manualBills.find(m => m.id === b.id)?.serviceCharge || 0 + (manualBills.find(m => m.id === b.id)?.vatIncluded ? 0 : (manualBills.find(m => m.id === b.id)?.vat || 0)) - (manualBills.find(m => m.id === b.id)?.discount || 0)) || 0
+                                                        const billFeeSource = b.id.startsWith('ocr-') ? results[parseInt(b.id.split('-')[1]!, 10)] : manualBills.find(m => m.id === b.id)
+                             const billFeesAdjust = b.id.startsWith('ocr-')
+                               ? (() => {
+                                   const r = billFeeSource as (typeof results)[number] | undefined
+                                   return r ? (r.summary.serviceCharge ?? 0) + (r.vatIncluded ? 0 : (r.summary.vat ?? 0)) - (r.summary.billDiscount ?? r.summary.discount ?? 0) : 0
+                                 })()
+                               : (() => {
+                                   const m = billFeeSource as ManualBill | undefined
+                                   return m ? (m.serviceCharge ?? 0) + (m.vatIncluded ? 0 : (m.vat ?? 0)) - (m.billDiscount ?? m.discount ?? 0) : 0
+                                 })()
                              const deficit = round2(b.amount - currentItemsSum - billFeesAdjust)
                              if (deficit > 0.01) {
                                return (
@@ -1168,6 +1158,7 @@ function App() {
                                        name: `ยอดส่วนต่าง ${b.title}`,
                                        billId: b.id,
                                        amount: deficit,
+                                       itemDiscount: 0,
                                        splitMode: 'equally',
                                        consumerIds: members.map((m) => m.id),
                                        percentageByUser: Object.fromEntries(members.map((m) => [m.id, 0])),
@@ -1254,13 +1245,13 @@ function App() {
                                 <span className="text-[10px] text-pink-300">฿</span>
                                 <input
                                   type="number"
-                                  value={(b.id.startsWith('ocr-') ? results[parseInt(b.id.split('-')[1]!, 10)]?.summary.discount : manualBills.find(m => m.id === b.id)?.discount) || ''}
+                                  value={(b.id.startsWith('ocr-') ? (results[parseInt(b.id.split('-')[1]!, 10)]?.summary.billDiscount ?? results[parseInt(b.id.split('-')[1]!, 10)]?.summary.discount) : (manualBills.find(m => m.id === b.id)?.billDiscount ?? manualBills.find(m => m.id === b.id)?.discount)) || ''}
                                   onChange={(e) => {
                                     const val = Number(e.target.value) || 0
                                     if (b.id.startsWith('ocr-')) {
-                                      setResults(res => res.map((rr, ii) => ii === parseInt(b.id.split('-')[1]!, 10) ? { ...rr, summary: { ...rr.summary, discount: val } } : rr))
+                                      setResults(res => res.map((rr, ii) => ii === parseInt(b.id.split('-')[1]!, 10) ? { ...rr, summary: { ...rr.summary, billDiscount: val, discount: val } } : rr))
                                     } else {
-                                      setManualBills(prev => prev.map(mm => mm.id === b.id ? { ...mm, discount: val } : mm))
+                                      setManualBills(prev => prev.map(mm => mm.id === b.id ? { ...mm, billDiscount: val, discount: val } : mm))
                                     }
                                   }}
                                   className="w-16 bg-transparent text-right font-black text-xs outline-none text-pink-600"
@@ -1292,12 +1283,6 @@ function App() {
                                  const newPayerId = e.target.value
                                  const oldPayerId = receiptPayerMap[b.id]
                                  if (oldPayerId === newPayerId) return
-                                 setPaidByMember((prev) => {
-                                    const next = { ...prev }
-                                    if (oldPayerId) next[oldPayerId] = Math.max(0, round2((next[oldPayerId] ?? 0) - b.amount))
-                                    if (newPayerId) next[newPayerId] = round2((next[newPayerId] ?? 0) + b.amount)
-                                    return next
-                                 })
                                  setReceiptPayerMap(prev => ({ ...prev, [b.id]: newPayerId }))
                                }}
                                className="w-full bg-white border-2 border-violet-100 rounded-xl px-3 py-2 text-sm font-black text-violet-700 outline-none focus:border-violet-400 shadow-sm appearance-none cursor-pointer"
@@ -1308,24 +1293,6 @@ function App() {
                                ))}
                              </select>
                           </div>
-                   
-                          {!b.id.startsWith('ocr-') && (
-                            <div className="mt-4 flex justify-center">
-                              <button
-                                onClick={() => {
-                                  const payerId = receiptPayerMap[b.id]
-                                  if (payerId) {
-                                    setPaidByMember(p => ({ ...p, [payerId]: Math.max(0, round2((p[payerId] || 0) - b.amount)) }))
-                                    setReceiptPayerMap(prev => { const n = {...prev}; delete n[b.id]; return n })
-                                  }
-                                  setManualBills(prev => prev.filter(m => m.id !== b.id))
-                                }}
-                                className="text-[9px] font-black text-red-300 hover:text-red-500 uppercase tracking-tighter flex items-center gap-1 p-1"
-                              >
-                                <Trash2 className="h-3 w-3" /> ลบบิลนี้
-                              </button>
-                            </div>
-                          )}
                         </div>
                       </div>
                     )
@@ -1342,56 +1309,6 @@ function App() {
             </div>
           </div>
         )}
-                               if (oldPayerId === newPayerId) return
-
-                                setPaidByMember((prev) => {
-                                  const next = { ...prev }
-                                  if (oldPayerId) {
-                                    next[oldPayerId] = Math.max(0, round2((next[oldPayerId] ?? 0) - b.amount))
-                                  }
-                                  if (newPayerId) {
-                                    next[newPayerId] = round2((next[newPayerId] ?? 0) + b.amount)
-                                  }
-                                  return next
-                                })
-
-                                setReceiptPayerMap((prev) => ({ ...prev, [b.id]: newPayerId }))
-                              }}
-                              className="bg-violet-50 border-none rounded-lg px-2 py-1.5 text-xs text-violet-700 outline-none focus:ring-1 focus:ring-violet-400 transition-all font-black appearance-none text-right min-w-[100px]"
-                            >
-                              <option value="">เลือกคนจ่าย</option>
-                              {members.map((m) => (
-                                <option key={m.id} value={m.id}>{m.name}</option>
-                              ))}
-                            </select>
-                          </div>
-                        </div>
-
-                        <div className="mt-4 flex items-center justify-center">
-                          {!b.id.startsWith('ocr-') && (
-                            <button
-                              onClick={() => {
-                                setReceiptPayerMap(prev => {
-                                  const next = { ...prev }
-                                  delete next[b.id]
-                                  return next
-                                })
-                                setItems(prev => prev.filter(item => item.billId !== b.id))
-                                setManualBills(prev => prev.filter(m => m.id !== b.id))
-                              }}
-                              className="text-[10px] font-bold text-red-300 hover:text-red-500 uppercase tracking-tighter flex items-center gap-1 transition-colors"
-                            >
-                              <Trash2 className="h-3 w-3" /> ลบใบเสร็จนี้
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </SectionCard>
-          )}
 
         {/* ── STEP 3: Who paid? ── */}
         {items.length > 0 && (
@@ -1885,9 +1802,6 @@ function App() {
     </div>
   )
 
-  function triggerImportUpload() {
-    importInputRef.current?.click()
-  }
 }
 
 export default App
