@@ -744,7 +744,7 @@ function App() {
 
 
       {/* Header */}
-      <header className="sticky top-0 z-40 border-b border-gray-100 bg-white/90 backdrop-blur-xl" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+      <header className="sticky top-0 z-40 border-b border-gray-100 bg-white/90 backdrop-blur-xl shadow-[0_1px_0_rgba(255,255,255,0.8),0_8px_30px_rgba(124,58,237,0.04)]" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         <div className="mx-auto flex max-w-3xl items-center justify-between px-3 py-2 sm:px-4 sm:py-3">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-violet-600 text-white">
@@ -870,14 +870,14 @@ function App() {
                   <button
                     onClick={() => cameraInputRef.current?.click()}
                     disabled={isBusy}
-                    className="flex-1 sm:flex-initial flex items-center justify-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-sm font-bold text-violet-700 hover:bg-violet-100 disabled:opacity-50 transition-all font-heading sm:px-4"
+                    className="flex-1 sm:flex-initial flex items-center justify-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-sm font-bold text-violet-700 shadow-sm transition-all hover:-translate-y-0.5 hover:bg-violet-100 hover:shadow-md active:translate-y-0 disabled:translate-y-0 disabled:opacity-50 disabled:hover:shadow-sm font-heading sm:px-4"
                   >
                     {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
                     {isBusy ? 'กำลังสแกน...' : 'ถ่ายบิลใหม่'}
                   </button>
                   <button
                     onClick={() => setIsManualBillModalOpen(true)}
-                    className="flex-1 sm:flex-initial flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-3 py-2 text-sm font-bold text-white hover:bg-violet-700 transition-all shadow-lg active:scale-95 font-heading sm:px-4"
+                    className="flex-1 sm:flex-initial flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-3 py-2 text-sm font-bold text-white shadow-[0_10px_24px_rgba(124,58,237,0.22)] transition-all hover:-translate-y-0.5 hover:bg-violet-700 hover:shadow-[0_14px_30px_rgba(124,58,237,0.28)] active:translate-y-0 font-heading sm:px-4"
                   >
                     <Plus className="h-4 w-4" /> เพิ่มบิลเอง
                   </button>
@@ -928,7 +928,7 @@ function App() {
                     const parentBill = unifiedBills.find(b => b.id === item.billId)
                     
                     return (
-                      <div key={item.id} className={`bg-white rounded-[28px] border transition-all duration-300 ${isExpanded ? 'ring-2 ring-violet-100 border-violet-200 shadow-xl' : 'border-gray-100 shadow-sm hover:shadow-md'}`}>
+                      <div key={item.id} className={`bg-white rounded-[28px] border transition-all duration-300 ${isExpanded ? 'ring-2 ring-violet-100 border-violet-200 shadow-[0_20px_40px_rgba(15,23,42,0.08)]' : 'border-gray-100 shadow-sm hover:shadow-md'}`}>
                         <div className="p-4 sm:p-5">
                           <div className="flex items-start justify-between gap-4">
                             <div className="flex-1 min-w-0">
@@ -1108,7 +1108,7 @@ function App() {
                     const currentItemsSum = items.filter(it => it.billId === b.id).reduce((s, it) => s + it.amount, 0)
 
                     return (
-                      <div key={b.id} className="receipt-serrated-top receipt-serrated-bottom receipt-thermal-texture rounded-b shadow-2xl relative">
+                      <div key={b.id} className="receipt-serrated-top receipt-serrated-bottom receipt-thermal-texture rounded-b shadow-[0_18px_40px_rgba(15,23,42,0.12)] relative">
                         <div className="px-4 pt-7 pb-4 border-b border-dashed border-gray-200 sm:px-5">
                           <input
                             value={b.title}
@@ -1167,7 +1167,7 @@ function App() {
                                      }
                                      setItems((prev) => [...prev, item])
                                    }}
-                                   className="w-full flex items-center justify-center gap-2 bg-amber-50 text-amber-600 py-1.5 rounded-lg border border-amber-100 text-[10px] font-black hover:bg-amber-100 transition-colors"
+                                   className="w-full flex items-center justify-center gap-2 rounded-xl border border-amber-100 bg-amber-50 py-2 text-[10px] font-black text-amber-600 shadow-sm transition-all hover:-translate-y-0.5 hover:bg-amber-100 hover:shadow-md active:translate-y-0"
                                  >
                                    <Zap className="h-3 w-3" /> เพิ่มส่วนต่าง ฿{deficit.toFixed(2)}
                                  </button>
