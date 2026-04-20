@@ -201,23 +201,29 @@ export function BillCard({
                     ))}
                   </div>
                 )}
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {members.map((m) => {
-                    const isActive = it.consumerIds.includes(m.id)
-                    return (
-                      <button
-                        key={m.id}
-                        onClick={() => {
-                          const next = isActive ? it.consumerIds.filter((id) => id !== m.id) : [...it.consumerIds, m.id]
-                          onEditItem(it.id, 'consumerIds', next)
-                        }}
-                        className={`rounded-full border px-2.5 py-1 text-[10px] font-bold transition-all ${isActive ? 'text-white shadow-sm' : 'bg-white text-gray-600'}`}
-                        style={{ backgroundColor: isActive ? m.color : undefined, borderColor: isActive ? m.color : 'rgb(229 231 235)' }}
-                      >
-                        {m.name}
-                      </button>
-                    )
-                  })}
+                <div className="mt-2 rounded-xl border border-gray-100 bg-gray-50 p-2">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-black uppercase tracking-[0.16em] text-gray-600">คนที่หารรายการนี้</span>
+                    <span className="text-[9px] text-gray-400">แตะเพื่อเลือก/ยกเลิก</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {members.map((m) => {
+                      const isActive = it.consumerIds.includes(m.id)
+                      return (
+                        <button
+                          key={m.id}
+                          onClick={() => {
+                            const next = isActive ? it.consumerIds.filter((id) => id !== m.id) : [...it.consumerIds, m.id]
+                            onEditItem(it.id, 'consumerIds', next)
+                          }}
+                          className={`rounded-full border px-2.5 py-1 text-[10px] font-bold transition-all ${isActive ? 'text-white shadow-sm' : 'bg-white text-gray-600'}`}
+                          style={{ backgroundColor: isActive ? m.color : undefined, borderColor: isActive ? m.color : 'rgb(229 231 235)' }}
+                        >
+                          {m.name}
+                        </button>
+                      )
+                    })}
+                  </div>
                 </div>
               </div>
             ))}

@@ -1,10 +1,6 @@
 name = "bill-splitter-proxy"
 main = "src/index.ts"
-compatibility_date = "2025-01-01"
-compatibility_flags = ["nodejs_compat"]
+compatibility_date = "2026-04-21"
 
 [vars]
-# Set GEMINI_API_KEY as a secret via: wrangler secret put GEMINI_API_KEY
-ALLOWED_ORIGIN = "https://project-sy789.github.io"
-
-# For local dev, copy .dev.vars.example to .dev.vars and fill in your key
+CORS_ORIGIN = "*"

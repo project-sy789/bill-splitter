@@ -1,249 +1,98 @@
-/**
- * bill-splitter-proxy — Cloudflare Worker
- *
- * Routes:
- *   POST /ocr   { imageBase64: string, mimeType: string }
- *               → ParsedReceiptResult JSON
- *               ← 429 if Gemini quota exceeded
- *
- * Env vars (secrets):
- *   GEMINI_API_KEY  — set via: wrangler secret put GEMINI_API_KEY
- *
- * CORS:
- *   Only allows requests from ALLOWED_ORIGIN (configured in wrangler.toml)
- */
-
 export interface Env {
   GEMINI_API_KEY: string
-  ALLOWED_ORIGIN: string
+  CORS_ORIGIN?: string
 }
 
-// ── Types mirrored from frontend ──────────────────────────────────────────────
-
-interface ParsedReceiptItem {
-  id: string
-  name: string
-  amount: number
+const JSON_HEADERS = {
+  'Content-Type': 'application/json; charset=utf-8',
 }
 
-interface ParsedReceiptResult {
-  rawText: string
-  lines: string[]
-  items: ParsedReceiptItem[]
-  summary: {
-    subtotal: number | null
-    vat: number | null
-    total: number | null
-  }
-  vatIncluded: boolean
-}
-
-// ── Gemini helper ─────────────────────────────────────────────────────────────
-
-const GEMINI_MODEL = 'gemini-2.0-flash'
-const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models'
-
-const RECEIPT_PROMPT = `คุณเป็นผู้เชี่ยวชาญในการอ่านใบเสร็จไทยและต่างประเทศ
-
-วิเคราะห์ใบเสร็จในรูปภาพนี้อย่างละเอียด แล้ว **ตอบเป็น JSON เท่านั้น** ตามรูปแบบด้านล่าง ห้ามมีข้อความอื่นนอก JSON:
-
-- ดึงทุกรายการสินค้า/อาหาร/เครื่องดื่มที่มีในภาพให้ครบ
-- ห้ามสรุปรวมหลายรายการเป็นรายการเดียว
-- ห้ามตัดรายการออกเพราะราคาถูกหรือเพราะมีหลายบรรทัด
-- ถ้าชื่อไม่ชัด ให้คืนข้อความที่ใกล้ที่สุดแทนการทิ้งรายการ
-- อย่าคืนรายการส่วนลด/ภาษี/ยอดรวมเป็น items
-
-{
-  "items": [
-    { "name": "ชื่อรายการ", "amount": 99.00 }
-  ],
-  "subtotal": 198.00,
-  "vat": 13.86,
-  "total": 211.86,
-  "vatIncluded": false,
-  "rawLines": ["บรรทัดที่ 1", "บรรทัดที่ 2"]
-}
-
-กฎสำคัญ:
-- ดึง "ทุกรายการสินค้า/อาหาร/เครื่องดื่ม" ที่เห็นในใบเสร็จให้ครบทุกบรรทัด
-- ห้ามตัดรายการที่มีอยู่จริงออก แม้จะมีจำนวนมาก หรือชื่อคล้ายกัน
-- ห้ามรวมหลายรายการเป็นรายการเดียว
-- "items" คือเฉพาะรายการสินค้า/อาหาร/เครื่องดื่ม เท่านั้น ไม่รวมยอดรวม, VAT, service charge, ส่วนลด, เงินสด, เงินทอน, วิธีชำระเงิน
-- ถ้าไม่พบรายการใด ให้ใส่ array ว่าง []
-- "subtotal" คือยอดก่อน VAT (null ถ้าหาไม่ได้)
-- "vat" คือภาษีมูลค่าเพิ่ม (null ถ้าไม่มี)
-- "total" คือยอดรวมทั้งหมด (null ถ้าหาไม่ได้)
-- "vatIncluded" = true ถ้าราคาในรายการรวม VAT แล้ว
-- "rawLines" คือข้อความจากใบเสร็จทุกบรรทัด (สำหรับ debug)
-- amount ต้องเป็นตัวเลขเท่านั้น ไม่มีสัญลักษณ์
-- ถ้าชื่อสินค้าอ่านไม่ชัด ให้คงข้อความที่ใกล้ที่สุดไว้ แต่อย่าลบทิ้ง`
-
-async function callGemini(
-  apiKey: string,
-  imageBase64: string,
-  mimeType: string,
-): Promise<ParsedReceiptResult> {
-  const url = `${GEMINI_BASE}/${GEMINI_MODEL}:generateContent?key=${apiKey}`
-
-  const body = {
-    contents: [
-      {
-        parts: [
-          { text: RECEIPT_PROMPT },
-          {
-            inlineData: {
-              mimeType,
-              data: imageBase64,
-            },
-          },
-        ],
-      },
-    ],
-    generationConfig: {
-      temperature: 0.1,
-      responseMimeType: 'application/json',
-    },
-  }
-
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
-
-  if (res.status === 429) {
-    throw new Error('RATE_LIMIT')
-  }
-
-  if (!res.ok) {
-    const errText = await res.text()
-    throw new Error(`Gemini error ${res.status}: ${errText}`)
-  }
-
-  const json = await res.json() as {
-    candidates?: Array<{
-      content?: { parts?: Array<{ text?: string }> }
-    }>
-  }
-
-  const rawText = json.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
-
-  // Parse the JSON response from Gemini
-  let parsed: {
-    items?: Array<{ name?: string; amount?: number }>
-    subtotal?: number | null
-    vat?: number | null
-    total?: number | null
-    vatIncluded?: boolean
-    rawLines?: string[]
-  }
-
-  try {
-    // Strip markdown code fences if Gemini wraps in ```json
-    const cleaned = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
-    parsed = JSON.parse(cleaned)
-  } catch {
-    throw new Error(`Failed to parse Gemini JSON: ${rawText.slice(0, 200)}`)
-  }
-
-  const items: ParsedReceiptItem[] = (parsed.items ?? []).map((it, i) => ({
-    id: `gemini-${Date.now()}-${i}`,
-    name: String(it.name ?? '').trim() || `รายการ ${i + 1}`,
-    amount: Number(it.amount) || 0,
-  }))
-
-  const lines = parsed.rawLines ?? rawText.split('\n').filter(Boolean)
-
+function corsHeaders(origin: string | null, env: Env) {
   return {
-    rawText: lines.join('\n'),
-    lines,
-    items,
-    summary: {
-      subtotal: parsed.subtotal ?? null,
-      vat: parsed.vat ?? null,
-      total: parsed.total ?? null,
-    },
-    vatIncluded: parsed.vatIncluded ?? false,
-  }
-}
-
-// ── CORS helper ───────────────────────────────────────────────────────────────
-
-function corsHeaders(origin: string, allowedOrigin: string): Record<string, string> {
-  // Allow localhost for dev, and the configured production origin
-  const allowed = [allowedOrigin, 'http://localhost:5173', 'http://localhost:4173']
-  const finalOrigin = allowed.includes(origin) ? origin : allowedOrigin
-
-  return {
-    'Access-Control-Allow-Origin': finalOrigin,
+    'Access-Control-Allow-Origin': env.CORS_ORIGIN ?? origin ?? '*',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Max-Age': '86400',
   }
 }
 
-// ── Main handler ──────────────────────────────────────────────────────────────
+function jsonResponse(data: unknown, init: ResponseInit = {}, origin: string | null = null, env?: Env) {
+  return new Response(JSON.stringify(data), {
+    ...init,
+    headers: {
+      ...JSON_HEADERS,
+      ...(env ? corsHeaders(origin, env) : {}),
+      ...(init.headers ?? {}),
+    },
+  })
+}
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    const origin = request.headers.get('Origin') ?? ''
-    const cors = corsHeaders(origin, env.ALLOWED_ORIGIN)
-
-    // Handle preflight
-    if (request.method === 'OPTIONS') {
-      return new Response(null, { status: 204, headers: cors })
-    }
-
     const url = new URL(request.url)
+    const origin = request.headers.get('Origin')
 
-    // Health check
-    if (url.pathname === '/health') {
-      return Response.json({ ok: true }, { headers: cors })
+    if (request.method === 'OPTIONS') {
+      return new Response(null, {
+        headers: corsHeaders(origin, env),
+      })
     }
 
-    // OCR endpoint
-    if (url.pathname === '/ocr' && request.method === 'POST') {
-      if (!env.GEMINI_API_KEY) {
-        return Response.json(
-          { error: 'GEMINI_API_KEY not configured' },
-          { status: 500, headers: cors },
-        )
+    if (request.method !== 'POST' || (url.pathname !== '/' && url.pathname !== '/ocr')) {
+      return jsonResponse({ error: 'Not Found' }, { status: 404 }, origin, env)
+    }
+
+    try {
+      const body = await request.json() as { imageBase64?: string; mimeType?: string }
+      if (!body.imageBase64) {
+        return jsonResponse({ error: 'Missing imageBase64' }, { status: 400 }, origin, env)
       }
 
-      let body: { imageBase64?: string; mimeType?: string }
+      const geminiResponse = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${env.GEMINI_API_KEY}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [
+              {
+                role: 'user',
+                parts: [
+                  {
+                    text: 'อ่านข้อความจากใบเสร็จแล้วส่งกลับเป็น JSON ที่มีโครงสร้าง: {"summary":{"total":number,"subtotal":number,"vat":number,"serviceCharge":number,"discount":number,"billDiscount":number,"vatIncluded":boolean},"items":[{"name":string,"amount":number}]} ตอบเป็น JSON ล้วนเท่านั้น',
+                  },
+                  {
+                    inline_data: {
+                      mime_type: body.mimeType ?? 'image/jpeg',
+                      data: body.imageBase64,
+                    },
+                  },
+                ],
+              },
+            ],
+            generationConfig: {
+              temperature: 0.1,
+            },
+          }),
+        },
+      )
+
+      if (!geminiResponse.ok) {
+        const text = await geminiResponse.text()
+        return jsonResponse({ error: `Gemini error ${geminiResponse.status}`, detail: text }, { status: geminiResponse.status }, origin, env)
+      }
+
+      const data = await geminiResponse.json() as any
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
+      let parsed: unknown
       try {
-        body = await request.json() as { imageBase64?: string; mimeType?: string }
+        parsed = JSON.parse(text)
       } catch {
-        return Response.json({ error: 'Invalid JSON body' }, { status: 400, headers: cors })
+        return jsonResponse({ error: 'Gemini did not return valid JSON', raw: text }, { status: 502 }, origin, env)
       }
 
-      const { imageBase64, mimeType } = body
-      if (!imageBase64 || !mimeType) {
-        return Response.json(
-          { error: 'Missing imageBase64 or mimeType' },
-          { status: 400, headers: cors },
-        )
-      }
-
-      try {
-        const result = await callGemini(env.GEMINI_API_KEY, imageBase64, mimeType)
-        return Response.json(result, { headers: cors })
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err)
-        if (msg === 'RATE_LIMIT') {
-          return Response.json(
-            { error: 'RATE_LIMIT', message: 'Gemini quota exceeded, use Tesseract fallback' },
-            { status: 429, headers: cors },
-          )
-        }
-        console.error('Gemini OCR error:', msg)
-        return Response.json(
-          { error: 'OCR_FAILED', message: msg },
-          { status: 502, headers: cors },
-        )
-      }
+      return jsonResponse(parsed, { status: 200 }, origin, env)
+    } catch (err) {
+      return jsonResponse({ error: err instanceof Error ? err.message : 'Worker error' }, { status: 500 }, origin, env)
     }
-
-    return Response.json({ error: 'Not found' }, { status: 404, headers: cors })
   },
-} satisfies ExportedHandler<Env>
+}
