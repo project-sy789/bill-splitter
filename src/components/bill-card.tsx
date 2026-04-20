@@ -116,20 +116,27 @@ export function BillCard({
           <div className="space-y-2">
             {currentItems.map((it) => (
               <div key={it.id} className="rounded-xl border border-gray-100 bg-white px-3 py-2 shadow-sm">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em] text-violet-700">รายการ</span>
+                    <span className="text-[9px] font-medium text-gray-400">แตะเพื่อแก้ชื่อและราคา</span>
+                  </div>
+                  <button
+                    onClick={() => onRemoveItem(it.id)}
+                    className="rounded-full border border-red-100 bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-red-500 shadow-sm transition-colors hover:bg-red-50"
+                  >
+                    ลบรายการ
+                  </button>
+                </div>
                 <div className="flex items-start justify-between gap-3">
                   <input
                     value={it.name}
                     onChange={(e) => onEditItem(it.id, 'name', e.target.value)}
                     placeholder="ชื่อรายการ"
-                    className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-gray-800 outline-none placeholder:text-gray-300"
+                    className="min-w-0 flex-1 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-800 outline-none placeholder:text-gray-300 focus:ring-2 focus:ring-violet-300"
                   />
                   <div className="text-right shrink-0">
-                    <button
-                      onClick={() => onRemoveItem(it.id)}
-                      className="mb-1 rounded-md px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em] text-gray-300 hover:bg-red-50 hover:text-red-400"
-                    >
-                      ลบ
-                    </button>
+                    <p className="text-[9px] font-black uppercase tracking-[0.14em] text-gray-300">ยอดสุทธิ</p>
                     <p className="font-mono text-sm font-bold text-violet-700">฿{(Math.max(0, it.amount - (it.itemDiscount ?? 0))).toFixed(2)}</p>
                   </div>
                 </div>
@@ -151,7 +158,7 @@ export function BillCard({
                   <div className="col-span-2 rounded-2xl border border-violet-100 bg-violet-50/60 p-2 sm:col-span-4">
                     <div className="mb-2 flex items-center justify-between gap-2">
                       <span className="text-[10px] font-black uppercase tracking-[0.16em] text-violet-700">วิธีหาร</span>
-                      <span className="text-[9px] font-medium text-violet-400">ใช้กำหนดรูปแบบของรายการนี้</span>
+                      <span className="text-[9px] font-medium text-violet-400">เลือกวิธีคำนวณของรายการนี้</span>
                     </div>
                     <div className="flex flex-wrap gap-1.5">
                       {(['equally', 'percentage', 'exact'] as const).map((mode, idx) => {
