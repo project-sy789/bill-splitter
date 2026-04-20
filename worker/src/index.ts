@@ -58,7 +58,7 @@ export default {
                 role: 'user',
                 parts: [
                   {
-                    text: 'อ่านข้อความจากใบเสร็จภาษาไทย/อังกฤษ แล้วส่งกลับเป็น JSON ล้วนเท่านั้น โดยห้ามมี markdown หรือคำอธิบายเพิ่ม รูปแบบต้องเป็น: {"rawText":string,"lines":[string],"summary":{"total":number|null,"subtotal":number|null,"vat":number|null,"serviceCharge":number|null,"discount":number|null,"billDiscount":number|null,"vatIncluded":boolean},"items":[{"name":string,"amount":number}]} กฎสำคัญ: 1) ดึงชื่อสินค้าและราคาแต่ละบรรทัดให้ครบที่สุด 2) ถ้าพบค่าบริการ/VAT/ส่วนลดให้แยกลง summary 3) ถ้าเห็นคำบอกว่า VAT รวมในราคา ให้ตั้ง vatIncluded=true 4) ใช้ number จริงเท่านั้น ไม่ต้องใส่สัญลักษณ์เงิน 5) rawText และ lines ให้คงข้อความจากสลิปตามที่อ่านได้',
+                    text: 'อ่านข้อความจากใบเสร็จภาษาไทย/อังกฤษ แล้วตอบกลับเป็น JSON ล้วนเท่านั้น ห้ามมี markdown หรือคำอธิบายเสริม รูปแบบต้องเป็น: {"rawText":string,"lines":[string],"summary":{"total":number|null,"subtotal":number|null,"vat":number|null,"serviceCharge":number|null,"discount":number|null,"billDiscount":number|null,"vatIncluded":boolean},"items":[{"name":string,"amount":number}]} กฎสำคัญ: 1) ดึงชื่อสินค้าและราคาต่อบรรทัดให้ครบที่สุด 2) ถ้าพบ VAT/ค่าบริการ/ส่วนลด ให้ใส่ใน summary 3) ถ้าเห็นคำว่า VAT รวมในราคา ให้ตั้ง vatIncluded=true 4) ใช้ number จริงเท่านั้น ไม่ต้องใส่สัญลักษณ์เงิน 5) rawText และ lines ควรคงข้อความจากสลิปตามที่อ่านได้',
                   },
                   {
                     inline_data: {
@@ -70,7 +70,7 @@ export default {
               },
             ],
             generationConfig: {
-              temperature: 0.1,
+              temperature: 0.05,
             },
           }),
         },
@@ -83,9 +83,10 @@ export default {
 
       const data = await geminiResponse.json() as any
       const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
+      const cleaned = text.replace(/```json|```/g, '').trim()
       let parsed: unknown
       try {
-        parsed = JSON.parse(text)
+        parsed = JSON.parse(cleaned)
       } catch {
         return jsonResponse({ error: 'Gemini did not return valid JSON', raw: text }, { status: 502 }, origin, env)
       }

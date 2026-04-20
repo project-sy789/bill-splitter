@@ -820,12 +820,14 @@ function App() {
           <div className="space-y-3">
             {members.map((member, idx) => (
               <div key={member.id} className="flex flex-col gap-3 rounded-2xl border border-violet-100 bg-gradient-to-br from-white via-white to-violet-50/40 p-3 shadow-[0_10px_24px_rgba(15,23,42,0.05)] backdrop-blur-xl sm:p-4">
-                <div className="flex items-center justify-end gap-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-medium text-gray-400">แตะชื่อเพื่อแก้ไข</span>
                   <button
                     onClick={() => removeMember(member.id)}
                     disabled={members.length <= 1}
-                    className="shrink-0 rounded-full border border-red-100 bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-red-500 shadow-sm transition-colors hover:bg-red-50 disabled:opacity-30"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-red-100 bg-white px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-red-500 shadow-sm transition-all hover:-translate-y-0.5 hover:bg-red-50 hover:shadow-md disabled:translate-y-0 disabled:opacity-30"
                   >
+                    <Trash2 className="h-3 w-3" />
                     ลบ
                   </button>
                 </div>

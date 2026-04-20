@@ -192,6 +192,20 @@ function median(vals: number[]): number {
 // Core parser
 // ──────────────────────────────────────────────
 
+function normalizeForMatch(text: string): string {
+  return text.toLowerCase().replace(/[|]/g, 'i').replace(/\s+/g, ' ').trim()
+}
+
+function lineLooksLikeItem(raw: string): boolean {
+  const normalized = normalizeForMatch(raw)
+  if (!WORD_RE.test(normalized)) return false
+  if (hasKeyword(normalized, SUMMARY_KW)) return false
+  if (hasKeyword(normalized, HEADER_KW)) return false
+  if (TX_ID_RE.test(normalized)) return false
+  if (DECORATIVE_RE.test(normalized)) return false
+  return true
+}
+
 export function parseReceiptText(rawText: string): ParsedReceiptResult {
   const rawLines = rawText.split(/\r?\n/)
   const lines = rawLines.map(normalizeLine).filter((l) => l.length > 1)
@@ -217,7 +231,7 @@ export function parseReceiptText(rawText: string): ParsedReceiptResult {
   }
 
   const infos: LineInfo[] = lines.map((raw) => {
-    const lower = raw.toLowerCase()
+    const lower = normalizeForMatch(raw)
     const isSummary = hasKeyword(lower, SUMMARY_KW)
     const isHeader = hasKeyword(lower, HEADER_KW)
     const isDecorative = DECORATIVE_RE.test(raw)
@@ -254,7 +268,7 @@ export function parseReceiptText(rawText: string): ParsedReceiptResult {
     const info = infos[i]!
 
     if (info.isSummary || info.isHeader || info.isDecorative || info.isTxId) { i++; continue }
-    if (!info.hasMeaningfulWord || PURE_NONWORD_RE.test(info.raw) || info.nameCandidate.length < 2 || !WORD_RE.test(info.nameCandidate)) { i++; continue }
+    if (!lineLooksLikeItem(info.raw) || PURE_NONWORD_RE.test(info.raw) || info.nameCandidate.length < 2 || !WORD_RE.test(info.nameCandidate)) { i++; continue }
 
     const price = info.price
 
