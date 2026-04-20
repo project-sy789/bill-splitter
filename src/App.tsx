@@ -819,35 +819,43 @@ function App() {
 
           <div className="space-y-3">
             {members.map((member, idx) => (
-              <div key={member.id} className="flex flex-col gap-2 rounded-2xl border border-white/70 bg-white/70 p-3 shadow-[0_8px_24px_rgba(15,23,42,0.04)] backdrop-blur-xl">
-                <div className="flex items-center gap-2">
+              <div key={member.id} className="flex flex-col gap-3 rounded-2xl border border-violet-100 bg-gradient-to-br from-white via-white to-violet-50/40 p-3 shadow-[0_10px_24px_rgba(15,23,42,0.05)] backdrop-blur-xl sm:p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="rounded-full bg-violet-50 px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-violet-600">
+                      คนที่ {idx + 1}
+                    </span>
+                    <span className="text-[10px] font-medium text-gray-400">ใส่ชื่อคนที่จะหารบิล</span>
+                  </div>
+                  <button
+                    onClick={() => removeMember(member.id)}
+                    disabled={members.length <= 1}
+                    className="shrink-0 rounded-full border border-red-100 bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-red-500 shadow-sm transition-colors hover:bg-red-50 disabled:opacity-30"
+                  >
+                    ลบ
+                  </button>
+                </div>
+                <div className="flex items-start gap-2">
                   <span
-                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white shadow-sm"
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl text-sm font-black text-white shadow-sm"
                     style={{ backgroundColor: member.color }}
                   >
                     {member.name.slice(0, 1) || (idx + 1)}
                   </span>
-                  <input
-                    value={member.name}
-                    onChange={(e) => updateMember(member.id, 'name', e.target.value)}
-                    placeholder={`คนที่ ${idx + 1}`}
-                    className="flex-1 rounded-xl border border-white/80 bg-white/90 px-3 py-2.5 text-sm outline-none shadow-[0_1px_0_rgba(255,255,255,0.8),0_6px_16px_rgba(15,23,42,0.05)] transition-all placeholder:text-gray-300 focus:ring-2 focus:ring-violet-400"
-                  />
-                  <button
-                    onClick={() => removeMember(member.id)}
-                    disabled={members.length <= 1}
-                    className="shrink-0 rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500 disabled:opacity-30 transition-colors"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-                <div className="pl-9">
-                  <input
-                    value={member.promptPayId || ''}
-                    onChange={(e) => updateMember(member.id, 'promptPayId', e.target.value)}
-                    placeholder="PromptPay: เบอร์โทร หรือ เลขบัตร"
-                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-[11px] font-mono font-bold text-gray-700 outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 placeholder:text-gray-300"
-                  />
+                  <div className="flex-1 space-y-2">
+                    <input
+                      value={member.name}
+                      onChange={(e) => updateMember(member.id, 'name', e.target.value)}
+                      placeholder={`คนที่ ${idx + 1}`}
+                      className="w-full rounded-2xl border border-violet-100 bg-white px-4 py-3 text-sm font-semibold text-gray-800 outline-none shadow-[0_1px_0_rgba(255,255,255,0.85),0_8px_18px_rgba(15,23,42,0.05)] transition-all placeholder:text-gray-300 focus:border-violet-300 focus:ring-2 focus:ring-violet-200"
+                    />
+                    <input
+                      value={member.promptPayId || ''}
+                      onChange={(e) => updateMember(member.id, 'promptPayId', e.target.value)}
+                      placeholder="PromptPay: เบอร์โทร / เลขบัตร"
+                      className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-[12px] font-mono font-bold text-gray-700 outline-none shadow-[0_1px_0_rgba(255,255,255,0.85),0_8px_18px_rgba(15,23,42,0.04)] transition-all placeholder:text-gray-300 focus:border-violet-300 focus:ring-2 focus:ring-violet-100"
+                    />
+                  </div>
                 </div>
               </div>
             ))}
@@ -855,7 +863,7 @@ function App() {
 
           <button
             onClick={addMember}
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-white/70 bg-white/70 py-3 text-sm font-semibold text-gray-500 shadow-[0_8px_24px_rgba(15,23,42,0.04)] backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:border-violet-200 hover:bg-white hover:text-violet-700 hover:shadow-[0_16px_30px_rgba(124,58,237,0.10)] active:translate-y-0 sm:mt-4 sm:py-3.5"
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-violet-100 bg-gradient-to-r from-violet-600 to-fuchsia-500 py-3 text-sm font-bold text-white shadow-[0_14px_34px_rgba(124,58,237,0.20)] transition-all hover:-translate-y-0.5 hover:shadow-[0_18px_40px_rgba(124,58,237,0.28)] active:translate-y-0 sm:mt-4 sm:py-3.5"
           >
             <Plus className="h-4 w-4" />
             เพิ่มคนหารบิล
