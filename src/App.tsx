@@ -820,13 +820,7 @@ function App() {
           <div className="space-y-3">
             {members.map((member, idx) => (
               <div key={member.id} className="flex flex-col gap-3 rounded-2xl border border-violet-100 bg-gradient-to-br from-white via-white to-violet-50/40 p-3 shadow-[0_10px_24px_rgba(15,23,42,0.05)] backdrop-blur-xl sm:p-4">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="rounded-full bg-violet-50 px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-violet-600">
-                      คนที่ {idx + 1}
-                    </span>
-                    <span className="text-[10px] font-medium text-gray-400">ใส่ชื่อคนที่จะหารบิล</span>
-                  </div>
+                <div className="flex items-center justify-end gap-2">
                   <button
                     onClick={() => removeMember(member.id)}
                     disabled={members.length <= 1}
