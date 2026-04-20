@@ -24,3 +24,5 @@ export interface ParsedReceiptResult {
 }
 
 export type OcrStatus = 'idle' | 'loading' | 'recognizing' | 'completed' | 'error'
+
+export type OcrSource = 'gemini' | 'tesseract' | 'fallback' | null

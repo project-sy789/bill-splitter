@@ -297,7 +297,7 @@ function App() {
     }
   }, [])
 
-  const { progress, results, mergedItems, error, lastSource, scanFiles, reset, terminate, isBusy, setResults } = useReceiptOcr()
+  const { progress, results, mergedItems, error, lastSource, ocrStageLabel, scanFiles, reset, terminate, isBusy, setResults } = useReceiptOcr()
 
   // ── Calculations ──
   const baseTotalsByMember = useMemo(() => {
@@ -901,12 +901,15 @@ function App() {
               {isBusy && (
                 <div className="mt-6 rounded-3xl border border-white/80 bg-gradient-to-br from-violet-50/95 via-white to-fuchsia-50/80 p-4 shadow-[0_14px_34px_rgba(124,58,237,0.10)] backdrop-blur-xl">
                   <div className="mb-3 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 text-[11px] font-semibold text-violet-700">
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      {progress.statusText}
+                    <div className="flex flex-col gap-0.5">
+                      <div className="flex items-center gap-2 text-[11px] font-semibold text-violet-700">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        {progress.statusText}
+                      </div>
+                      <span className="text-[10px] font-medium text-violet-400">{ocrStageLabel}</span>
                     </div>
                     <span className="rounded-full bg-white/80 px-2 py-1 text-[10px] font-semibold text-violet-600 shadow-sm">
-                      {lastSource === 'gemini' ? 'Gemini' : lastSource === 'tesseract' ? 'OCR' : 'กำลังอ่าน'}
+                      {lastSource === 'gemini' ? 'Gemini' : lastSource === 'fallback' ? 'Fallback' : lastSource === 'tesseract' ? 'Tesseract' : 'กำลังอ่าน'}
                     </span>
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-white/80 shadow-inner">

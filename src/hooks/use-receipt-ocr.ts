@@ -18,7 +18,7 @@ import {
   GeminiRateLimitError,
   GEMINI_PROXY_URL,
 } from '../lib/gemini-ocr'
-import type { OcrStatus, ParsedReceiptResult } from '../types/ocr'
+import type { OcrSource, OcrStatus, ParsedReceiptResult } from '../types/ocr'
 
 interface OcrProgress {
   progress: number
@@ -111,7 +111,7 @@ export function useReceiptOcr() {
   const [progress, setProgress] = useState<OcrProgress>({ progress: 0, statusText: 'พร้อมใช้งาน' })
   const [results, setResults] = useState<ParsedReceiptResult[]>([])
   const [error, setError] = useState<string | null>(null)
-  const [lastSource, setLastSource] = useState<'gemini' | 'tesseract' | null>(null)
+  const [lastSource, setLastSource] = useState<OcrSource>(null)
 
   const getWorker = useCallback(async (psm: PSM = PSM.SINGLE_BLOCK) => {
     if (workerRef.current) {
@@ -160,18 +160,18 @@ export function useReceiptOcr() {
       // ── 1. Try Gemini Vision first (if proxy configured) ──────────────────
       if (GEMINI_PROXY_URL) {
         try {
-          setProgress({ progress: 10, statusText: '🤖 กำลังอ่านด้วย AI (Gemini)...' })
+          setProgress({ progress: 10, statusText: '🤖 Gemini กำลังอ่านสลิป...' })
           const geminiResult = await scanWithGemini(file)
-          setProgress({ progress: 100, statusText: `🤖 AI อ่านสำเร็จ — พบ ${geminiResult.items.length} รายการ ✓` })
+          setProgress({ progress: 100, statusText: `🤖 Gemini อ่านสำเร็จ — พบ ${geminiResult.items.length} รายการ ✓` })
           setStatus('completed')
           setLastSource('gemini')
           return geminiResult
         } catch (err) {
           if (err instanceof GeminiRateLimitError) {
-            setProgress({ progress: 12, statusText: '⚠️ AI เต็ม กำลังสลับไป OCR ปกติ...' })
+            setProgress({ progress: 12, statusText: '⚠️ Gemini เต็มโควตา กำลังสลับไป Tesseract...' })
           } else {
             console.warn('[OCR] Gemini failed, falling back to Tesseract:', err)
-            setProgress({ progress: 12, statusText: '⚠️ AI ล้มเหลว กำลังสลับไป OCR ปกติ...' })
+            setProgress({ progress: 12, statusText: '⚠️ Gemini ล้มเหลว กำลังสลับไป Tesseract...' })
           }
         }
       }
@@ -190,7 +190,7 @@ export function useReceiptOcr() {
         for (const psm of OCR_FALLBACK_MODES) {
           for (const aggressive of [false, true]) {
             try {
-              setProgress({ progress: 30, statusText: `กำลังอ่านใบเสร็จ (${psm}${aggressive ? ', enhanced' : ''})...` })
+              setProgress({ progress: 30, statusText: `🧾 Tesseract กำลังอ่านสลิป (${psm}${aggressive ? ', enhanced' : ''})...` })
               const worker = await getWorker(psm)
               const imageForPass = aggressive ? await preprocessImage(file, true) : processedImage
               const recognizePromise = worker.recognize(imageForPass)
@@ -213,9 +213,9 @@ export function useReceiptOcr() {
         }
 
         if (best) {
-          setProgress({ progress: 100, statusText: `อ่านสำเร็จ — พบ ${best.items.length} รายการ ✓` })
+          setProgress({ progress: 100, statusText: `🧾 Tesseract อ่านสำเร็จ — พบ ${best.items.length} รายการ ✓` })
           setStatus('completed')
-          setLastSource('tesseract')
+          setLastSource(GEMINI_PROXY_URL ? 'fallback' : 'tesseract')
           return best
         }
 
@@ -255,7 +255,17 @@ export function useReceiptOcr() {
   const mergedItems = useMemo(() => {
     return results.flatMap((r, i) => r.items.map(it => ({ ...it, billId: `ocr-${i}` })))
   }, [results])
-  
+
+  const ocrStageLabel = useMemo(() => {
+    if (status === 'idle') return 'พร้อมใช้งาน'
+    if (status === 'loading') return 'กำลังโหลด OCR...'
+    if (lastSource === 'gemini') return 'Gemini ใช้งานอยู่'
+    if (lastSource === 'fallback') return 'Gemini ล้มเหลว → ใช้ Tesseract'
+    if (lastSource === 'tesseract') return 'Tesseract ใช้งานอยู่'
+    if (status === 'error') return 'OCR มีปัญหา'
+    return 'กำลังอ่านสลิป'
+  }, [lastSource, status])
+
   const lastSummary = results.length > 0 ? results[results.length - 1]?.summary : null
 
   return {
@@ -266,6 +276,7 @@ export function useReceiptOcr() {
     lastSummary,
     error,
     lastSource,
+    ocrStageLabel,
     scanFiles,
     reset,
     terminate,

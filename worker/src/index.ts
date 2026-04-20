@@ -58,7 +58,7 @@ export default {
                 role: 'user',
                 parts: [
                   {
-                    text: 'อ่านข้อความจากใบเสร็จแล้วส่งกลับเป็น JSON ที่มีโครงสร้าง: {"summary":{"total":number,"subtotal":number,"vat":number,"serviceCharge":number,"discount":number,"billDiscount":number,"vatIncluded":boolean},"items":[{"name":string,"amount":number}]} ตอบเป็น JSON ล้วนเท่านั้น',
+                    text: 'อ่านข้อความจากใบเสร็จภาษาไทย/อังกฤษ แล้วส่งกลับเป็น JSON ล้วนเท่านั้น โดยห้ามมี markdown หรือคำอธิบายเพิ่ม รูปแบบต้องเป็น: {"rawText":string,"lines":[string],"summary":{"total":number|null,"subtotal":number|null,"vat":number|null,"serviceCharge":number|null,"discount":number|null,"billDiscount":number|null,"vatIncluded":boolean},"items":[{"name":string,"amount":number}]} กฎสำคัญ: 1) ดึงชื่อสินค้าและราคาแต่ละบรรทัดให้ครบที่สุด 2) ถ้าพบค่าบริการ/VAT/ส่วนลดให้แยกลง summary 3) ถ้าเห็นคำบอกว่า VAT รวมในราคา ให้ตั้ง vatIncluded=true 4) ใช้ number จริงเท่านั้น ไม่ต้องใส่สัญลักษณ์เงิน 5) rawText และ lines ให้คงข้อความจากสลิปตามที่อ่านได้',
                   },
                   {
                     inline_data: {
