@@ -8,6 +8,12 @@
 
 import type { ParsedReceiptResult } from '../types/ocr'
 
+export interface GeminiDebugPayload {
+  endpoint: string
+  rawText: string
+  parsed: ParsedReceiptResult
+}
+
 // ── Config ────────────────────────────────────────────────────────────────────
 
 // Update this URL after deploying your Cloudflare Worker:
@@ -58,7 +64,7 @@ function fileToBase64(file: File): Promise<string> {
  * @throws {GeminiRateLimitError} if the proxy returns 429 (Gemini quota hit)
  * @throws {Error}                for other network/parse failures
  */
-export async function scanWithGemini(file: File): Promise<ParsedReceiptResult> {
+export async function scanWithGemini(file: File): Promise<GeminiDebugPayload> {
   if (!GEMINI_PROXY_URL) {
     throw new GeminiDisabledError()
   }
@@ -90,7 +96,7 @@ export async function scanWithGemini(file: File): Promise<ParsedReceiptResult> {
       }
 
       const result = await res.json() as ParsedReceiptResult
-      return result
+      return { endpoint, rawText: result.rawText, parsed: result }
     } catch (err) {
       lastError = err
     }

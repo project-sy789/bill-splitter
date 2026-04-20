@@ -297,7 +297,7 @@ function App() {
     }
   }, [])
 
-  const { progress, results, mergedItems, error, lastSource, ocrStageLabel, scanFiles, reset, terminate, isBusy, setResults } = useReceiptOcr()
+  const { progress, results, mergedItems, error, lastSource, debugPayload, ocrStageLabel, scanFiles, reset, terminate, isBusy, setResults } = useReceiptOcr()
 
   // ── Calculations ──
   const baseTotalsByMember = useMemo(() => {
@@ -925,6 +925,28 @@ function App() {
                   <AlertCircle className="h-4 w-4 shrink-0 text-red-500" />
                   <span>{error}</span>
                 </div>
+              )}
+
+              {debugPayload && (
+                <details className="mt-6 overflow-hidden rounded-2xl border border-violet-100 bg-white/85 shadow-sm">
+                  <summary className="cursor-pointer select-none px-4 py-3 text-sm font-bold text-violet-700">
+                    Gemini debug panel
+                  </summary>
+                  <div className="space-y-3 border-t border-violet-100 px-4 py-4 text-[11px] text-gray-600">
+                    <div>
+                      <p className="mb-1 font-black uppercase tracking-[0.16em] text-gray-400">Endpoint</p>
+                      <p className="break-all rounded-xl bg-violet-50 px-3 py-2 text-violet-700">{debugPayload.endpoint}</p>
+                    </div>
+                    <div>
+                      <p className="mb-1 font-black uppercase tracking-[0.16em] text-gray-400">Raw text</p>
+                      <pre className="max-h-40 overflow-auto rounded-xl bg-gray-50 px-3 py-2 text-[10px] leading-5 text-gray-700">{debugPayload.rawText || '—'}</pre>
+                    </div>
+                    <div>
+                      <p className="mb-1 font-black uppercase tracking-[0.16em] text-gray-400">Parsed items</p>
+                      <pre className="max-h-40 overflow-auto rounded-xl bg-gray-50 px-3 py-2 text-[10px] leading-5 text-gray-700">{JSON.stringify(debugPayload.parsed.items, null, 2)}</pre>
+                    </div>
+                  </div>
+                </details>
               )}
             </SectionCard>
 

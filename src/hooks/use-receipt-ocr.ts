@@ -19,6 +19,7 @@ import {
   GEMINI_PROXY_URL,
 } from '../lib/gemini-ocr'
 import type { OcrSource, OcrStatus, ParsedReceiptResult } from '../types/ocr'
+import type { GeminiDebugPayload } from '../lib/gemini-ocr'
 
 interface OcrProgress {
   progress: number
@@ -112,6 +113,7 @@ export function useReceiptOcr() {
   const [results, setResults] = useState<ParsedReceiptResult[]>([])
   const [error, setError] = useState<string | null>(null)
   const [lastSource, setLastSource] = useState<OcrSource>(null)
+  const [debugPayload, setDebugPayload] = useState<GeminiDebugPayload | null>(null)
 
   const getWorker = useCallback(async (psm: PSM = PSM.SINGLE_BLOCK) => {
     if (workerRef.current) {
@@ -162,10 +164,11 @@ export function useReceiptOcr() {
         try {
           setProgress({ progress: 10, statusText: '🤖 Gemini กำลังอ่านสลิป...' })
           const geminiResult = await scanWithGemini(file)
-          setProgress({ progress: 100, statusText: `🤖 Gemini อ่านสำเร็จ — พบ ${geminiResult.items.length} รายการ ✓` })
+          setDebugPayload(geminiResult)
+          setProgress({ progress: 100, statusText: `🤖 Gemini อ่านสำเร็จ — พบ ${geminiResult.parsed.items.length} รายการ ✓` })
           setStatus('completed')
           setLastSource('gemini')
-          return geminiResult
+          return geminiResult.parsed
         } catch (err) {
           if (err instanceof GeminiRateLimitError) {
             setProgress({ progress: 12, statusText: '⚠️ Gemini เต็มโควตา กำลังสลับไป Tesseract...' })
@@ -250,6 +253,7 @@ export function useReceiptOcr() {
     setResults([])
     setError(null)
     setLastSource(null)
+    setDebugPayload(null)
   }, [])
 
   const mergedItems = useMemo(() => {
@@ -276,6 +280,7 @@ export function useReceiptOcr() {
     lastSummary,
     error,
     lastSource,
+    debugPayload,
     ocrStageLabel,
     scanFiles,
     reset,

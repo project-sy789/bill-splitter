@@ -123,9 +123,10 @@ export function BillCard({
                   </div>
                   <button
                     onClick={() => onRemoveItem(it.id)}
-                    className="rounded-full border border-red-100 bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-red-500 shadow-sm transition-colors hover:bg-red-50"
+                    className="inline-flex items-center gap-1 rounded-full border border-red-100 bg-white px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-red-500 shadow-sm transition-all hover:-translate-y-0.5 hover:bg-red-50 hover:shadow-md"
                   >
-                    ลบรายการ
+                    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-red-50 text-[10px] leading-none">×</span>
+                    ลบ
                   </button>
                 </div>
                 <div className="flex items-start justify-between gap-3">
