@@ -8,7 +8,6 @@ import {
   Plus,
   QrCode as QrCodeIcon,
   Receipt,
-  ListFilter,
   Trash2,
   Upload,
   Users,
@@ -926,22 +925,6 @@ function App() {
 
             <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6 items-start">
               {/* LEFT COLUMN: helper note */}
-              <div className="lg:col-span-7 w-full space-y-3 sm:space-y-4 order-2 lg:order-1">
-                <SectionCard className="bg-gradient-to-b from-white via-white to-violet-50/30 shadow-[0_16px_40px_rgba(15,23,42,0.05)]">
-                  <div className="flex items-start justify-between gap-3 px-2">
-                    <div>
-                      <h3 className="text-[13px] font-black text-gray-800 uppercase tracking-[0.16em] flex items-center gap-2">
-                        <ListFilter className="h-4 w-4 text-violet-500" />
-                        วิธีใช้งาน
-                      </h3>
-                      <p className="mt-1 text-[11px] leading-5 text-gray-400">กด <span className="font-semibold text-violet-600">+ เพิ่มรายการในบิลนี้</span> ในการ์ดของใบเสร็จแต่ละใบ เพื่อสร้างและจัดการรายการสินค้าภายในบิลนั้นได้ทันที</p>
-                    </div>
-                    <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[10px] font-bold text-gray-500">
-                      {items.length} รายการ
-                    </span>
-                  </div>
-                </SectionCard>
-              </div>
 
               {/* RIGHT COLUMN: RECEIPTS & BILL SUMMARY (ใบเสร็จ & ยอดจ่าย) */}
               <div className="lg:col-span-5 w-full space-y-6 order-1 lg:order-2">
