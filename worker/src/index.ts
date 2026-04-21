@@ -81,7 +81,15 @@ export default {
         return jsonResponse({ error: `Gemini error ${geminiResponse.status}`, detail: text }, { status: geminiResponse.status }, origin, env)
       }
 
-      const data = await geminiResponse.json() as any
+      const data = await geminiResponse.json() as {
+        candidates?: Array<{
+          content?: {
+            parts?: Array<{
+              text?: string
+            }>
+          }
+        }>
+      }
       const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
       const cleaned = text.replace(/```json|```/g, '').trim()
       let parsed: unknown
