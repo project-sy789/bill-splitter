@@ -26,16 +26,18 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url)
 
   // Skip non-GET and cross-origin requests
-  if (request.method !== 'GET' || !url.origin.includes(self.location.origin)) return
+  if (request.method !== 'GET' || url.origin !== self.location.origin) return
 
   if (request.mode === 'navigate') {
     // Network-first for HTML
     event.respondWith(
       fetch(request)
-        .then((res) => {
-          const clone = res.clone()
-          caches.open(CACHE_NAME).then((c) => c.put(request, clone))
-          return res
+        .then((response) => {
+          const copy = response.clone()
+          event.waitUntil(
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy)),
+          )
+          return response
         })
         .catch(() => caches.match('/bill-splitter/index.html'))
     )
@@ -45,12 +47,14 @@ self.addEventListener('fetch', (event) => {
       caches.match(request).then(
         (cached) =>
           cached ??
-          fetch(request).then((res) => {
-            // Cache successful responses for static assets
-            if (res.ok && (url.pathname.match(/\.(js|css|wasm|png|svg|json)$/))) {
-              caches.open(CACHE_NAME).then((c) => c.put(request, res.clone()))
+          fetch(request).then((response) => {
+            if (response.ok && (url.pathname.match(/\.(js|css|wasm|png|svg|json)$/))) {
+              const copy = response.clone()
+              event.waitUntil(
+                caches.open(CACHE_NAME).then((cache) => cache.put(request, copy)),
+              )
             }
-            return res
+            return response
           })
       )
     )
