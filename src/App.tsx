@@ -286,48 +286,55 @@ function App() {
     })
   }, [lineProfile])
 
-  const checkAndRecordUsage = (action: string): boolean => {
-    if (!lineProfile) return true
-    
-    // If user just clicked Shopee, let them pass once
-    if (isTemporarilyUnlocked) {
-      setIsTemporarilyUnlocked(false)
-      logUsage(lineProfile.userId, action) // Log in background
-      return true
-    }
+  // Pre-calculate if limit is reached to make the click handler ultra-fast
+  const isLimitReached = useMemo(() => {
+    if (!lineProfile) return false;
+    return usageStats.daily >= USAGE_LIMITS.DAILY || usageStats.weekly >= USAGE_LIMITS.WEEKLY;
+  }, [usageStats, lineProfile]);
 
-    // Use pre-loaded stats to avoid ANY delay before input click
-    if (usageStats.daily >= USAGE_LIMITS.DAILY || usageStats.weekly >= USAGE_LIMITS.WEEKLY) {
-      if (remoteLinks.length > 0) {
-        const pick = { ...remoteLinks[Math.floor(Math.random() * remoteLinks.length)] }
-        
-        if (!pick.image_url && pick.url.startsWith('http')) {
-          const workerUrl = import.meta.env.VITE_OCR_WORKER_URL || '';
-          fetch(`${workerUrl}/unfurl?url=${encodeURIComponent(pick.url)}`)
-            .then(res => res.json())
-            .then(data => {
-              if (data.image) {
-                setRandomAd(prev => (prev?.url === pick.url ? { ...prev, image_url: data.image } : prev));
-              }
-            }).catch(() => {});
-        }
-
-        setRandomAd(pick)
-        setRandomLink(pick.url)
-      } else {
-        setRandomAd(null)
-        setRandomLink(getRandomAffiliateLink())
+  // Pre-pick the ad whenever remoteLinks or usageStats change
+  useEffect(() => {
+    if (isLimitReached && remoteLinks.length > 0 && !randomAd) {
+      const pick = { ...remoteLinks[Math.floor(Math.random() * remoteLinks.length)] };
+      if (!pick.image_url && pick.url.startsWith('http')) {
+        const workerUrl = import.meta.env.VITE_OCR_WORKER_URL || '';
+        fetch(`${workerUrl}/unfurl?url=${encodeURIComponent(pick.url)}`)
+          .then(res => res.json())
+          .then(data => {
+            if (data.image) {
+              setRandomAd(prev => (prev?.url === pick.url ? { ...prev, image_url: data.image } : prev));
+            }
+          }).catch(() => {});
       }
-      setShowLimitModal(true)
-      return false
+      setRandomAd(pick);
+      setRandomLink(pick.url);
     }
+  }, [isLimitReached, remoteLinks, randomAd]);
 
-    logUsage(lineProfile.userId, action) // Log in background
-    
-    // Increment locally immediately so next click is blocked if limit reached
-    setUsageStats(prev => ({ ...prev, daily: prev.daily + 1, weekly: prev.weekly + 1 }))
-    
-    return true
+  const handleScanReceipt = () => {
+    if (isLimitReached && !isTemporarilyUnlocked) {
+      setShowLimitModal(true);
+    } else {
+      cameraInputRef.current?.click();
+      if (lineProfile) {
+        logUsage(lineProfile.userId, 'scan_receipt');
+        setUsageStats(prev => ({ ...prev, daily: prev.daily + 1, weekly: prev.weekly + 1 }));
+        if (isTemporarilyUnlocked) setIsTemporarilyUnlocked(false);
+      }
+    }
+  }
+
+  const handleUploadReceipt = () => {
+    if (isLimitReached && !isTemporarilyUnlocked) {
+      setShowLimitModal(true);
+    } else {
+      fileInputRef.current?.click();
+      if (lineProfile) {
+        logUsage(lineProfile.userId, 'upload_receipt');
+        setUsageStats(prev => ({ ...prev, daily: prev.daily + 1, weekly: prev.weekly + 1 }));
+        if (isTemporarilyUnlocked) setIsTemporarilyUnlocked(false);
+      }
+    }
   }
 
   // ── Collaborative Sync Effect ──
@@ -709,15 +716,7 @@ function App() {
 
 
 
-  const handleScanReceipt = () => {
-    const allowed = checkAndRecordUsage('scan_receipt')
-    if (allowed) cameraInputRef.current?.click()
-  }
-
-  const handleUploadReceipt = () => {
-    const allowed = checkAndRecordUsage('upload_receipt')
-    if (allowed) fileInputRef.current?.click()
-  }
+  // These are now defined above to be ultra-fast
 
   // Merge OCR results into items list when mergedItems changes
   const prevMergedLenRef = useRef(0)
