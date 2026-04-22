@@ -245,6 +245,7 @@ function App() {
   const [usageStats, setUsageStats] = useState({ daily: 0, weekly: 0 })
   const [showLimitModal, setShowLimitModal] = useState(false)
   const [randomLink, setRandomLink] = useState('')
+  const [isTemporarilyUnlocked, setIsTemporarilyUnlocked] = useState(false)
 
   // ── Usage Tracking Effect ──
   useEffect(() => {
@@ -254,8 +255,15 @@ function App() {
   }, [lineProfile])
 
   const checkAndRecordUsage = async (action: string) => {
-    if (!lineProfile) return true // Allow guest or not logged in for now (per Option A)
+    if (!lineProfile) return true
     
+    // If user just clicked Shopee, let them pass once
+    if (isTemporarilyUnlocked) {
+      setIsTemporarilyUnlocked(false)
+      await logUsage(lineProfile.userId, action)
+      return true
+    }
+
     const stats = await fetchUsageStats(lineProfile.userId)
     setUsageStats(stats)
 
@@ -625,6 +633,16 @@ function App() {
   }, [dbReady, members, items, allocationMode, paidByMember, settlementStatus, manualBills, receiptPayerMap, currentBillId, addOrUpdateBill, grandTotal, lineProfile, billIdFromUrl, remoteUpdating, isLocked])
 
 
+
+  const handleScanReceipt = async () => {
+    const allowed = await checkAndRecordUsage('scan_receipt')
+    if (allowed) cameraInputRef.current?.click()
+  }
+
+  const handleUploadReceipt = async () => {
+    const allowed = await checkAndRecordUsage('upload_receipt')
+    if (allowed) fileInputRef.current?.click()
+  }
 
   // Merge OCR results into items list when mergedItems changes
   const prevMergedLenRef = useRef(0)
@@ -1058,8 +1076,63 @@ function App() {
         className="hidden"
         onChange={(e) => void importBill(e.target.files?.[0] ?? null)}
       />
-
-
+      {/* Usage Limit Modal */}
+      {showLimitModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="bg-gradient-to-br from-[#EE4D2D] to-[#FF7337] p-8 text-center text-white relative">
+              <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
+                <div className="absolute top-2 left-4 rotate-12"><ShoppingBag className="w-12 h-12" /></div>
+                <div className="absolute bottom-4 right-6 -rotate-12"><Receipt className="w-16 h-16" /></div>
+              </div>
+              <div className="mx-auto w-20 h-20 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center mb-4 shadow-inner border border-white/30">
+                <AlertCircle className="w-10 h-10 text-white" />
+              </div>
+              <h3 className="text-2xl font-black mb-2">ใช้งานครบโควตาแล้ว!</h3>
+              <p className="text-orange-50 text-sm font-medium opacity-90">เพื่อสนับสนุนนักพัฒนาและใช้งานต่อได้ทันที <br/>เพียงช่วยช้อปปิ้งผ่าน Shopee ด้านล่างนี้ครับ</p>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
+                <div className="flex justify-between items-center text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
+                  <span>สถิติการใช้งานของคุณ</span>
+                  <span className="text-[#EE4D2D]">Limit Reached</span>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100">
+                    <p className="text-[10px] text-gray-400 font-bold uppercase mb-1">วันนี้</p>
+                    <p className="text-lg font-black text-gray-800">{usageStats.daily} / {USAGE_LIMITS.DAILY}</p>
+                  </div>
+                  <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100">
+                    <p className="text-[10px] text-gray-400 font-bold uppercase mb-1">สัปดาห์นี้</p>
+                    <p className="text-lg font-black text-gray-800">{usageStats.weekly} / {USAGE_LIMITS.WEEKLY}</p>
+                  </div>
+                </div>
+              </div>
+              
+              <a
+                href={randomLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => {
+                  setIsTemporarilyUnlocked(true)
+                  setTimeout(() => setShowLimitModal(false), 1500)
+                }}
+                className="w-full flex items-center justify-center gap-3 bg-[#EE4D2D] text-white py-4 rounded-2xl font-black text-lg shadow-[0_10px_20px_rgba(238,77,45,0.3)] transition-all hover:-translate-y-1 hover:shadow-[0_15px_30px_rgba(238,77,45,0.4)] active:translate-y-0 active:scale-95"
+              >
+                <ShoppingBag className="w-6 h-6" />
+                เปิดแอป Shopee เพื่อใช้งานต่อ
+              </a>
+              
+              <button 
+                onClick={() => setShowLimitModal(false)}
+                className="w-full text-gray-400 text-xs font-bold py-2 hover:text-gray-600 transition-colors"
+              >
+                ไว้วันหลังนะ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Header */}
       <header className="sticky top-0 z-40 border-b border-white/60 bg-white/75 backdrop-blur-2xl shadow-[0_1px_0_rgba(255,255,255,0.9),0_20px_60px_rgba(124,58,237,0.10)]" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
