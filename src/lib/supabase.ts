@@ -65,3 +65,60 @@ export async function deleteBillFromCloud(billId: string) {
     console.error('Error deleting bill from Supabase:', error)
   }
 }
+
+export async function updateBillData(billId: string, data: any) {
+  if (!supabaseUrl) return
+
+  const { error } = await supabase
+    .from('bills')
+    .update({
+      bill_data: data,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', billId)
+
+  if (error) {
+    console.error('Error updating bill in Supabase:', error)
+  }
+}
+
+export function subscribeToBill(billId: string, onUpdate: (data: any) => void) {
+  if (!supabaseUrl) return () => {}
+
+  const channel = supabase
+    .channel(`bill:${billId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'bills',
+        filter: `id=eq.${billId}`
+      },
+      (payload) => {
+        onUpdate(payload.new.bill_data)
+      }
+    )
+    .subscribe()
+
+  return () => {
+    supabase.removeChannel(channel)
+  }
+}
+
+export async function fetchBillById(billId: string): Promise<DbBill | null> {
+  if (!supabaseUrl) return null
+
+  const { data, error } = await supabase
+    .from('bills')
+    .select('*')
+    .eq('id', billId)
+    .single()
+
+  if (error) {
+    console.error('Error fetching bill by ID:', error)
+    return null
+  }
+
+  return data
+}
