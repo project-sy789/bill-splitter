@@ -15,7 +15,6 @@ import { PSM, createWorker } from 'tesseract.js'
 import { parseReceiptText } from '../lib/receipt-parser'
 import {
   scanWithGemini,
-  GeminiRateLimitError,
   GEMINI_PROXY_URL,
 } from '../lib/gemini-ocr'
 import type { OcrSource, OcrStatus, ParsedReceiptResult } from '../types/ocr'
@@ -175,7 +174,7 @@ export function useReceiptOcr() {
           setSourceHint(`Gemini endpoint: ${geminiResult.endpoint}`)
           return geminiResult.parsed
         } catch (err) {
-          if ((err as any)?.name === 'GeminiRateLimitError') {
+          if ((err as { name?: string })?.name === 'GeminiRateLimitError') {
             setProgress({ progress: 12, statusText: '🔴 Gemini เต็มโควตา (429) — กำลังใช้ระบบสำรอง Tesseract (ช้ากว่า)...' })
           } else {
             console.warn('[OCR] Gemini failed, falling back to Tesseract:', err)

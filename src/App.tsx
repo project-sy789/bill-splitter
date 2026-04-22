@@ -648,7 +648,7 @@ function App() {
         return next
       })
     }
-  }, [])
+  }, [setResults, setItems, setReceiptPayerMap, setManualBills])
 
   const updateItem = useCallback(<K extends keyof BillItemDraft>(itemId: string, field: K, value: BillItemDraft[K]) => {
     // Removed auto-updating bill total from item amount changes to preserve the target total

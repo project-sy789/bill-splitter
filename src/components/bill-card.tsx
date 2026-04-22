@@ -78,7 +78,7 @@ export function BillCard({
         <div className="mb-2 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <span className={`rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.16em] ${sourceVariant}`}>
-              {bill.id.startsWith('ocr-') ? 'Receipt scan' : 'Manual bill'}
+              {sourceLabel}
             </span>
             <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.16em] text-gray-500">
               {itemCount} รายการ
