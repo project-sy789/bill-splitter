@@ -17,6 +17,8 @@ import {
   Share,
   Check,
   AlertCircle,
+  Lock,
+  Unlock,
 } from 'lucide-react'
 import * as htmlToImage from 'html-to-image'
 
