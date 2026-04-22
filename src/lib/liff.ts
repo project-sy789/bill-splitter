@@ -101,6 +101,25 @@ export async function shareBillToFriends(title: string, amount: number, promptPa
                         },
                       ],
                     },
+                    {
+                      type: 'box',
+                      layout: 'horizontal',
+                      contents: [
+                        {
+                          type: 'text',
+                          text: 'PromptPay',
+                          size: 'xs',
+                          color: '#9CA3AF',
+                        },
+                        {
+                          type: 'text',
+                          text: promptPayId || 'ยังไม่ระบุ',
+                          size: 'xs',
+                          color: '#6B7280',
+                          align: 'end',
+                        },
+                      ],
+                    },
                   ],
                 },
                 {
