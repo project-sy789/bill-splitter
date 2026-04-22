@@ -30,6 +30,7 @@ interface BillCardProps {
   onEditItem: (itemId: string, field: keyof BillItemDraft, value: BillItemDraft[keyof BillItemDraft]) => void
   onRemoveItem: (itemId: string) => void
   onAddItemToBill: (billId: string) => void
+  onSetTotal: (billId: string, value: number) => void
   onDeleteBill: (billId: string) => void
 }
 
@@ -51,6 +52,7 @@ export function BillCard({
   onEditItem,
   onRemoveItem,
   onAddItemToBill,
+  onSetTotal,
   onDeleteBill
 }: BillCardProps) {
   const currentItems = items.filter((it) => it.billId === bill.id)
@@ -105,9 +107,25 @@ export function BillCard({
           />
         </div>
         <div className="mt-1 flex items-end justify-between">
-          <div className="ml-auto text-right">
-            <p className="text-[10px] font-black uppercase leading-none tracking-[0.16em] text-gray-300">Net Total</p>
-            <p className="font-mono text-2xl font-semibold tabular-nums tracking-tight text-violet-700">฿{bill.amount.toFixed(2)}</p>
+          <div className="ml-auto text-right w-full">
+            <p className="text-[10px] font-black uppercase leading-none tracking-[0.16em] text-gray-300">Net Total (จ่ายจริง)</p>
+            <div className="relative group/total flex items-center justify-end">
+              <span className="text-xl font-bold text-violet-300 mr-1">฿</span>
+              <input
+                type="number"
+                value={bill.amount || ''}
+                onChange={(e) => onSetTotal(bill.id, Number(e.target.value) || 0)}
+                className="w-32 rounded-xl border-none bg-transparent text-right font-mono text-2xl font-semibold tabular-nums tracking-tight text-violet-700 outline-none transition-all hover:bg-violet-50 focus:bg-white focus:ring-4 focus:ring-violet-100"
+                placeholder="0.00"
+              />
+            </div>
+            {Math.abs(bill.amount - bill.calculatedTotal) > 0.01 && (
+              <p className="mt-1 text-[9px] font-bold text-amber-500 animate-pulse">
+                {bill.amount > bill.calculatedTotal 
+                  ? `⚠️ ยอดรวมรายการขาดไป ฿${(bill.amount - bill.calculatedTotal).toFixed(2)}`
+                  : `⚠️ ยอดรวมรายการเกินมา ฿${(bill.calculatedTotal - bill.amount).toFixed(2)}`}
+              </p>
+            )}
           </div>
         </div>
       </div>

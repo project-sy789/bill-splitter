@@ -650,6 +650,24 @@ function App() {
     }
   }, [setResults, setItems, setReceiptPayerMap, setManualBills])
 
+  const handleSetBillTotal = useCallback((billId: string, value: number) => {
+    if (billId.startsWith('ocr-')) {
+      const idx = parseInt(billId.split('-')[1]!, 10)
+      setResults(prev => {
+        const next = [...prev]
+        if (next[idx]) {
+          next[idx] = {
+            ...next[idx]!,
+            summary: { ...next[idx]!.summary, total: value }
+          }
+        }
+        return next
+      })
+    } else {
+      setManualBills(prev => prev.map(m => m.id === billId ? { ...m, amount: value } : m))
+    }
+  }, [setResults, setManualBills])
+
   const updateItem = useCallback(<K extends keyof BillItemDraft>(itemId: string, field: K, value: BillItemDraft[K]) => {
     // Removed auto-updating bill total from item amount changes to preserve the target total
     setItems((prev) => prev.map((item) => item.id === itemId ? { ...item, [field]: value } : item))
@@ -1103,6 +1121,7 @@ function App() {
                           setItems((prev) => [...prev, item])
                         }}
                         onDeleteBill={handleDeleteBill}
+                        onSetTotal={handleSetBillTotal}
                       />
                     )
                   })}
