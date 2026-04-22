@@ -36,6 +36,7 @@ import {
   safeParseBillState,
 } from './lib/bill-persistence'
 import type { SplitMode } from './types/bill'
+import { initLiff, login, logout, shareBillToFriends, type LineProfile } from './lib/liff'
 
 // ──────────────────────────────────────────────
 // Types
@@ -163,6 +164,11 @@ function App() {
   })
   const [initialState, setInitialState] = useState<ReturnType<typeof safeParseBillState>>(null)
   const [dbReady, setDbReady] = useState(false)
+  const [lineProfile, setLineProfile] = useState<LineProfile | null>(null)
+
+  useEffect(() => {
+    initLiff().then(profile => setLineProfile(profile))
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -892,6 +898,29 @@ function App() {
             >
               <Trash2 className="h-4 w-4" />
             </button>
+
+            {lineProfile ? (
+              <button
+                onClick={logout}
+                className="flex items-center gap-2 rounded-xl border border-violet-100 bg-white/50 p-1.5 pr-3 transition-all hover:bg-violet-50"
+                title="ออกจากระบบ LINE"
+              >
+                <img 
+                  src={lineProfile.pictureUrl} 
+                  alt={lineProfile.displayName} 
+                  className="h-7 w-7 rounded-lg object-cover shadow-sm ring-1 ring-violet-200"
+                />
+                <span className="text-xs font-bold text-violet-700 hidden sm:inline">{lineProfile.displayName}</span>
+              </button>
+            ) : (
+              <button
+                onClick={login}
+                className="flex items-center gap-1.5 rounded-xl bg-[#06C755] px-3 py-1.5 text-xs font-bold text-white shadow-md transition-all hover:-translate-y-0.5 active:translate-y-0"
+              >
+                <img src="https://upload.wikimedia.org/wikipedia/commons/4/41/LINE_logo.svg" className="h-4 w-4 invert brightness-200" alt="LINE" />
+                <span>Login</span>
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -1386,6 +1415,13 @@ function App() {
                                 <QrCodeIcon className="h-3.5 w-3.5" />
                               </button>
                             )}
+                            <button
+                              onClick={() => void shareBillToFriends(`${from.name} → ${to.name}`, s.amount, to.promptPayId)}
+                              className="rounded-lg p-2 text-emerald-500 hover:bg-emerald-50 transition-colors"
+                              title="แชร์เข้า LINE"
+                            >
+                              <Share className="h-3.5 w-3.5" />
+                            </button>
                           </div>
                         </div>
 

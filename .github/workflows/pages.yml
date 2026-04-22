@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - master
+      - feat/line-integration
   workflow_dispatch:
 
 permissions:
@@ -36,6 +37,7 @@ jobs:
         run: npm run build
         env:
           VITE_GEMINI_PROXY_URL: ${{ secrets.VITE_GEMINI_PROXY_URL }}
+          VITE_LIFF_ID: 2009872918-xzny8aCR
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
