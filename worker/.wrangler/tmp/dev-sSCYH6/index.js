@@ -55,7 +55,37 @@ var src_default = {
                   role: "user",
                   parts: [
                     {
-                      text: '\u0E2D\u0E48\u0E32\u0E19\u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E08\u0E32\u0E01\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E20\u0E32\u0E29\u0E32\u0E44\u0E17\u0E22/\u0E2D\u0E31\u0E07\u0E01\u0E24\u0E29 \u0E41\u0E25\u0E49\u0E27\u0E15\u0E2D\u0E1A\u0E01\u0E25\u0E31\u0E1A\u0E40\u0E1B\u0E47\u0E19 JSON \u0E25\u0E49\u0E27\u0E19\u0E40\u0E17\u0E48\u0E32\u0E19\u0E31\u0E49\u0E19 \u0E2B\u0E49\u0E32\u0E21\u0E21\u0E35 markdown \u0E2B\u0E23\u0E37\u0E2D\u0E04\u0E33\u0E2D\u0E18\u0E34\u0E1A\u0E32\u0E22\u0E40\u0E2A\u0E23\u0E34\u0E21 \u0E23\u0E39\u0E1B\u0E41\u0E1A\u0E1A\u0E15\u0E49\u0E2D\u0E07\u0E40\u0E1B\u0E47\u0E19: {"rawText":string,"lines":[string],"summary":{"total":number|null,"subtotal":number|null,"vat":number|null,"serviceCharge":number|null,"discount":number|null,"billDiscount":number|null,"vatIncluded":boolean},"items":[{"name":string,"amount":number}]} \u0E01\u0E0E\u0E2A\u0E33\u0E04\u0E31\u0E0D: 1) \u0E14\u0E36\u0E07\u0E0A\u0E37\u0E48\u0E2D\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32\u0E41\u0E25\u0E30\u0E23\u0E32\u0E04\u0E32\u0E15\u0E48\u0E2D\u0E1A\u0E23\u0E23\u0E17\u0E31\u0E14\u0E43\u0E2B\u0E49\u0E04\u0E23\u0E1A\u0E17\u0E35\u0E48\u0E2A\u0E38\u0E14 2) \u0E16\u0E49\u0E32\u0E1E\u0E1A VAT/\u0E04\u0E48\u0E32\u0E1A\u0E23\u0E34\u0E01\u0E32\u0E23/\u0E2A\u0E48\u0E27\u0E19\u0E25\u0E14 \u0E43\u0E2B\u0E49\u0E43\u0E2A\u0E48\u0E43\u0E19 summary 3) \u0E16\u0E49\u0E32\u0E40\u0E2B\u0E47\u0E19\u0E04\u0E33\u0E27\u0E48\u0E32 VAT \u0E23\u0E27\u0E21\u0E43\u0E19\u0E23\u0E32\u0E04\u0E32 \u0E43\u0E2B\u0E49\u0E15\u0E31\u0E49\u0E07 vatIncluded=true 4) \u0E43\u0E0A\u0E49 number \u0E08\u0E23\u0E34\u0E07\u0E40\u0E17\u0E48\u0E32\u0E19\u0E31\u0E49\u0E19 \u0E44\u0E21\u0E48\u0E15\u0E49\u0E2D\u0E07\u0E43\u0E2A\u0E48\u0E2A\u0E31\u0E0D\u0E25\u0E31\u0E01\u0E29\u0E13\u0E4C\u0E40\u0E07\u0E34\u0E19 5) rawText \u0E41\u0E25\u0E30 lines \u0E04\u0E27\u0E23\u0E04\u0E07\u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E08\u0E32\u0E01\u0E2A\u0E25\u0E34\u0E1B\u0E15\u0E32\u0E21\u0E17\u0E35\u0E48\u0E2D\u0E48\u0E32\u0E19\u0E44\u0E14\u0E49'
+                      text: `\u0E04\u0E38\u0E13\u0E40\u0E1B\u0E47\u0E19\u0E1C\u0E39\u0E49\u0E0A\u0E48\u0E27\u0E22\u0E2D\u0E48\u0E32\u0E19\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E17\u0E35\u0E48\u0E41\u0E21\u0E48\u0E19\u0E22\u0E33\u0E17\u0E35\u0E48\u0E2A\u0E38\u0E14 \u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48\u0E02\u0E2D\u0E07\u0E04\u0E38\u0E13\u0E04\u0E37\u0E2D\u0E2D\u0E48\u0E32\u0E19\u0E23\u0E39\u0E1B\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E17\u0E35\u0E48\u0E44\u0E14\u0E49\u0E23\u0E31\u0E1A\u0E41\u0E25\u0E49\u0E27\u0E2A\u0E23\u0E38\u0E1B\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E2D\u0E2D\u0E01\u0E21\u0E32\u0E40\u0E1B\u0E47\u0E19 JSON \u0E15\u0E32\u0E21\u0E42\u0E04\u0E23\u0E07\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E17\u0E35\u0E48\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E40\u0E17\u0E48\u0E32\u0E19\u0E31\u0E49\u0E19
+                    
+                    \u0E01\u0E0E\u0E40\u0E2B\u0E25\u0E47\u0E01:
+                    1. \u0E2B\u0E49\u0E32\u0E21\u0E15\u0E2D\u0E1A\u0E19\u0E2D\u0E01\u0E40\u0E2B\u0E19\u0E37\u0E2D\u0E08\u0E32\u0E01 JSON (\u0E2B\u0E49\u0E32\u0E21\u0E21\u0E35\u0E04\u0E33\u0E2D\u0E18\u0E34\u0E1A\u0E32\u0E22 \u0E2B\u0E23\u0E37\u0E2D Markdown)
+                    2. \u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E15\u0E31\u0E27\u0E40\u0E25\u0E02 (amount, total, etc.) \u0E15\u0E49\u0E2D\u0E07\u0E40\u0E1B\u0E47\u0E19\u0E15\u0E31\u0E27\u0E40\u0E25\u0E02 (number) \u0E40\u0E17\u0E48\u0E32\u0E19\u0E31\u0E49\u0E19 \u0E2B\u0E49\u0E32\u0E21\u0E43\u0E2A\u0E48\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E2B\u0E21\u0E32\u0E22\u0E04\u0E2D\u0E21\u0E21\u0E48\u0E32 (,) \u0E2B\u0E23\u0E37\u0E2D\u0E2B\u0E19\u0E48\u0E27\u0E22\u0E40\u0E07\u0E34\u0E19 (\u0E3F, THB)
+                    3. \u0E14\u0E36\u0E07\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32\u0E43\u0E2B\u0E49\u0E04\u0E23\u0E1A\u0E17\u0E38\u0E01\u0E1A\u0E23\u0E23\u0E17\u0E31\u0E14 (items)
+                    4. \u0E2A\u0E23\u0E38\u0E1B\u0E22\u0E2D\u0E14 (summary) \u0E15\u0E49\u0E2D\u0E07\u0E1B\u0E23\u0E30\u0E01\u0E2D\u0E1A\u0E14\u0E49\u0E27\u0E22:
+                       - total: \u0E22\u0E2D\u0E14\u0E2A\u0E38\u0E17\u0E18\u0E34\u0E17\u0E49\u0E32\u0E22\u0E2A\u0E25\u0E34\u0E1B
+                       - subtotal: \u0E22\u0E2D\u0E14\u0E01\u0E48\u0E2D\u0E19\u0E20\u0E32\u0E29\u0E35/\u0E04\u0E48\u0E32\u0E1A\u0E23\u0E34\u0E01\u0E32\u0E23 (\u0E16\u0E49\u0E32\u0E21\u0E35)
+                       - vat: \u0E20\u0E32\u0E29\u0E35\u0E21\u0E39\u0E25\u0E04\u0E48\u0E32\u0E40\u0E1E\u0E34\u0E48\u0E21 (\u0E16\u0E49\u0E32\u0E21\u0E35)
+                       - serviceCharge: \u0E04\u0E48\u0E32\u0E1A\u0E23\u0E34\u0E01\u0E32\u0E23 (\u0E16\u0E49\u0E32\u0E21\u0E35)
+                       - discount/billDiscount: \u0E2A\u0E48\u0E27\u0E19\u0E25\u0E14 (\u0E16\u0E49\u0E32\u0E21\u0E35)
+                       - vatIncluded: true \u0E2B\u0E32\u0E01\u0E43\u0E19\u0E2A\u0E25\u0E34\u0E1B\u0E23\u0E30\u0E1A\u0E38\u0E27\u0E48\u0E32 "\u0E23\u0E27\u0E21 VAT \u0E41\u0E25\u0E49\u0E27" \u0E2B\u0E23\u0E37\u0E2D\u0E23\u0E32\u0E04\u0E32\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32\u0E23\u0E27\u0E21\u0E20\u0E32\u0E29\u0E35\u0E41\u0E25\u0E49\u0E27
+                    
+                    \u0E42\u0E04\u0E23\u0E07\u0E2A\u0E23\u0E49\u0E32\u0E07 JSON:
+                    {
+                      "rawText": "\u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14\u0E17\u0E35\u0E48\u0E2D\u0E48\u0E32\u0E19\u0E44\u0E14\u0E49",
+                      "lines": ["\u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E41\u0E22\u0E01\u0E41\u0E15\u0E48\u0E25\u0E30\u0E1A\u0E23\u0E23\u0E17\u0E31\u0E14"],
+                      "summary": {
+                        "total": number,
+                        "subtotal": number,
+                        "vat": number,
+                        "serviceCharge": number,
+                        "discount": number,
+                        "billDiscount": number,
+                        "vatIncluded": boolean
+                      },
+                      "items": [
+                        { "name": "\u0E0A\u0E37\u0E48\u0E2D\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32", "amount": number }
+                      ]
+                    }`
                     },
                     {
                       inline_data: {
@@ -67,7 +97,8 @@ var src_default = {
                 }
               ],
               generationConfig: {
-                temperature: 0.05
+                temperature: 0.1,
+                response_mime_type: "application/json"
               }
             })
           }
@@ -82,14 +113,38 @@ var src_default = {
       }
       const data = await geminiResponse.json();
       const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-      const cleaned = text.replace(/```json|```/g, "").trim();
       let parsed;
       try {
-        parsed = JSON.parse(cleaned);
+        parsed = JSON.parse(text.replace(/```json|```/g, "").trim());
       } catch {
         return jsonResponse({ error: "Gemini did not return valid JSON", raw: text }, { status: 502 }, origin, env);
       }
-      return jsonResponse(parsed, { status: 200 }, origin, env);
+      const cleanNum = /* @__PURE__ */ __name((val) => {
+        if (typeof val === "number") return val;
+        if (typeof val === "string") {
+          const n = parseFloat(val.replace(/,/g, "").replace(/[฿฿]/g, ""));
+          return isNaN(n) ? 0 : n;
+        }
+        return 0;
+      }, "cleanNum");
+      const normalized = {
+        rawText: parsed.rawText || "",
+        lines: Array.isArray(parsed.lines) ? parsed.lines : [],
+        summary: {
+          total: cleanNum(parsed.summary?.total),
+          subtotal: cleanNum(parsed.summary?.subtotal),
+          vat: cleanNum(parsed.summary?.vat),
+          serviceCharge: cleanNum(parsed.summary?.serviceCharge),
+          discount: cleanNum(parsed.summary?.discount),
+          billDiscount: cleanNum(parsed.summary?.billDiscount),
+          vatIncluded: !!parsed.summary?.vatIncluded
+        },
+        items: (Array.isArray(parsed.items) ? parsed.items : []).map((it) => ({
+          name: String(it.name || "\u0E44\u0E21\u0E48\u0E21\u0E35\u0E0A\u0E37\u0E48\u0E2D\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32").trim(),
+          amount: cleanNum(it.amount)
+        })).filter((it) => it.amount > 0 || it.name.length > 0)
+      };
+      return jsonResponse(normalized, { status: 200 }, origin, env);
     } catch (err) {
       return jsonResponse({ error: err instanceof Error ? err.message : "Worker error" }, { status: 500 }, origin, env);
     }

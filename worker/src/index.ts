@@ -62,7 +62,37 @@ export default {
                 role: 'user',
                 parts: [
                   {
-                    text: 'อ่านข้อความจากใบเสร็จภาษาไทย/อังกฤษ แล้วตอบกลับเป็น JSON ล้วนเท่านั้น ห้ามมี markdown หรือคำอธิบายเสริม รูปแบบต้องเป็น: {"rawText":string,"lines":[string],"summary":{"total":number|null,"subtotal":number|null,"vat":number|null,"serviceCharge":number|null,"discount":number|null,"billDiscount":number|null,"vatIncluded":boolean},"items":[{"name":string,"amount":number}]} กฎสำคัญ: 1) ดึงชื่อสินค้าและราคาต่อบรรทัดให้ครบที่สุด 2) ถ้าพบ VAT/ค่าบริการ/ส่วนลด ให้ใส่ใน summary 3) ถ้าเห็นคำว่า VAT รวมในราคา ให้ตั้ง vatIncluded=true 4) ใช้ number จริงเท่านั้น ไม่ต้องใส่สัญลักษณ์เงิน 5) rawText และ lines ควรคงข้อความจากสลิปตามที่อ่านได้',
+                    text: `คุณเป็นผู้ช่วยอ่านใบเสร็จที่แม่นยำที่สุด หน้าที่ของคุณคืออ่านรูปใบเสร็จที่ได้รับแล้วสรุปข้อมูลออกมาเป็น JSON ตามโครงสร้างที่กำหนดเท่านั้น
+                    
+                    กฎเหล็ก:
+                    1. ห้ามตอบนอกเหนือจาก JSON (ห้ามมีคำอธิบาย หรือ Markdown)
+                    2. ข้อมูลตัวเลข (amount, total, etc.) ต้องเป็นตัวเลข (number) เท่านั้น ห้ามใส่เครื่องหมายคอมม่า (,) หรือหน่วยเงิน (฿, THB)
+                    3. ดึงรายการสินค้าให้ครบทุกบรรทัด (items)
+                    4. สรุปยอด (summary) ต้องประกอบด้วย:
+                       - total: ยอดสุทธิท้ายสลิป
+                       - subtotal: ยอดก่อนภาษี/ค่าบริการ (ถ้ามี)
+                       - vat: ภาษีมูลค่าเพิ่ม (ถ้ามี)
+                       - serviceCharge: ค่าบริการ (ถ้ามี)
+                       - discount/billDiscount: ส่วนลด (ถ้ามี)
+                       - vatIncluded: true หากในสลิประบุว่า "รวม VAT แล้ว" หรือราคาสินค้ารวมภาษีแล้ว
+                    
+                    โครงสร้าง JSON:
+                    {
+                      "rawText": "ข้อความทั้งหมดที่อ่านได้",
+                      "lines": ["ข้อความแยกแต่ละบรรทัด"],
+                      "summary": {
+                        "total": number,
+                        "subtotal": number,
+                        "vat": number,
+                        "serviceCharge": number,
+                        "discount": number,
+                        "billDiscount": number,
+                        "vatIncluded": boolean
+                      },
+                      "items": [
+                        { "name": "ชื่อสินค้า", "amount": number }
+                      ]
+                    }`,
                   },
                   {
                     inline_data: {
@@ -74,7 +104,8 @@ export default {
               },
             ],
             generationConfig: {
-              temperature: 0.05,
+              temperature: 0.1,
+              response_mime_type: "application/json"
             },
           }),
         },
@@ -92,25 +123,47 @@ export default {
       return jsonResponse({ error: `Gemini error ${geminiResponse.status}`, detail: text }, { status: geminiResponse.status }, origin, env)
     }
 
-      const data = await geminiResponse.json() as {
-        candidates?: Array<{
-          content?: {
-            parts?: Array<{
-              text?: string
-            }>
-          }
-        }>
-      }
+      const data = await geminiResponse.json() as any
       const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
-      const cleaned = text.replace(/```json|```/g, '').trim()
-      let parsed: unknown
+      
+      let parsed: any
       try {
-        parsed = JSON.parse(cleaned)
+        parsed = JSON.parse(text.replace(/```json|```/g, '').trim())
       } catch {
         return jsonResponse({ error: 'Gemini did not return valid JSON', raw: text }, { status: 502 }, origin, env)
       }
 
-      return jsonResponse(parsed, { status: 200 }, origin, env)
+      // --- Data Normalization ---
+      const cleanNum = (val: any): number => {
+        if (typeof val === 'number') return val
+        if (typeof val === 'string') {
+          const n = parseFloat(val.replace(/,/g, '').replace(/[฿฿]/g, ''))
+          return isNaN(n) ? 0 : n
+        }
+        return 0
+      }
+
+      const normalized = {
+        rawText: parsed.rawText || '',
+        lines: Array.isArray(parsed.lines) ? parsed.lines : [],
+        summary: {
+          total: cleanNum(parsed.summary?.total),
+          subtotal: cleanNum(parsed.summary?.subtotal),
+          vat: cleanNum(parsed.summary?.vat),
+          serviceCharge: cleanNum(parsed.summary?.serviceCharge),
+          discount: cleanNum(parsed.summary?.discount),
+          billDiscount: cleanNum(parsed.summary?.billDiscount),
+          vatIncluded: !!parsed.summary?.vatIncluded
+        },
+        items: (Array.isArray(parsed.items) ? parsed.items : [])
+          .map((it: any) => ({
+            name: String(it.name || 'ไม่มีชื่อสินค้า').trim(),
+            amount: cleanNum(it.amount)
+          }))
+          .filter((it: any) => it.amount > 0 || it.name.length > 0)
+      }
+
+      return jsonResponse(normalized, { status: 200 }, origin, env)
     } catch (err) {
       return jsonResponse({ error: err instanceof Error ? err.message : 'Worker error' }, { status: 500 }, origin, env)
     }
