@@ -281,13 +281,13 @@ function App() {
   useEffect(() => {
     if (lineProfile) {
       setMembers(prev => {
-        const newMembers = [...prev]
-        if (newMembers.length > 0 && (newMembers[0].name === '' || newMembers[0].name === 'ฉัน' || newMembers[0].name === 'คนที่ 1')) {
-          newMembers[0].name = lineProfile.displayName
-          newMembers[0].pictureUrl = lineProfile.pictureUrl
-          return newMembers
-        }
-        return prev
+        // If we find our own ID or the first member is default, update it
+        return prev.map((m, i) => {
+          if (i === 0 && (m.name === '' || m.name === 'ฉัน' || m.name === 'คนที่ 1' || !m.pictureUrl)) {
+            return { ...m, name: lineProfile.displayName, pictureUrl: lineProfile.pictureUrl }
+          }
+          return m
+        })
       })
     }
   }, [lineProfile])
@@ -710,6 +710,7 @@ function App() {
         id: crypto.randomUUID(),
         name: '',
         promptPayId: '',
+        pictureUrl: '',
         color: MEMBER_COLORS[prev.length % MEMBER_COLORS.length]!,
       },
     ])
