@@ -76,8 +76,8 @@ export default {
       }
 
     const models = [
-      'gemini-2.0-flash-lite-preview-02-05', // Gemini 3.1 Flash Lite
-      'gemini-1.5-flash'                     // Gemini 2.5 Flash
+      'gemini-2.0-flash-lite-preview-02-05', // Gemini 2.0 Flash Lite
+      'gemini-1.5-flash'                     // Gemini 1.5 Flash
     ]
 
     const maxRetriesPerModel = 2
