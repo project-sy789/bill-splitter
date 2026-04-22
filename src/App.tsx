@@ -256,7 +256,25 @@ function App() {
     }
     // Fetch affiliate links from Supabase
     fetchRemoteAffiliateLinks().then(links => {
-      if (links.length > 0) setRemoteLinks(links)
+      if (links.length > 0) {
+        // Enhance links: parse if they look like the Shopee message pattern
+        const enhanced = links.map(item => {
+          if (typeof item.url === 'string' && item.url.includes('ลองดู')) {
+            const urlMatch = item.url.match(/https:\/\/s\.shopee\.co\.th\/[a-zA-Z0-9]+/);
+            const descMatch = item.url.match(/ลองดู (.*) ในราคา/);
+            const priceMatch = item.url.match(/ในราคา (.*) ที่ Shopee/);
+            
+            return {
+              ...item,
+              url: urlMatch ? urlMatch[0] : item.url,
+              description: item.description || (descMatch ? descMatch[1] : ''),
+              price_text: item.price_text || (priceMatch ? priceMatch[1] : '')
+            };
+          }
+          return item;
+        });
+        setRemoteLinks(enhanced);
+      }
     })
   }, [lineProfile])
 
@@ -274,9 +292,21 @@ function App() {
     setUsageStats(stats)
 
     if (stats.daily >= USAGE_LIMITS.DAILY || stats.weekly >= USAGE_LIMITS.WEEKLY) {
-      // Pick from remote links if available, otherwise fallback to local config
       if (remoteLinks.length > 0) {
-        const pick = remoteLinks[Math.floor(Math.random() * remoteLinks.length)]
+        const pick = { ...remoteLinks[Math.floor(Math.random() * remoteLinks.length)] }
+        
+        // Auto-unfurl image if missing
+        if (!pick.image_url && pick.url.startsWith('http')) {
+          const workerUrl = import.meta.env.VITE_OCR_WORKER_URL || '';
+          fetch(`${workerUrl}/unfurl?url=${encodeURIComponent(pick.url)}`)
+            .then(res => res.json())
+            .then(data => {
+              if (data.image) {
+                setRandomAd(prev => prev?.url === pick.url ? { ...prev, image_url: data.image } : prev);
+              }
+            }).catch(() => {});
+        }
+
         setRandomAd(pick)
         setRandomLink(pick.url)
       } else {
