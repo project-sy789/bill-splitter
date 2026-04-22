@@ -1093,6 +1093,15 @@ function App() {
     }
   }, [reset, billIdFromUrl, isBillOwner, lineProfile])
 
+  const handleRemoveHistoryBill = (id: string) => {
+    if (confirm('คุณต้องการลบข้อมูลบิลนี้ออกจากประวัติและคลาวด์ใช่หรือไม่?')) {
+      removeBill(id)
+      if (lineProfile) {
+        deleteBill(id, lineProfile.userId)
+      }
+    }
+  }
+
   // ──────────────────────────────────────────────
   // Render
   // ──────────────────────────────────────────────
@@ -1925,7 +1934,7 @@ function App() {
                       <p className="text-xs text-gray-400">{new Date(h.updatedAt).toLocaleString('th-TH')}</p>
                     </button>
                     <button
-                      onClick={() => removeBill(h.id)}
+                      onClick={() => handleRemoveHistoryBill(h.id)}
                       className="ml-2 rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
                     >
                       <Trash2 className="h-4 w-4" />
