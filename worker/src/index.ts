@@ -47,7 +47,11 @@ export default {
         return jsonResponse({ error: 'Missing imageBase64' }, { status: 400 }, origin, env)
       }
 
-      const geminiResponse = await fetch(
+    const maxRetries = 2
+    let lastGeminiResponse: Response | null = null
+
+    for (let i = 0; i < maxRetries; i++) {
+      lastGeminiResponse = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${env.GEMINI_API_KEY}`,
         {
           method: 'POST',
@@ -76,10 +80,17 @@ export default {
         },
       )
 
-      if (!geminiResponse.ok) {
-        const text = await geminiResponse.text()
-        return jsonResponse({ error: `Gemini error ${geminiResponse.status}`, detail: text }, { status: geminiResponse.status }, origin, env)
-      }
+      if (lastGeminiResponse.status !== 429) break
+      // Wait 1s before retry on 429
+      if (i < maxRetries - 1) await new Promise(r => setTimeout(r, 1000))
+    }
+
+    const geminiResponse = lastGeminiResponse!
+
+    if (!geminiResponse.ok) {
+      const text = await geminiResponse.text()
+      return jsonResponse({ error: `Gemini error ${geminiResponse.status}`, detail: text }, { status: geminiResponse.status }, origin, env)
+    }
 
       const data = await geminiResponse.json() as {
         candidates?: Array<{

@@ -14,6 +14,7 @@ export interface ParsedReceiptSummary {
 }
 
 export interface ParsedReceiptResult {
+  id?: string
   rawText: string
   lines: string[]
   items: ParsedReceiptItem[]

@@ -26,8 +26,8 @@ interface OcrProgress {
   statusText: string
 }
 
-const OCR_TIMEOUT_MS = 120_000
-const OCR_FALLBACK_MODES = [PSM.SINGLE_BLOCK, PSM.SPARSE_TEXT, PSM.AUTO]
+const OCR_TIMEOUT_MS = 60_000
+const OCR_FALLBACK_MODES = [PSM.SINGLE_BLOCK] // Reduced from 3 to 1 for speed
 
 // ──────────────────────────────────────────────
 // Image preprocessing (fast)
@@ -114,6 +114,7 @@ export function useReceiptOcr() {
   const [error, setError] = useState<string | null>(null)
   const [lastSource, setLastSource] = useState<OcrSource>(null)
   const [debugPayload, setDebugPayload] = useState<GeminiDebugPayload | null>(null)
+  const [sourceHint, setSourceHint] = useState<string>('')
 
   const getWorker = useCallback(async (psm: PSM = PSM.SINGLE_BLOCK) => {
     if (workerRef.current) {
@@ -158,22 +159,27 @@ export function useReceiptOcr() {
       setError(null)
       setStatus('recognizing')
       setProgress({ progress: 0, statusText: 'เตรียมภาพ...' })
+      setSourceHint('กำลังเริ่ม OCR')
+      console.log('[OCR] Proxy URL:', GEMINI_PROXY_URL)
 
       // ── 1. Try Gemini Vision first (if proxy configured) ──────────────────
       if (GEMINI_PROXY_URL) {
         try {
           setProgress({ progress: 10, statusText: '🤖 Gemini กำลังอ่านสลิป...' })
+          setSourceHint('เรียก Gemini Vision ผ่าน worker')
           const geminiResult = await scanWithGemini(file)
           setDebugPayload(geminiResult)
           setProgress({ progress: 100, statusText: `🤖 Gemini อ่านสำเร็จ — พบ ${geminiResult.parsed.items.length} รายการ ✓` })
           setStatus('completed')
           setLastSource('gemini')
+          setSourceHint(`Gemini endpoint: ${geminiResult.endpoint}`)
           return geminiResult.parsed
         } catch (err) {
-          if (err instanceof GeminiRateLimitError) {
-            setProgress({ progress: 12, statusText: '⚠️ Gemini เต็มโควตา กำลังสลับไป Tesseract...' })
+          if ((err as any)?.name === 'GeminiRateLimitError') {
+            setProgress({ progress: 12, statusText: '🔴 Gemini เต็มโควตา (429) — กำลังใช้ระบบสำรอง Tesseract (ช้ากว่า)...' })
           } else {
             console.warn('[OCR] Gemini failed, falling back to Tesseract:', err)
+            setError(`Gemini Error: ${err instanceof Error ? err.message : String(err)}`)
             setProgress({ progress: 12, statusText: '⚠️ Gemini ล้มเหลว กำลังสลับไป Tesseract...' })
           }
         }
@@ -212,13 +218,13 @@ export function useReceiptOcr() {
               lastError = err
             }
           }
-          if (bestCount >= 7) break
         }
 
         if (best) {
           setProgress({ progress: 100, statusText: `🧾 Tesseract อ่านสำเร็จ — พบ ${best.items.length} รายการ ✓` })
           setStatus('completed')
           setLastSource(GEMINI_PROXY_URL ? 'fallback' : 'tesseract')
+          setSourceHint(GEMINI_PROXY_URL ? 'Gemini ล้มเหลว → ใช้ Tesseract fallback' : 'ใช้ Tesseract โดยตรง')
           return best
         }
 
@@ -254,6 +260,7 @@ export function useReceiptOcr() {
     setError(null)
     setLastSource(null)
     setDebugPayload(null)
+    setSourceHint('')
   }, [])
 
   const mergedItems = useMemo(() => {
@@ -281,6 +288,7 @@ export function useReceiptOcr() {
     error,
     lastSource,
     debugPayload,
+    sourceHint,
     ocrStageLabel,
     scanFiles,
     reset,

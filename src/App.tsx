@@ -297,7 +297,7 @@ function App() {
     }
   }, [])
 
-  const { progress, results, mergedItems, error, lastSource, debugPayload, ocrStageLabel, scanFiles, reset, terminate, isBusy, setResults } = useReceiptOcr()
+  const { progress, results, mergedItems, error, lastSource, debugPayload, sourceHint, ocrStageLabel, scanFiles, reset, terminate, isBusy, setResults } = useReceiptOcr()
 
   // ── Calculations ──
   const baseTotalsByMember = useMemo(() => {
@@ -395,11 +395,15 @@ function App() {
       const billDiscount = m.billDiscount ?? (m.discount ?? 0)
       const calculatedTotal = round2(subtotal + m.serviceCharge + (m.vatIncluded ? 0 : m.vat) - billDiscount)
 
+      const amount = m.amount > 0 
+        ? round2(Math.max(0, m.amount - (m.itemDiscount ?? 0)) + m.serviceCharge + (m.vatIncluded ? 0 : m.vat) - billDiscount)
+        : calculatedTotal
+
       return {
         id: m.id,
         title: m.name,
-        subtitle: billItems.length > 0 ? `${billItems.length} รายการ` : 'ยอดใส่เอง',
-        amount: round2(Math.max(0, m.amount - (m.itemDiscount ?? 0)) + m.serviceCharge + (m.vatIncluded ? 0 : m.vat) - billDiscount),
+        subtitle: m.amount > 0 ? (billItems.length > 0 ? `${billItems.length} รายการ` : 'ยอดใส่เอง') : 'คำนวณตามรายการ',
+        amount,
         calculatedTotal,
       }
     })
@@ -550,16 +554,19 @@ function App() {
 
   const handleFilesSelected = useCallback(
     async (files: FileList | null) => {
-      if (!files || files.length === 0) return
-      await scanFiles(Array.from(files))
+      console.log('[App] handleFilesSelected:', files?.length)
+      if (files && files.length > 0) {
+        await scanFiles(Array.from(files))
+      }
     },
     [scanFiles],
   )
 
   const handleInputChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('[App] handleInputChange triggered, files:', e.target.files?.length)
     const files = e.target.files
-    e.target.value = ''
     await handleFilesSelected(files)
+    e.target.value = ''
   }, [handleFilesSelected])
 
   const addMember = useCallback(() => {
@@ -600,22 +607,53 @@ function App() {
     setMembers((prev) => prev.map((m) => m.id === id ? { ...m, [field]: value } : m))
   }, [])
 
-  const updateItem = useCallback(<K extends keyof BillItemDraft>(itemId: string, field: K, value: BillItemDraft[K]) => {
-    const oldItem = items.find((item) => item.id === itemId)
-    if (field === 'amount' && oldItem && oldItem.billId) {
-      const diff = (value as number) - oldItem.amount
-      if (diff !== 0) {
-        if (oldItem.billId.startsWith('ocr-')) {
-          const ocrIdx = parseInt(oldItem.billId.split('-')[1]!, 10)
-          setResults(res => res.map((r, i) => i === ocrIdx ? { ...r, summary: { ...r.summary, total: round2((r.summary.total || 0) + diff) } } : r))
-        } else {
-          setManualBills(prev => prev.map(m => m.id === oldItem.billId ? { ...m, amount: Math.max(0, round2(m.amount + diff)) } : m))
-        }
+  const handleDeleteBill = useCallback((billId: string) => {
+    if (billId.startsWith('ocr-')) {
+      const idx = parseInt(billId.split('-')[1]!, 10)
+      setResults(prev => prev.filter((_, i) => i !== idx))
+      
+      // Shift billIds for items
+      setItems(prev => {
+        const filtered = prev.filter(it => it.billId !== billId)
+        return filtered.map(it => {
+          if (it.billId?.startsWith('ocr-')) {
+            const currentIdx = parseInt(it.billId.split('-')[1]!, 10)
+            if (currentIdx > idx) return { ...it, billId: `ocr-${currentIdx - 1}` }
+          }
+          return it
+        })
+      })
 
-      }
+      // Shift billIds in payer map
+      setReceiptPayerMap(prev => {
+        const next = { ...prev }
+        delete next[billId]
+        Object.keys(next).forEach(key => {
+          if (key.startsWith('ocr-')) {
+            const currentIdx = parseInt(key.split('-')[1]!, 10)
+            if (currentIdx > idx) {
+              next[`ocr-${currentIdx - 1}`] = next[key]
+              delete next[key]
+            }
+          }
+        })
+        return next
+      })
+    } else {
+      setManualBills(prev => prev.filter(m => m.id !== billId))
+      setItems(prev => prev.filter(it => it.billId !== billId))
+      setReceiptPayerMap(prev => {
+        const next = { ...prev }
+        delete next[billId]
+        return next
+      })
     }
+  }, [])
+
+  const updateItem = useCallback(<K extends keyof BillItemDraft>(itemId: string, field: K, value: BillItemDraft[K]) => {
+    // Removed auto-updating bill total from item amount changes to preserve the target total
     setItems((prev) => prev.map((item) => item.id === itemId ? { ...item, [field]: value } : item))
-  }, [items, setResults])
+  }, [setItems])
 
   const exportBill = useCallback(() => {
     const state: PersistedBillState = {
@@ -847,8 +885,8 @@ function App() {
                     />
                     <input
                       value={member.promptPayId || ''}
-                      onChange={(e) => updateMember(member.id, 'promptPayId', e.target.value)}
-                      placeholder="PromptPay: เบอร์โทร / เลขบัตร"
+                      onChange={(e) => updateMember(member.id, 'promptPayId', formatPromptPay(e.target.value))}
+                      placeholder="PromptPay: เบอร์โทร หรือ เลขบัตรประชาชน"
                       className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-[12px] font-mono font-bold text-gray-700 outline-none shadow-[0_1px_0_rgba(255,255,255,0.85),0_8px_18px_rgba(15,23,42,0.04)] transition-all placeholder:text-gray-300 focus:border-violet-300 focus:ring-2 focus:ring-violet-100"
                     />
                   </div>
@@ -867,65 +905,69 @@ function App() {
         </SectionCard>
 
         {/* ── STEP 2: ใบเสร็จ & รายการ ── */}
-        {(results.length > 0 || manualBills.length > 0 || !isBusy || items.some(it => !it.billId)) && (
-          <div className="space-y-6">
+        <div className="space-y-6">
             <SectionCard>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-6">
                 <div>
                   <StepBadge n={2} label="ใบเสร็จ & รายการ" />
                   <p className="text-[11px] text-gray-400 mt-1 ml-1">สแกน/เพิ่มบิล แล้วระบุว่าใครกินอะไร</p>
                 </div>
                 <div className="flex gap-2">
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isBusy}
-                    className="flex-1 sm:flex-initial flex items-center justify-center gap-2 rounded-2xl border border-sky-100 bg-white/80 px-3 py-2 text-sm font-semibold text-sky-700 shadow-[0_8px_24px_rgba(14,165,233,0.08)] backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:bg-sky-50 hover:shadow-[0_14px_30px_rgba(14,165,233,0.12)] active:translate-y-0 disabled:translate-y-0 disabled:opacity-50 font-heading sm:px-4"
-                  >
-                    <Upload className="h-4 w-4" />
-                    จากอัลบั้ม
-                  </button>
-                  <button
-                    onClick={() => cameraInputRef.current?.click()}
-                    disabled={isBusy}
-                    className="flex-1 sm:flex-initial flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-violet-600 via-violet-500 to-fuchsia-500 px-3 py-2 text-sm font-bold text-white shadow-[0_14px_34px_rgba(124,58,237,0.28)] transition-all hover:-translate-y-0.5 hover:shadow-[0_18px_40px_rgba(124,58,237,0.34)] active:translate-y-0 font-heading sm:px-4"
-                  >
-                    {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
-                    {isBusy ? 'กำลังสแกน...' : 'ถ่ายบิลใหม่'}
-                  </button>
-                  <button
-                    onClick={() => setIsManualBillModalOpen(true)}
-                    className="flex-1 sm:flex-initial flex items-center justify-center gap-2 rounded-2xl border border-white/80 bg-white/75 px-3 py-2 text-sm font-semibold text-gray-700 shadow-[0_8px_24px_rgba(15,23,42,0.06)] backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:bg-white hover:shadow-[0_14px_30px_rgba(15,23,42,0.10)] active:translate-y-0 font-heading sm:px-4"
-                  >
-                    <Plus className="h-4 w-4" /> เพิ่มบิลเอง
-                  </button>
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isBusy}
+                      className="flex-1 sm:flex-initial flex items-center justify-center gap-2 rounded-2xl border border-sky-100 bg-white/80 px-3 py-2 text-sm font-semibold text-sky-700 shadow-[0_8px_24px_rgba(14,165,233,0.08)] backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:bg-sky-50 hover:shadow-[0_14px_30px_rgba(14,165,233,0.12)] active:translate-y-0 disabled:translate-y-0 disabled:opacity-50 font-heading sm:px-4"
+                    >
+                      {isBusy ? <Loader2 className="h-4 w-4 animate-spin text-sky-500" /> : <Upload className="h-4 w-4" />}
+                      {isBusy ? 'กำลังอ่านรูป...' : 'จากอัลบั้ม'}
+                    </button>
+                    <button
+                      onClick={() => cameraInputRef.current?.click()}
+                      disabled={isBusy}
+                      className="flex-1 sm:flex-initial flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-violet-600 via-violet-500 to-fuchsia-500 px-3 py-2 text-sm font-bold text-white shadow-[0_14px_34px_rgba(124,58,237,0.28)] transition-all hover:-translate-y-0.5 hover:shadow-[0_18px_40px_rgba(124,58,237,0.34)] active:translate-y-0 font-heading sm:px-4"
+                    >
+                      {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+                      {isBusy ? 'กำลังสแกน...' : 'ถ่ายบิลใหม่'}
+                    </button>
+                    <button
+                      onClick={() => setIsManualBillModalOpen(true)}
+                      className="flex-1 sm:flex-initial flex items-center justify-center gap-2 rounded-2xl border border-white/80 bg-white/75 px-3 py-2 text-sm font-semibold text-gray-700 shadow-[0_8px_24px_rgba(15,23,42,0.06)] backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:bg-white hover:shadow-[0_14px_30px_rgba(15,23,42,0.10)] active:translate-y-0 font-heading sm:px-4"
+                    >
+                      <Plus className="h-4 w-4" /> เพิ่มบิลเอง
+                    </button>
+                  </div>
                 </div>
-              </div>
 
-              {/* OCR Progress & Errors */}
-              {isBusy && (
-                <div className="mt-6 rounded-3xl border border-white/80 bg-gradient-to-br from-violet-50/95 via-white to-fuchsia-50/80 p-4 shadow-[0_14px_34px_rgba(124,58,237,0.10)] backdrop-blur-xl">
-                  <div className="mb-3 flex items-center justify-between gap-3">
-                    <div className="flex flex-col gap-0.5">
-                      <div className="flex items-center gap-2 text-[11px] font-semibold text-violet-700">
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        {progress.statusText}
+              {/* OCR Progress & Errors (Moved up for visibility) */}
+              {(isBusy || error) && (
+                <div className="mb-6 space-y-4">
+                  {isBusy && (
+                    <div className="rounded-3xl border border-white/80 bg-gradient-to-br from-violet-50/95 via-white to-fuchsia-50/80 p-4 shadow-[0_14px_34px_rgba(124,58,237,0.10)] backdrop-blur-xl animate-in fade-in slide-in-from-top-4 duration-300">
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <div className="flex flex-col gap-0.5">
+                          <div className="flex items-center gap-2 text-[11px] font-semibold text-violet-700">
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            {progress.statusText}
+                          </div>
+                          <span className="text-[10px] font-medium text-violet-400">{ocrStageLabel}</span>
+                          {sourceHint && <span className="text-[10px] font-medium text-violet-400">{sourceHint}</span>}
+                        </div>
+                        <span className="rounded-full bg-white/80 px-2 py-1 text-[10px] font-semibold text-violet-600 shadow-sm">
+                          {lastSource === 'gemini' ? 'Gemini' : lastSource === 'fallback' ? 'Fallback' : lastSource === 'tesseract' ? 'Tesseract' : 'กำลังอ่าน'}
+                        </span>
                       </div>
-                      <span className="text-[10px] font-medium text-violet-400">{ocrStageLabel}</span>
+                      <div className="h-2 overflow-hidden rounded-full bg-white/80 shadow-inner">
+                        <div className="h-full rounded-full bg-gradient-to-r from-violet-600 via-violet-500 to-fuchsia-500 transition-all duration-300" style={{ width: `${progress.progress}%` }} />
+                      </div>
                     </div>
-                    <span className="rounded-full bg-white/80 px-2 py-1 text-[10px] font-semibold text-violet-600 shadow-sm">
-                      {lastSource === 'gemini' ? 'Gemini' : lastSource === 'fallback' ? 'Fallback' : lastSource === 'tesseract' ? 'Tesseract' : 'กำลังอ่าน'}
-                    </span>
-                  </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-white/80 shadow-inner">
-                    <div className="h-full rounded-full bg-gradient-to-r from-violet-600 via-violet-500 to-fuchsia-500 transition-all duration-300" style={{ width: `${progress.progress}%` }} />
-                  </div>
-                </div>
-              )}
-              
-              {error && (
-                <div className="mt-6 flex items-start gap-3 rounded-2xl border border-red-100 bg-red-50 p-4 text-xs text-red-700">
-                  <AlertCircle className="h-4 w-4 shrink-0 text-red-500" />
-                  <span>{error}</span>
+                  )}
+                  
+                  {error && (
+                    <div className="flex items-start gap-3 rounded-2xl border border-red-100 bg-red-50 p-4 text-xs text-red-700 animate-in fade-in zoom-in-95 duration-300">
+                      <AlertCircle className="h-4 w-4 shrink-0 text-red-500" />
+                      <span>{error}</span>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -956,7 +998,7 @@ function App() {
               {/* LEFT COLUMN: helper note */}
 
               {/* RIGHT COLUMN: RECEIPTS & BILL SUMMARY (ใบเสร็จ & ยอดจ่าย) */}
-              <div className="lg:col-span-5 w-full space-y-6 order-1 lg:order-2">
+              <div className="lg:col-span-12 w-full space-y-6 order-1 lg:order-2">
                 <div className="px-2">
                   <h3 className="text-sm font-black text-gray-800 uppercase tracking-[0.18em] flex items-center gap-2">
                     <Receipt className="h-4 w-4 text-violet-500" />
@@ -1060,6 +1102,7 @@ function App() {
                           }
                           setItems((prev) => [...prev, item])
                         }}
+                        onDeleteBill={handleDeleteBill}
                       />
                     )
                   })}
@@ -1070,10 +1113,9 @@ function App() {
                     </div>
                   )}
                 </div>
-              </div>
             </div>
           </div>
-        )}
+        </div>
 
         {/* ── STEP 3: Who paid? ── */}
         {items.length > 0 && (
@@ -1333,7 +1375,6 @@ function App() {
             </div>
           </SectionCard>
         )}
-      </main>
 
       {/* History Modal */}
       {isHistoryModalOpen && (
@@ -1419,8 +1460,8 @@ function App() {
 
               <button
                 onClick={() => {
-                  const amt = Number(newManualBillAmount)
-                  if (!newManualBillName.trim() || isNaN(amt) || amt <= 0) return
+                  const amt = Number(newManualBillAmount) || 0
+                  if (!newManualBillName.trim()) return
                   const newBill: ManualBill = {
                     id: crypto.randomUUID(),
                     name: newManualBillName.trim(),
@@ -1436,7 +1477,7 @@ function App() {
                   setNewManualBillName('')
                   setNewManualBillAmount('')
                 }}
-                disabled={!newManualBillName.trim() || Number(newManualBillAmount) <= 0}
+                disabled={!newManualBillName.trim()}
                 className="w-full mt-2 rounded-xl bg-violet-600 py-2.5 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50 transition-colors"
               >
                 เพิ่มยอดบิล
@@ -1579,6 +1620,7 @@ function App() {
           </div>
         </div>
       </div>
+    </main>
     </div>
   )
 
