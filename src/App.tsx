@@ -721,6 +721,13 @@ function App() {
     const joinUrl = url.toString()
 
     if (liff.isLoggedIn()) {
+      if (!liff.isApiAvailable('shareTargetPicker')) {
+        console.warn('shareTargetPicker is not available. Please check Scopes in LINE Developers Console.')
+        await navigator.clipboard.writeText(joinUrl)
+        alert('ระบบแชร์ LINE ยังไม่เปิดใช้งาน (ตรวจสอบ Scopes: chat_message.write) \n\nระบบคัดลอกลิงก์ลง Clipboard ให้แล้วครับ!')
+        return
+      }
+
       try {
         const result = await liff.shareTargetPicker([
           {
@@ -733,9 +740,8 @@ function App() {
         }
       } catch (err) {
         console.error('Share target picker failed:', err)
-        // Fallback to clipboard if picker fails or is cancelled
         await navigator.clipboard.writeText(joinUrl)
-        alert('คัดลอกลิงก์เข้าร่วมแล้ว! ส่งให้เพื่อนได้เลย')
+        alert('ไม่สามารถเปิดหน้าต่างแชร์ได้ (อาจเกิดจากสิทธิ์เข้าถึง) \n\nระบบคัดลอกลิงก์ลง Clipboard ให้แล้วครับ!')
       }
     } else {
       await navigator.clipboard.writeText(joinUrl)
