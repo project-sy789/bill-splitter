@@ -7,6 +7,7 @@ export interface MemberDraft {
   name: string
   color: string
   promptPayId: string
+  pictureUrl?: string
 }
 
 export interface BillItemDraft {

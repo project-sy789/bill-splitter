@@ -37,6 +37,7 @@ import {
 } from './lib/bill-persistence'
 import type { SplitMode } from './types/bill'
 import { initLiff, login, logout, shareBillToFriends, type LineProfile } from './lib/liff'
+import liff from '@line/liff'
 
 // ──────────────────────────────────────────────
 // Types
@@ -967,12 +968,16 @@ function App() {
                   </button>
                 </div>
                 <div className="flex items-start gap-2">
-                  <span
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl text-sm font-black text-white shadow-sm"
+                  <div
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl text-sm font-black text-white shadow-sm overflow-hidden"
                     style={{ backgroundColor: member.color }}
                   >
-                    {member.name.slice(0, 1) || (idx + 1)}
-                  </span>
+                    {member.pictureUrl ? (
+                      <img src={member.pictureUrl} className="h-full w-full object-cover" alt={member.name} />
+                    ) : (
+                      member.name.slice(0, 1) || (idx + 1)
+                    )}
+                  </div>
                   <div className="flex-1 space-y-2">
                     <input
                       value={member.name}
@@ -992,13 +997,25 @@ function App() {
             ))}
           </div>
 
-          <button
-            onClick={addMember}
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-violet-100 bg-gradient-to-r from-violet-600 to-fuchsia-500 py-3 text-sm font-bold text-white shadow-[0_14px_34px_rgba(124,58,237,0.20)] transition-all hover:-translate-y-0.5 hover:shadow-[0_18px_40px_rgba(124,58,237,0.28)] active:translate-y-0 sm:mt-4 sm:py-3.5"
-          >
-            <Plus className="h-4 w-4" />
-            เพิ่มคนหารบิล
-          </button>
+          <div className="flex gap-2 mt-3 sm:mt-4">
+            <button
+              onClick={addMember}
+              className="flex-1 flex items-center justify-center gap-2 rounded-2xl border border-violet-100 bg-gradient-to-r from-violet-600 to-fuchsia-500 py-3 text-sm font-bold text-white shadow-[0_14px_34px_rgba(124,58,237,0.20)] transition-all hover:-translate-y-0.5 hover:shadow-[0_18px_40px_rgba(124,58,237,0.28)] active:translate-y-0"
+            >
+              <Plus className="h-4 w-4" />
+              เพิ่มคนหารบิล
+            </button>
+            {lineProfile && (
+              <button
+                onClick={addMembersFromLine}
+                className="flex items-center justify-center gap-2 rounded-2xl border border-[#06C755] bg-white px-4 py-3 text-sm font-bold text-[#06C755] shadow-sm transition-all hover:bg-[#06C755]/5 hover:-translate-y-0.5 active:translate-y-0"
+                title="ดึงชื่อฉันจาก LINE"
+              >
+                <img src="https://upload.wikimedia.org/wikipedia/commons/4/41/LINE_logo.svg" className="h-4 w-4" alt="LINE" />
+                ดึงชื่อฉัน
+              </button>
+            )}
+          </div>
         </SectionCard>
 
         {/* ── STEP 2: ใบเสร็จ & รายการ ── */}
