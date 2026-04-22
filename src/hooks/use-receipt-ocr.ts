@@ -167,6 +167,13 @@ export function useReceiptOcr() {
           setProgress({ progress: 10, statusText: '🤖 Gemini กำลังอ่านสลิป...' })
           setSourceHint('เรียก Gemini Vision ผ่าน worker')
           const geminiResult = await scanWithGemini(file)
+          
+          // Ensure every item has a unique ID to prevent deletion bugs
+          geminiResult.parsed.items = geminiResult.parsed.items.map(it => ({
+            ...it,
+            id: it.id || crypto.randomUUID()
+          }))
+
           setDebugPayload(geminiResult)
           setProgress({ progress: 100, statusText: `🤖 Gemini อ่านสำเร็จ — พบ ${geminiResult.parsed.items.length} รายการ ✓` })
           setStatus('completed')
