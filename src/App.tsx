@@ -915,15 +915,14 @@ function App() {
             ) : (
               <button
                 onClick={login}
-                className="flex items-center gap-1.5 rounded-xl bg-[#06C755] px-3 py-1.5 text-xs font-bold text-white shadow-md transition-all hover:-translate-y-0.5 active:translate-y-0"
+                className="flex items-center gap-1.5 rounded-xl border border-[#06C755] bg-white px-3 py-1.5 text-xs font-bold text-[#06C755] shadow-sm transition-all hover:bg-[#06C755]/5 hover:-translate-y-0.5 active:translate-y-0"
               >
                 <img 
                   src="https://upload.wikimedia.org/wikipedia/commons/4/41/LINE_logo.svg" 
                   className="h-4 w-4" 
-                  style={{ filter: 'brightness(0) invert(1)' }} 
                   alt="LINE" 
                 />
-                <span>Login</span>
+                <span>Login with LINE</span>
               </button>
             )}
           </div>
