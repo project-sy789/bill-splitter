@@ -286,7 +286,7 @@ function App() {
     })
   }, [lineProfile])
 
-  const checkAndRecordUsage = async (action: string) => {
+  const checkAndRecordUsage = (action: string): boolean => {
     if (!lineProfile) return true
     
     // If user just clicked Shopee, let them pass once
@@ -296,7 +296,7 @@ function App() {
       return true
     }
 
-    // Use pre-loaded stats to avoid 'await' before input click
+    // Use pre-loaded stats to avoid ANY delay before input click
     if (usageStats.daily >= USAGE_LIMITS.DAILY || usageStats.weekly >= USAGE_LIMITS.WEEKLY) {
       if (remoteLinks.length > 0) {
         const pick = { ...remoteLinks[Math.floor(Math.random() * remoteLinks.length)] }
@@ -709,13 +709,13 @@ function App() {
 
 
 
-  const handleScanReceipt = async () => {
-    const allowed = await checkAndRecordUsage('scan_receipt')
+  const handleScanReceipt = () => {
+    const allowed = checkAndRecordUsage('scan_receipt')
     if (allowed) cameraInputRef.current?.click()
   }
 
-  const handleUploadReceipt = async () => {
-    const allowed = await checkAndRecordUsage('upload_receipt')
+  const handleUploadReceipt = () => {
+    const allowed = checkAndRecordUsage('upload_receipt')
     if (allowed) fileInputRef.current?.click()
   }
 
