@@ -38,6 +38,8 @@ jobs:
         env:
           VITE_GEMINI_PROXY_URL: ${{ secrets.VITE_GEMINI_PROXY_URL }}
           VITE_LIFF_ID: 2009872918-xzny8aCR
+          VITE_SUPABASE_URL: https://emmbhvahjlvpcuyixjia.supabase.co
+          VITE_SUPABASE_ANON_KEY: sb_publishable_VR3v8k2pyh8JzC-lVa1L0g_pUZZjFt4
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
