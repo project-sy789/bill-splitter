@@ -38,6 +38,7 @@ import {
 import type { SplitMode } from './types/bill'
 import { initLiff, login, logout, shareBillToFriends, type LineProfile } from './lib/liff'
 import liff from '@line/liff'
+import { subscribeToBill, fetchBillById, updateBillData, saveBillToCloud } from './lib/supabase'
 
 // ──────────────────────────────────────────────
 // Types
@@ -232,6 +233,65 @@ function App() {
 
     // Clear legacy global fields in next save by ensuring they are not in the current state
   }, [dbReady, initialState])
+
+  const [remoteUpdating, setRemoteUpdating] = useState(false)
+  const [billIdFromUrl] = useState(() => new URLSearchParams(window.location.search).get('billId'))
+
+  // ── Collaborative Sync Effect ──
+  useEffect(() => {
+    if (!billIdFromUrl) return
+
+    const setupSync = async () => {
+      const dbBill = await fetchBillById(billIdFromUrl)
+      if (dbBill) {
+        // Load initial state from cloud
+        const state = dbBill.bill_data as PersistedBillState
+        setMembers(state.members)
+        setItems(state.items)
+        setAllocationMode(state.allocationMode)
+        setPaidByMember(state.paidByMember)
+        setSettlementStatus(state.settlementStatus || {})
+        setManualBills(state.manualBills || [])
+        setReceiptPayerMap(state.receiptPayerMap || {})
+      }
+
+      // Subscribe to real-time updates
+      const unsubscribe = subscribeToBill(billIdFromUrl, (newState) => {
+        setRemoteUpdating(true)
+        if (newState.members) setMembers(newState.members)
+        if (newState.items) setItems(newState.items)
+        if (newState.allocationMode) setAllocationMode(newState.allocationMode)
+        if (newState.paidByMember) setPaidByMember(newState.paidByMember)
+        if (newState.settlementStatus) setSettlementStatus(newState.settlementStatus)
+        if (newState.manualBills) setManualBills(newState.manualBills)
+        if (newState.receiptPayerMap) setReceiptPayerMap(newState.receiptPayerMap)
+        setTimeout(() => setRemoteUpdating(false), 100)
+      })
+
+      return unsubscribe
+    }
+
+    const unsubPromise = setupSync()
+    return () => {
+      unsubPromise.then(unsub => unsub && unsub())
+    }
+  }, [billIdFromUrl])
+
+  // ── Auto-fill LINE Profile Effect ──
+  useEffect(() => {
+    if (lineProfile) {
+      setMembers(prev => {
+        const newMembers = [...prev]
+        if (newMembers.length > 0 && (newMembers[0].name === '' || newMembers[0].name === 'ฉัน' || newMembers[0].name === 'คนที่ 1')) {
+          newMembers[0].name = lineProfile.displayName
+          newMembers[0].pictureUrl = lineProfile.pictureUrl
+          return newMembers
+        }
+        return prev
+      })
+    }
+  }, [lineProfile])
+
   const { history, addOrUpdateBill, removeBill } = useBillHistory(lineProfile?.userId)
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false)
   const [members, setMembers] = useState<MemberDraft[]>(
@@ -255,6 +315,22 @@ function App() {
   const [receiptPayerMap, setReceiptPayerMap] = useState<Record<string, string>>(initialState?.receiptPayerMap ?? {}) // unifiedBillId → memberId
   const [activeSettlementIdx, setActiveSettlementIdx] = useState<number | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
+
+  // ── Auto-fill LINE Profile ──
+  useEffect(() => {
+    if (lineProfile) {
+      setMembers(prev => {
+        const newMembers = [...prev]
+        // Only auto-fill if the first member is still the default 'ฉัน' or empty
+        if (newMembers.length > 0 && (newMembers[0].name === 'ฉัน' || newMembers[0].name === '')) {
+          newMembers[0].name = lineProfile.displayName
+          newMembers[0].pictureUrl = lineProfile.pictureUrl
+          return newMembers
+        }
+        return prev
+      })
+    }
+  }, [lineProfile])
 
   const { groups, saveGroup, deleteGroup } = useGroups()
   const [groupModalMode, setGroupModalMode] = useState<'save' | 'load' | null>(null)
@@ -476,8 +552,13 @@ function App() {
     // Auto-save history if the bill has any meaningful data
     if (items.length > 0 || members.length > 2 || Object.keys(paidByMember).length > 0 || manualBills.length > 0) {
       addOrUpdateBill(currentBillId, title, { ...state, grandTotal }, lineProfile?.userId)
+      
+      // If we are in a collaborative bill, sync to Supabase
+      if (billIdFromUrl && !remoteUpdating) {
+        updateBillData(billIdFromUrl, state)
+      }
     }
-  }, [dbReady, members, items, allocationMode, paidByMember, settlementStatus, manualBills, receiptPayerMap, currentBillId, addOrUpdateBill, grandTotal, lineProfile])
+  }, [dbReady, members, items, allocationMode, paidByMember, settlementStatus, manualBills, receiptPayerMap, currentBillId, addOrUpdateBill, grandTotal, lineProfile, billIdFromUrl, remoteUpdating])
 
 
 
@@ -634,36 +715,23 @@ function App() {
     ])
   }, [])
 
-  const addMembersFromLine = useCallback(async () => {
-    if (!liff.isLoggedIn()) {
-      liff.login()
-      return
-    }
+  const shareJoinLink = useCallback(async () => {
+    const url = new URL(window.location.href)
+    url.searchParams.set('billId', currentBillId)
+    const joinUrl = url.toString()
 
-    try {
-      const profile = await liff.getProfile()
-      setMembers(prev => {
-        const newMembers = [...prev]
-        // If the first member is empty/default, replace it
-        if (newMembers.length > 0 && (newMembers[0].name === '' || newMembers[0].name === 'ฉัน' || newMembers[0].name === 'คนที่ 1')) {
-          newMembers[0].name = profile.displayName
-          newMembers[0].pictureUrl = profile.pictureUrl
-        } else if (!newMembers.some(m => m.name === profile.displayName)) {
-          // Otherwise add a new member
-          newMembers.push({
-            id: crypto.randomUUID(),
-            name: profile.displayName,
-            promptPayId: '',
-            pictureUrl: profile.pictureUrl,
-            color: MEMBER_COLORS[newMembers.length % MEMBER_COLORS.length]!
-          })
-        }
-        return newMembers
-      })
-    } catch (err) {
-      console.error('Failed to get LINE profile:', err)
+    if (liff.isLoggedIn()) {
+      await liff.sendMessages([{
+        type: 'text',
+        text: `ช่วยกันหารบิลหน่อย! กดลิงก์นี้เพื่อร่วมหารกัน: ${joinUrl}`
+      }])
+      alert('ส่งลิงก์เข้าแชทแล้ว!')
+    } else {
+      await navigator.clipboard.writeText(joinUrl)
+      alert('คัดลอกลิงก์เข้าร่วมแล้ว! ส่งให้เพื่อนได้เลย')
     }
-  }, [])
+  }, [currentBillId])
+
 
   const removeMember = useCallback((id: string) => {
     if (members.length <= 1) return
@@ -959,7 +1027,13 @@ function App() {
         <SectionCard className="shadow-[0_10px_30px_rgba(15,23,42,0.04)]">
           <div className="flex items-start justify-between gap-3 mb-4">
             <StepBadge n={1} label="ใส่ชื่อคนที่จะหารบิล" />
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2 justify-end">
+              <button 
+                onClick={shareJoinLink}
+                className="text-xs text-[#06C755] bg-[#06C755]/10 hover:bg-[#06C755]/20 flex items-center gap-1 px-2 py-1.5 rounded-lg font-bold transition-colors border border-[#06C755]/20"
+              >
+                <Share className="w-3.5 h-3.5"/> เชิญเพื่อน
+              </button>
               <button 
                 onClick={() => setGroupModalMode('save')} 
                 className="text-xs text-violet-600 bg-violet-50 hover:bg-violet-100 flex items-center gap-1 px-2 py-1.5 rounded-lg font-medium transition-colors border border-violet-100"
@@ -1027,16 +1101,6 @@ function App() {
               <Plus className="h-4 w-4" />
               เพิ่มคนหารบิล
             </button>
-            {lineProfile && (
-              <button
-                onClick={addMembersFromLine}
-                className="flex items-center justify-center gap-2 rounded-2xl border border-[#06C755] bg-white px-4 py-3 text-sm font-bold text-[#06C755] shadow-sm transition-all hover:bg-[#06C755]/5 hover:-translate-y-0.5 active:translate-y-0"
-                title="ดึงชื่อฉันจาก LINE"
-              >
-                <img src="https://upload.wikimedia.org/wikipedia/commons/4/41/LINE_logo.svg" className="h-4 w-4" alt="LINE" />
-                ดึงชื่อฉัน
-              </button>
-            )}
           </div>
         </SectionCard>
 
