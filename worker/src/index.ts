@@ -76,7 +76,6 @@ export default {
       }
 
     const models = [
-      'gemini-2.0-flash-lite-preview-02-05', // นี่คือรุ่นที่คุณเห็นเป็น Gemini 3.1 Flash Lite ในเว็บ
       'gemini-2.5-flash'                     // รุ่นที่คุณยืนยันว่าใช้งานได้
     ]
 
