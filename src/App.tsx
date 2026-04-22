@@ -245,8 +245,9 @@ function App() {
   const [usageStats, setUsageStats] = useState({ daily: 0, weekly: 0 })
   const [showLimitModal, setShowLimitModal] = useState(false)
   const [randomLink, setRandomLink] = useState('')
+  const [randomAd, setRandomAd] = useState<any>(null)
   const [isTemporarilyUnlocked, setIsTemporarilyUnlocked] = useState(false)
-  const [remoteLinks, setRemoteLinks] = useState<string[]>([])
+  const [remoteLinks, setRemoteLinks] = useState<any[]>([])
 
   // ── Usage Tracking Effect ──
   useEffect(() => {
@@ -274,9 +275,14 @@ function App() {
 
     if (stats.daily >= USAGE_LIMITS.DAILY || stats.weekly >= USAGE_LIMITS.WEEKLY) {
       // Pick from remote links if available, otherwise fallback to local config
-      const pool = remoteLinks.length > 0 ? remoteLinks : SHOPEE_AFFILIATE_LINKS
-      const pick = pool[Math.floor(Math.random() * pool.length)]
-      setRandomLink(pick || getRandomAffiliateLink())
+      if (remoteLinks.length > 0) {
+        const pick = remoteLinks[Math.floor(Math.random() * remoteLinks.length)]
+        setRandomAd(pick)
+        setRandomLink(pick.url)
+      } else {
+        setRandomAd(null)
+        setRandomLink(getRandomAffiliateLink())
+      }
       setShowLimitModal(true)
       return false
     }
@@ -1084,36 +1090,52 @@ function App() {
         className="hidden"
         onChange={(e) => void importBill(e.target.files?.[0] ?? null)}
       />
-      {/* Usage Limit Modal */}
+
+      {/* Usage Limit Modal (Rich Ads) */}
       {showLimitModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-white rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
-            <div className="bg-gradient-to-br from-[#EE4D2D] to-[#FF7337] p-8 text-center text-white relative">
-              <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
-                <div className="absolute top-2 left-4 rotate-12"><ShoppingBag className="w-12 h-12" /></div>
-                <div className="absolute bottom-4 right-6 -rotate-12"><Receipt className="w-16 h-16" /></div>
-              </div>
-              <div className="mx-auto w-20 h-20 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center mb-4 shadow-inner border border-white/30">
-                <AlertCircle className="w-10 h-10 text-white" />
-              </div>
-              <h3 className="text-2xl font-black mb-2">ใช้งานครบโควตาแล้ว!</h3>
-              <p className="text-orange-50 text-sm font-medium opacity-90">เพื่อสนับสนุนนักพัฒนาและใช้งานต่อได้ทันที <br/>เพียงช่วยช้อปปิ้งผ่าน Shopee ด้านล่างนี้ครับ</p>
-            </div>
-            <div className="p-6 space-y-4">
-              <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
-                <div className="flex justify-between items-center text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
-                  <span>สถิติการใช้งานของคุณ</span>
-                  <span className="text-[#EE4D2D]">Limit Reached</span>
+          <div className="bg-white rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300 border border-white/20">
+            {/* Ad Banner Image */}
+            {randomAd?.image_url ? (
+              <div className="h-48 w-full overflow-hidden relative group">
+                <img src={randomAd.image_url} alt="Ad" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+                <div className="absolute top-3 left-3 bg-[#EE4D2D] text-white text-[10px] font-black px-2 py-1 rounded shadow-lg uppercase tracking-widest">
+                  Hot Deal
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100">
-                    <p className="text-[10px] text-gray-400 font-bold uppercase mb-1">วันนี้</p>
-                    <p className="text-lg font-black text-gray-800">{usageStats.daily} / {USAGE_LIMITS.DAILY}</p>
-                  </div>
-                  <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100">
-                    <p className="text-[10px] text-gray-400 font-bold uppercase mb-1">สัปดาห์นี้</p>
-                    <p className="text-lg font-black text-gray-800">{usageStats.weekly} / {USAGE_LIMITS.WEEKLY}</p>
-                  </div>
+              </div>
+            ) : (
+              <div className="bg-gradient-to-br from-[#EE4D2D] to-[#FF7337] p-8 text-center text-white relative">
+                <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
+                  <div className="absolute top-2 left-4 rotate-12"><ShoppingBag className="w-12 h-12" /></div>
+                  <div className="absolute bottom-4 right-6 -rotate-12"><Receipt className="w-16 h-16" /></div>
+                </div>
+                <div className="mx-auto w-16 h-16 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center mb-4 shadow-inner border border-white/30">
+                  <AlertCircle className="w-8 h-8 text-white" />
+                </div>
+                <h3 className="text-xl font-black mb-1">ใช้งานครบโควตาแล้ว!</h3>
+                <p className="text-orange-50 text-xs font-medium opacity-90">เพื่อสนับสนุนแอปให้เราไปต่อได้...</p>
+              </div>
+            )}
+
+            <div className="p-6 space-y-4">
+              {/* Ad Content */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-black text-gray-800 leading-tight line-clamp-2">
+                  {randomAd?.description || 'ขอบคุณที่สนับสนุนเรา! ช่วยช้อปปิ้งเพื่อปลดล็อคการใช้งานต่อครับ'}
+                </h4>
+                {randomAd?.price_text && (
+                  <p className="text-lg font-black text-[#EE4D2D]">{randomAd.price_text}</p>
+                )}
+              </div>
+
+              <div className="bg-gray-50 rounded-2xl p-3 border border-gray-100 flex items-center justify-between">
+                <div>
+                  <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">สถานะโควตาของคุณ</p>
+                  <p className="text-sm font-black text-gray-700">{usageStats.daily} / {USAGE_LIMITS.DAILY} ครั้งวันนี้</p>
+                </div>
+                <div className="h-8 w-8 rounded-full bg-orange-100 flex items-center justify-center">
+                  <div className="h-4 w-4 rounded-full border-2 border-orange-500 border-t-transparent animate-spin" />
                 </div>
               </div>
               
@@ -1125,14 +1147,22 @@ function App() {
                   setIsTemporarilyUnlocked(true)
                   setTimeout(() => setShowLimitModal(false), 1500)
                 }}
-                className="w-full flex items-center justify-center gap-3 bg-[#EE4D2D] text-white py-4 rounded-2xl font-black text-lg shadow-[0_10px_20px_rgba(238,77,45,0.3)] transition-all hover:-translate-y-1 hover:shadow-[0_15px_30px_rgba(238,77,45,0.4)] active:translate-y-0 active:scale-95"
+                className="w-full flex items-center justify-center gap-3 bg-[#EE4D2D] text-white py-4 rounded-2xl font-black text-lg shadow-[0_10px_25px_rgba(238,77,45,0.35)] transition-all hover:-translate-y-1 hover:shadow-[0_15px_35px_rgba(238,77,45,0.45)] active:translate-y-0 active:scale-95"
               >
                 <ShoppingBag className="w-6 h-6" />
-                เปิดแอป Shopee เพื่อใช้งานต่อ
+                ไปที่ Shopee เพื่อใช้งานต่อ
               </a>
               
               <button 
                 onClick={() => setShowLimitModal(false)}
+                className="w-full text-gray-400 text-[10px] font-bold py-2 hover:text-gray-600 transition-colors uppercase tracking-widest"
+              >
+                ยังไม่พร้อมตอนนี้
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
                 className="w-full text-gray-400 text-xs font-bold py-2 hover:text-gray-600 transition-colors"
               >
                 ไว้วันหลังนะ
