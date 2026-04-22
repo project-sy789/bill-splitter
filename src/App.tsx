@@ -283,8 +283,8 @@ function App() {
       setMembers(prev => {
         // If we find our own ID or the first member is default, update it
         return prev.map((m, i) => {
-          if (i === 0 && (m.name === '' || m.name === 'ฉัน' || m.name === 'คนที่ 1' || !m.pictureUrl)) {
-            return { ...m, name: lineProfile.displayName, pictureUrl: lineProfile.pictureUrl }
+          if (i === 0 && (m.name === '' || m.name === 'ฉัน' || m.name === 'คนที่ 1')) {
+            return { ...m, name: lineProfile.displayName, pictureUrl: lineProfile.pictureUrl || '' }
           }
           return m
         })
@@ -1014,11 +1014,17 @@ function App() {
                 className="flex items-center gap-2 rounded-xl border border-violet-100 bg-white/50 p-1.5 pr-3 transition-all hover:bg-violet-50"
                 title="ออกจากระบบ LINE"
               >
-                <img 
-                  src={lineProfile.pictureUrl} 
-                  alt={lineProfile.displayName} 
-                  className="h-7 w-7 rounded-lg object-cover shadow-sm ring-1 ring-violet-200"
-                />
+                {lineProfile.pictureUrl ? (
+                  <img 
+                    src={lineProfile.pictureUrl} 
+                    alt={lineProfile.displayName} 
+                    className="h-7 w-7 rounded-lg object-cover shadow-sm ring-1 ring-violet-200"
+                  />
+                ) : (
+                  <div className="h-7 w-7 rounded-lg bg-violet-600 flex items-center justify-center text-[10px] font-bold text-white shadow-sm">
+                    {lineProfile.displayName.slice(0, 1)}
+                  </div>
+                )}
                 <span className="text-xs font-bold text-violet-700 hidden sm:inline">{lineProfile.displayName}</span>
               </button>
             ) : (
