@@ -353,7 +353,24 @@ function App() {
 
     billContexts.forEach((bill) => {
       const baseByMember = billBaseByMemberMap.get(bill.id) ?? Object.fromEntries(members.map((m) => [m.id, 0]))
-      const netAdjustment = bill.serviceCharge + (bill.vatIncluded ? 0 : bill.vat) - bill.billDiscount
+      
+      // Calculate target total for this bill (the one displayed in the UI)
+      const targetAmount = bill.id.startsWith('ocr-')
+        ? (results[parseInt(bill.id.split('-')[1]!, 10)]?.summary.total ?? 0)
+        : (manualBills.find(m => m.id === bill.id)?.amount ?? 0)
+      
+      const itemsSum = bill.items.reduce((s, it) => s + Math.max(0, it.amount - (it.itemDiscount ?? 0)), 0)
+      
+      // Total adjustment is everything that isn't the items themselves (fees + discrepancy)
+      // This ensures: itemsSum + netAdjustment = targetAmount (if targetAmount is set)
+      let netAdjustment = 0
+      if (targetAmount > 0) {
+        netAdjustment = targetAmount - itemsSum
+      } else {
+        // Fallback to calculated if no manual target is set
+        netAdjustment = bill.serviceCharge + (bill.vatIncluded ? 0 : bill.vat) - bill.billDiscount
+      }
+
       if (netAdjustment !== 0) {
         const consumersOfThisBill = members.filter((m) => (baseByMember[m.id] ?? 0) > 0)
         const adjustments = allocateAmount(netAdjustment, consumersOfThisBill.length > 0 ? consumersOfThisBill : members, baseByMember, allocationMode)
@@ -395,9 +412,7 @@ function App() {
       const billDiscount = m.billDiscount ?? (m.discount ?? 0)
       const calculatedTotal = round2(subtotal + m.serviceCharge + (m.vatIncluded ? 0 : m.vat) - billDiscount)
 
-      const amount = m.amount > 0 
-        ? round2(Math.max(0, m.amount - (m.itemDiscount ?? 0)) + m.serviceCharge + (m.vatIncluded ? 0 : m.vat) - billDiscount)
-        : calculatedTotal
+      const amount = m.amount > 0 ? m.amount : calculatedTotal
 
       return {
         id: m.id,
