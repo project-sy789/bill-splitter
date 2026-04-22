@@ -55,6 +55,13 @@ interface Settlement {
   promptPayPayload: string | null
 }
 
+interface AffiliateLink {
+  url: string;
+  image_url?: string;
+  description?: string;
+  price_text?: string;
+}
+
 // ──────────────────────────────────────────────
 // Constants
 // ──────────────────────────────────────────────
@@ -245,9 +252,9 @@ function App() {
   const [usageStats, setUsageStats] = useState({ daily: 0, weekly: 0 })
   const [showLimitModal, setShowLimitModal] = useState(false)
   const [randomLink, setRandomLink] = useState('')
-  const [randomAd, setRandomAd] = useState<any>(null)
+  const [randomAd, setRandomAd] = useState<AffiliateLink | null>(null)
   const [isTemporarilyUnlocked, setIsTemporarilyUnlocked] = useState(false)
-  const [remoteLinks, setRemoteLinks] = useState<any[]>([])
+  const [remoteLinks, setRemoteLinks] = useState<AffiliateLink[]>([])
 
   // ── Usage Tracking Effect ──
   useEffect(() => {
@@ -255,10 +262,10 @@ function App() {
       fetchUsageStats(lineProfile.userId).then(setUsageStats)
     }
     // Fetch affiliate links from Supabase
-    fetchRemoteAffiliateLinks().then(links => {
+    fetchRemoteAffiliateLinks().then((links: any[]) => {
       if (links.length > 0) {
         // Enhance links: parse if they look like the Shopee message pattern
-        const enhanced = links.map(item => {
+        const enhanced = links.map((item: any) => {
           if (typeof item.url === 'string' && item.url.includes('ลองดู')) {
             const urlMatch = item.url.match(/https:\/\/s\.shopee\.co\.th\/[a-zA-Z0-9]+/);
             const descMatch = item.url.match(/ลองดู (.*) ในราคา/);
@@ -271,7 +278,7 @@ function App() {
               price_text: item.price_text || (priceMatch ? priceMatch[1] : '')
             };
           }
-          return item;
+          return item as AffiliateLink;
         });
         setRemoteLinks(enhanced);
       }
@@ -302,7 +309,7 @@ function App() {
             .then(res => res.json())
             .then(data => {
               if (data.image) {
-                setRandomAd(prev => prev?.url === pick.url ? { ...prev, image_url: data.image } : prev);
+                setRandomAd(prev => (prev?.url === pick.url ? { ...prev, image_url: data.image } : prev));
               }
             }).catch(() => {});
         }
