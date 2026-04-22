@@ -292,18 +292,15 @@ function App() {
     // If user just clicked Shopee, let them pass once
     if (isTemporarilyUnlocked) {
       setIsTemporarilyUnlocked(false)
-      await logUsage(lineProfile.userId, action)
+      logUsage(lineProfile.userId, action) // Log in background
       return true
     }
 
-    const stats = await fetchUsageStats(lineProfile.userId)
-    setUsageStats(stats)
-
-    if (stats.daily >= USAGE_LIMITS.DAILY || stats.weekly >= USAGE_LIMITS.WEEKLY) {
+    // Use pre-loaded stats to avoid 'await' before input click
+    if (usageStats.daily >= USAGE_LIMITS.DAILY || usageStats.weekly >= USAGE_LIMITS.WEEKLY) {
       if (remoteLinks.length > 0) {
         const pick = { ...remoteLinks[Math.floor(Math.random() * remoteLinks.length)] }
         
-        // Auto-unfurl image if missing
         if (!pick.image_url && pick.url.startsWith('http')) {
           const workerUrl = import.meta.env.VITE_OCR_WORKER_URL || '';
           fetch(`${workerUrl}/unfurl?url=${encodeURIComponent(pick.url)}`)
@@ -325,7 +322,7 @@ function App() {
       return false
     }
 
-    await logUsage(lineProfile.userId, action)
+    logUsage(lineProfile.userId, action) // Log in background
     return true
   }
 
