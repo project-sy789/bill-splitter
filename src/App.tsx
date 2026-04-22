@@ -384,12 +384,10 @@ function App() {
   useEffect(() => {
     if (lineProfile && lineProfile.displayName) {
       setMembers(prev => {
-        // If we find our own ID or the first member is default, update it
-        const first = prev[0]
-        if (first && (first.name === '' || first.name === 'ฉัน' || first.name === 'คนที่ 1' || !first.pictureUrl)) {
-          const newMembers = [...prev]
+        const newMembers = [...prev]
+        if (newMembers.length > 0 && (newMembers[0].name === '' || newMembers[0].name === 'ฉัน')) {
           newMembers[0] = { 
-            ...first, 
+            ...newMembers[0], 
             name: lineProfile.displayName, 
             pictureUrl: lineProfile.pictureUrl || '' 
           }
@@ -402,17 +400,22 @@ function App() {
 
   const { history, addOrUpdateBill, removeBill } = useBillHistory(lineProfile?.userId)
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false)
+  
+  // Only use local initial state if NOT loading a shared bill
+  const shouldLoadLocal = !billIdFromUrl
+  const effectiveInitialState = shouldLoadLocal ? initialState : null
+
   const [members, setMembers] = useState<MemberDraft[]>(
-    initialState?.members ?? [
+    effectiveInitialState?.members ?? [
       { id: crypto.randomUUID(), name: 'ฉัน', color: MEMBER_COLORS[0]!, promptPayId: '' },
       { id: crypto.randomUUID(), name: 'เพื่อน', color: MEMBER_COLORS[1]!, promptPayId: '' },
     ],
   )
-  const [items, setItems] = useState<BillItemDraft[]>(initialState?.items ?? [])
-  const [allocationMode, setAllocationMode] = useState<AllocationMode>(initialState?.allocationMode ?? 'proportional')
-  const [paidByMember, setPaidByMember] = useState<Record<string, number>>(initialState?.paidByMember ?? {})
-  const [settlementStatus, setSettlementStatus] = useState<Record<string, boolean>>(initialState?.settlementStatus ?? {})
-  const [manualBills, setManualBills] = useState<ManualBill[]>(initialState?.manualBills?.map(b => ({
+  const [items, setItems] = useState<BillItemDraft[]>(effectiveInitialState?.items ?? [])
+  const [allocationMode, setAllocationMode] = useState<AllocationMode>(effectiveInitialState?.allocationMode ?? 'proportional')
+  const [paidByMember, setPaidByMember] = useState<Record<string, number>>(effectiveInitialState?.paidByMember ?? {})
+  const [settlementStatus, setSettlementStatus] = useState<Record<string, boolean>>(effectiveInitialState?.settlementStatus ?? {})
+  const [manualBills, setManualBills] = useState<ManualBill[]>(effectiveInitialState?.manualBills?.map(b => ({
     ...b,
     serviceCharge: b.serviceCharge ?? 0,
     vat: b.vat ?? 0,
@@ -420,7 +423,7 @@ function App() {
     billDiscount: b.billDiscount ?? 0,
     vatIncluded: b.vatIncluded ?? false
   })) ?? [])
-  const [receiptPayerMap, setReceiptPayerMap] = useState<Record<string, string>>(initialState?.receiptPayerMap ?? {}) // unifiedBillId → memberId
+  const [receiptPayerMap, setReceiptPayerMap] = useState<Record<string, string>>(effectiveInitialState?.receiptPayerMap ?? {})
   const [activeSettlementIdx, setActiveSettlementIdx] = useState<number | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
 
@@ -676,12 +679,12 @@ function App() {
     if (items.length > 0 || members.length > 2 || Object.keys(paidByMember).length > 0 || manualBills.length > 0) {
       addOrUpdateBill(currentBillId, title, { ...state, grandTotal }, lineProfile?.userId)
       
-      // If we are in a collaborative bill, sync to Supabase
-      if (billIdFromUrl && !remoteUpdating) {
+      // If we are in a collaborative bill, sync to Supabase (ONLY IF OWNER)
+      if (billIdFromUrl && isBillOwner && !remoteUpdating) {
         updateBillData(billIdFromUrl, state)
       }
     }
-  }, [dbReady, members, items, allocationMode, paidByMember, settlementStatus, manualBills, receiptPayerMap, currentBillId, addOrUpdateBill, grandTotal, lineProfile, billIdFromUrl, remoteUpdating, isLocked])
+  }, [dbReady, members, items, allocationMode, paidByMember, settlementStatus, manualBills, receiptPayerMap, currentBillId, addOrUpdateBill, grandTotal, lineProfile, billIdFromUrl, remoteUpdating, isLocked, isBillOwner])
 
 
 
