@@ -24,15 +24,15 @@ export async function initLiff(): Promise<LineProfile | null> {
       console.log('LINE Profile Fetched:', profile)
       console.log('LINE ID Token:', idToken)
 
+      // Super Debug: Show all keys we got
+      const profileKeys = Object.keys(profile).join(', ')
+      const tokenKeys = idToken ? Object.keys(idToken).join(', ') : 'null'
+      alert(`DEBUG INFO:\nProfile Keys: ${profileKeys}\nToken Keys: ${tokenKeys}\nPicture in Token: ${idToken?.picture ? 'Yes' : 'No'}`)
+
       const finalProfile = {
         ...profile,
         pictureUrl: profile.pictureUrl || idToken?.picture
       } as LineProfile
-
-      // Temporary debug alert to see what's happening on mobile
-      if (!finalProfile.pictureUrl) {
-        alert('DEBUG: No pictureUrl found in Profile or ID Token')
-      }
 
       return finalProfile
     }
