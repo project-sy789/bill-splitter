@@ -82,7 +82,6 @@ export default {
 
     const maxRetriesPerModel = 2
     let lastGeminiResponse: Response | null = null
-    let successfulModel = ''
 
     for (const modelId of models) {
       for (let i = 0; i < maxRetriesPerModel; i++) {
@@ -147,7 +146,6 @@ export default {
         )
 
         if (lastGeminiResponse.ok) {
-          successfulModel = modelId
           break
         }
 

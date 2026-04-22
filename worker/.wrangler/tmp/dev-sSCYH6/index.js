@@ -41,72 +41,84 @@ var src_default = {
       if (!body.imageBase64) {
         return jsonResponse({ error: "Missing imageBase64" }, { status: 400 }, origin, env);
       }
-      const maxRetries = 3;
+      const models = [
+        "gemini-3.1-flash-lite",
+        // เรียกใช้งาน Gemini 3.1 Flash Lite ตัวเต็ม
+        "gemini-2.5-flash"
+        // เรียกใช้งาน Gemini 2.5 Flash
+      ];
+      const maxRetriesPerModel = 2;
       let lastGeminiResponse = null;
-      for (let i = 0; i < maxRetries; i++) {
-        lastGeminiResponse = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${env.GEMINI_API_KEY}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [
-                {
-                  role: "user",
-                  parts: [
-                    {
-                      text: `\u0E04\u0E38\u0E13\u0E40\u0E1B\u0E47\u0E19\u0E1C\u0E39\u0E49\u0E0A\u0E48\u0E27\u0E22\u0E2D\u0E48\u0E32\u0E19\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E17\u0E35\u0E48\u0E41\u0E21\u0E48\u0E19\u0E22\u0E33\u0E17\u0E35\u0E48\u0E2A\u0E38\u0E14 \u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48\u0E02\u0E2D\u0E07\u0E04\u0E38\u0E13\u0E04\u0E37\u0E2D\u0E2D\u0E48\u0E32\u0E19\u0E23\u0E39\u0E1B\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E17\u0E35\u0E48\u0E44\u0E14\u0E49\u0E23\u0E31\u0E1A\u0E41\u0E25\u0E49\u0E27\u0E2A\u0E23\u0E38\u0E1B\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E2D\u0E2D\u0E01\u0E21\u0E32\u0E40\u0E1B\u0E47\u0E19 JSON \u0E15\u0E32\u0E21\u0E42\u0E04\u0E23\u0E07\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E17\u0E35\u0E48\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E40\u0E17\u0E48\u0E32\u0E19\u0E31\u0E49\u0E19
-                    
-                    \u0E01\u0E0E\u0E40\u0E2B\u0E25\u0E47\u0E01:
-                    1. \u0E2B\u0E49\u0E32\u0E21\u0E15\u0E2D\u0E1A\u0E19\u0E2D\u0E01\u0E40\u0E2B\u0E19\u0E37\u0E2D\u0E08\u0E32\u0E01 JSON (\u0E2B\u0E49\u0E32\u0E21\u0E21\u0E35\u0E04\u0E33\u0E2D\u0E18\u0E34\u0E1A\u0E32\u0E22 \u0E2B\u0E23\u0E37\u0E2D Markdown)
-                    2. \u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E15\u0E31\u0E27\u0E40\u0E25\u0E02 (amount, total, etc.) \u0E15\u0E49\u0E2D\u0E07\u0E40\u0E1B\u0E47\u0E19\u0E15\u0E31\u0E27\u0E40\u0E25\u0E02 (number) \u0E40\u0E17\u0E48\u0E32\u0E19\u0E31\u0E49\u0E19 \u0E2B\u0E49\u0E32\u0E21\u0E43\u0E2A\u0E48\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E2B\u0E21\u0E32\u0E22\u0E04\u0E2D\u0E21\u0E21\u0E48\u0E32 (,) \u0E2B\u0E23\u0E37\u0E2D\u0E2B\u0E19\u0E48\u0E27\u0E22\u0E40\u0E07\u0E34\u0E19 (\u0E3F, THB)
-                    3. \u0E14\u0E36\u0E07\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32\u0E43\u0E2B\u0E49\u0E04\u0E23\u0E1A\u0E17\u0E38\u0E01\u0E1A\u0E23\u0E23\u0E17\u0E31\u0E14 (items)
-                    4. \u0E2A\u0E23\u0E38\u0E1B\u0E22\u0E2D\u0E14 (summary) \u0E15\u0E49\u0E2D\u0E07\u0E1B\u0E23\u0E30\u0E01\u0E2D\u0E1A\u0E14\u0E49\u0E27\u0E22:
-                       - total: \u0E22\u0E2D\u0E14\u0E2A\u0E38\u0E17\u0E18\u0E34\u0E17\u0E49\u0E32\u0E22\u0E2A\u0E25\u0E34\u0E1B
-                       - subtotal: \u0E22\u0E2D\u0E14\u0E01\u0E48\u0E2D\u0E19\u0E20\u0E32\u0E29\u0E35/\u0E04\u0E48\u0E32\u0E1A\u0E23\u0E34\u0E01\u0E32\u0E23 (\u0E16\u0E49\u0E32\u0E21\u0E35)
-                       - vat: \u0E20\u0E32\u0E29\u0E35\u0E21\u0E39\u0E25\u0E04\u0E48\u0E32\u0E40\u0E1E\u0E34\u0E48\u0E21 (\u0E16\u0E49\u0E32\u0E21\u0E35)
-                       - serviceCharge: \u0E04\u0E48\u0E32\u0E1A\u0E23\u0E34\u0E01\u0E32\u0E23 (\u0E16\u0E49\u0E32\u0E21\u0E35)
-                       - discount/billDiscount: \u0E2A\u0E48\u0E27\u0E19\u0E25\u0E14 (\u0E16\u0E49\u0E32\u0E21\u0E35)
-                       - vatIncluded: true \u0E2B\u0E32\u0E01\u0E43\u0E19\u0E2A\u0E25\u0E34\u0E1B\u0E23\u0E30\u0E1A\u0E38\u0E27\u0E48\u0E32 "\u0E23\u0E27\u0E21 VAT \u0E41\u0E25\u0E49\u0E27" \u0E2B\u0E23\u0E37\u0E2D\u0E23\u0E32\u0E04\u0E32\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32\u0E23\u0E27\u0E21\u0E20\u0E32\u0E29\u0E35\u0E41\u0E25\u0E49\u0E27
-                    
-                    \u0E42\u0E04\u0E23\u0E07\u0E2A\u0E23\u0E49\u0E32\u0E07 JSON:
-                    {
-                      "rawText": "\u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14\u0E17\u0E35\u0E48\u0E2D\u0E48\u0E32\u0E19\u0E44\u0E14\u0E49",
-                      "lines": ["\u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E41\u0E22\u0E01\u0E41\u0E15\u0E48\u0E25\u0E30\u0E1A\u0E23\u0E23\u0E17\u0E31\u0E14"],
-                      "summary": {
-                        "total": number,
-                        "subtotal": number,
-                        "vat": number,
-                        "serviceCharge": number,
-                        "discount": number,
-                        "billDiscount": number,
-                        "vatIncluded": boolean
+      for (const modelId of models) {
+        for (let i = 0; i < maxRetriesPerModel; i++) {
+          lastGeminiResponse = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${env.GEMINI_API_KEY}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                contents: [
+                  {
+                    role: "user",
+                    parts: [
+                      {
+                        text: `\u0E04\u0E38\u0E13\u0E40\u0E1B\u0E47\u0E19\u0E1C\u0E39\u0E49\u0E0A\u0E48\u0E27\u0E22\u0E2D\u0E48\u0E32\u0E19\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E17\u0E35\u0E48\u0E41\u0E21\u0E48\u0E19\u0E22\u0E33\u0E17\u0E35\u0E48\u0E2A\u0E38\u0E14 \u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48\u0E02\u0E2D\u0E07\u0E04\u0E38\u0E13\u0E04\u0E37\u0E2D\u0E2D\u0E48\u0E32\u0E19\u0E23\u0E39\u0E1B\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E17\u0E35\u0E48\u0E44\u0E14\u0E49\u0E23\u0E31\u0E1A\u0E41\u0E25\u0E49\u0E27\u0E2A\u0E23\u0E38\u0E1B\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E2D\u0E2D\u0E01\u0E21\u0E32\u0E40\u0E1B\u0E47\u0E19 JSON \u0E15\u0E32\u0E21\u0E42\u0E04\u0E23\u0E07\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E17\u0E35\u0E48\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E40\u0E17\u0E48\u0E32\u0E19\u0E31\u0E49\u0E19
+                      
+                      \u0E01\u0E0E\u0E40\u0E2B\u0E25\u0E47\u0E01:
+                      1. \u0E2B\u0E49\u0E32\u0E21\u0E15\u0E2D\u0E1A\u0E19\u0E2D\u0E01\u0E40\u0E2B\u0E19\u0E37\u0E2D\u0E08\u0E32\u0E01 JSON (\u0E2B\u0E49\u0E32\u0E21\u0E21\u0E35\u0E04\u0E33\u0E2D\u0E18\u0E34\u0E1A\u0E32\u0E22 \u0E2B\u0E23\u0E37\u0E2D Markdown)
+                      2. \u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E15\u0E31\u0E27\u0E40\u0E25\u0E02 (amount, total, etc.) \u0E15\u0E49\u0E2D\u0E07\u0E40\u0E1B\u0E47\u0E19\u0E15\u0E31\u0E27\u0E40\u0E25\u0E02 (number) \u0E40\u0E17\u0E48\u0E32\u0E19\u0E31\u0E49\u0E19 \u0E2B\u0E49\u0E32\u0E21\u0E43\u0E2A\u0E48\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E2B\u0E21\u0E32\u0E22\u0E04\u0E2D\u0E21\u0E21\u0E48\u0E32 (,) \u0E2B\u0E23\u0E37\u0E2D\u0E2B\u0E19\u0E48\u0E27\u0E22\u0E40\u0E07\u0E34\u0E19 (\u0E3F, THB)
+                      3. \u0E14\u0E36\u0E07\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32\u0E43\u0E2B\u0E49\u0E04\u0E23\u0E1A\u0E17\u0E38\u0E01\u0E1A\u0E23\u0E23\u0E17\u0E31\u0E14 (items)
+                      4. \u0E2A\u0E23\u0E38\u0E1B\u0E22\u0E2D\u0E14 (summary) \u0E15\u0E49\u0E2D\u0E07\u0E1B\u0E23\u0E30\u0E01\u0E2D\u0E1A\u0E14\u0E49\u0E27\u0E22:
+                         - total: \u0E22\u0E2D\u0E14\u0E2A\u0E38\u0E17\u0E18\u0E34\u0E17\u0E49\u0E32\u0E22\u0E2A\u0E25\u0E34\u0E1B
+                         - subtotal: \u0E22\u0E2D\u0E14\u0E01\u0E48\u0E2D\u0E19\u0E20\u0E32\u0E29\u0E35/\u0E04\u0E48\u0E32\u0E1A\u0E23\u0E34\u0E01\u0E32\u0E23 (\u0E16\u0E49\u0E32\u0E21\u0E35)
+                         - vat: \u0E20\u0E32\u0E29\u0E35\u0E21\u0E39\u0E25\u0E04\u0E48\u0E32\u0E40\u0E1E\u0E34\u0E48\u0E21 (\u0E16\u0E49\u0E32\u0E21\u0E35)
+                         - serviceCharge: \u0E04\u0E48\u0E32\u0E1A\u0E23\u0E34\u0E01\u0E32\u0E23 (\u0E16\u0E49\u0E32\u0E21\u0E35)
+                         - discount/billDiscount: \u0E2A\u0E48\u0E27\u0E19\u0E25\u0E14 (\u0E16\u0E49\u0E32\u0E21\u0E35)
+                         - vatIncluded: true \u0E2B\u0E32\u0E01\u0E43\u0E19\u0E2A\u0E25\u0E34\u0E1B\u0E23\u0E30\u0E1A\u0E38\u0E27\u0E48\u0E32 "\u0E23\u0E27\u0E21 VAT \u0E41\u0E25\u0E49\u0E27" \u0E2B\u0E23\u0E37\u0E2D\u0E23\u0E32\u0E04\u0E32\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32\u0E23\u0E27\u0E21\u0E20\u0E32\u0E29\u0E35\u0E41\u0E25\u0E49\u0E27
+                      
+                      \u0E42\u0E04\u0E23\u0E07\u0E2A\u0E23\u0E49\u0E32\u0E07 JSON:
+                      {
+                        "rawText": "\u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14\u0E17\u0E35\u0E48\u0E2D\u0E48\u0E32\u0E19\u0E44\u0E14\u0E49",
+                        "lines": ["\u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E41\u0E22\u0E01\u0E41\u0E15\u0E48\u0E25\u0E30\u0E1A\u0E23\u0E23\u0E17\u0E31\u0E14"],
+                        "summary": {
+                          "total": number,
+                          "subtotal": number,
+                          "vat": number,
+                          "serviceCharge": number,
+                          "discount": number,
+                          "billDiscount": number,
+                          "vatIncluded": boolean
+                        },
+                        "items": [
+                          { "name": "\u0E0A\u0E37\u0E48\u0E2D\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32", "amount": number }
+                        ]
+                      }`
                       },
-                      "items": [
-                        { "name": "\u0E0A\u0E37\u0E48\u0E2D\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32", "amount": number }
-                      ]
-                    }`
-                    },
-                    {
-                      inline_data: {
-                        mime_type: body.mimeType ?? "image/jpeg",
-                        data: body.imageBase64
+                      {
+                        inline_data: {
+                          mime_type: body.mimeType ?? "image/jpeg",
+                          data: body.imageBase64
+                        }
                       }
-                    }
-                  ]
+                    ]
+                  }
+                ],
+                generationConfig: {
+                  temperature: 0.1,
+                  response_mime_type: "application/json"
                 }
-              ],
-              generationConfig: {
-                temperature: 0.1,
-                response_mime_type: "application/json"
-              }
-            })
+              })
+            }
+          );
+          if (lastGeminiResponse.ok) {
+            break;
           }
-        );
-        const retryableStatuses = [429, 503];
-        if (!retryableStatuses.includes(lastGeminiResponse.status)) break;
-        const delay = lastGeminiResponse.status === 503 ? 2e3 : 1e3;
-        if (i < maxRetries - 1) await new Promise((r) => setTimeout(r, delay));
+          const retryableStatuses = [429, 503];
+          if (!retryableStatuses.includes(lastGeminiResponse.status)) break;
+          const delay = lastGeminiResponse.status === 503 ? 2e3 : 1e3;
+          if (i < maxRetriesPerModel - 1) await new Promise((r) => setTimeout(r, delay));
+        }
+        if (lastGeminiResponse?.ok) break;
       }
       const geminiResponse = lastGeminiResponse;
       if (!geminiResponse.ok) {

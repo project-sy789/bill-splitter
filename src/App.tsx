@@ -410,7 +410,7 @@ function App() {
 
     Object.keys(totalAdjustments).forEach((id) => { totalAdjustments[id] = round2(totalAdjustments[id]!) })
     return totalAdjustments
-  }, [billContexts, billBaseByMemberMap, members, allocationMode])
+  }, [billContexts, billBaseByMemberMap, members, allocationMode, results, manualBills])
 
   const finalDueByMember = useMemo(() => {
     const due: Record<string, number> = {}
