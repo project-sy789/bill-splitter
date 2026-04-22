@@ -38,7 +38,7 @@ import {
 import type { SplitMode } from './types/bill'
 import { initLiff, login, logout, shareBillToFriends, type LineProfile } from './lib/liff'
 import liff from '@line/liff'
-import { subscribeToBill, fetchBillById, updateBillData, saveBillToCloud } from './lib/supabase'
+import { subscribeToBill, fetchBillById, updateBillData } from './lib/supabase'
 
 // ──────────────────────────────────────────────
 // Types
@@ -256,7 +256,7 @@ function App() {
       }
 
       // Subscribe to real-time updates
-      const unsubscribe = subscribeToBill(billIdFromUrl, (newState) => {
+      const unsubscribe = subscribeToBill(billIdFromUrl, (newState: any) => {
         setRemoteUpdating(true)
         if (newState.members) setMembers(newState.members)
         if (newState.items) setItems(newState.items)
