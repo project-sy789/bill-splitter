@@ -465,9 +465,10 @@ function App() {
       const recovered: ManualBill[] = []
       orphanGroups.forEach((amt, bId) => {
         const ocrIdx = bId.match(/ocr-(\d+)/)?.[1]
+        const existing = manualBills.find(m => m.id === bId)
         recovered.push({
           id: bId,
-          name: ocrIdx !== undefined ? `สลิปอดีต ${parseInt(ocrIdx) + 1}` : `บิลอดีต`,
+          name: existing?.name || (ocrIdx !== undefined ? `สลิปอดีต ${parseInt(ocrIdx) + 1}` : `บิลอดีต`),
           amount: amt,
           serviceCharge: 0,
           vat: 0,
@@ -1083,37 +1084,32 @@ function App() {
                         onSetServiceCharge={(billId, value) => {
                           if (billId.startsWith('ocr-')) {
                             setResults(res => res.map((rr, ii) => ii === parseInt(billId.split('-')[1]!, 10) ? { ...rr, summary: { ...rr.summary, serviceCharge: value } } : rr))
-                          } else {
-                            setManualBills(prev => prev.map(mm => mm.id === billId ? { ...mm, serviceCharge: value } : mm))
                           }
+                          setManualBills(prev => prev.map(mm => mm.id === billId ? { ...mm, serviceCharge: value } : mm))
                         }}
                         onToggleVatIncluded={(billId, next) => {
                           if (billId.startsWith('ocr-')) {
                             setResults(res => res.map((rr, ii) => ii === parseInt(billId.split('-')[1]!, 10) ? { ...rr, vatIncluded: next } : rr))
-                          } else {
-                            setManualBills(prev => prev.map(mm => mm.id === billId ? { ...mm, vatIncluded: next } : mm))
                           }
+                          setManualBills(prev => prev.map(mm => mm.id === billId ? { ...mm, vatIncluded: next } : mm))
                         }}
                         onSetVat={(billId, value) => {
                           if (billId.startsWith('ocr-')) {
                             setResults(res => res.map((rr, ii) => ii === parseInt(billId.split('-')[1]!, 10) ? { ...rr, summary: { ...rr.summary, vat: value } } : rr))
-                          } else {
-                            setManualBills(prev => prev.map(mm => mm.id === billId ? { ...mm, vat: value } : mm))
                           }
+                          setManualBills(prev => prev.map(mm => mm.id === billId ? { ...mm, vat: value } : mm))
                         }}
                         onSetDiscount={(billId, value) => {
                           if (billId.startsWith('ocr-')) {
                             setResults(res => res.map((rr, ii) => ii === parseInt(billId.split('-')[1]!, 10) ? { ...rr, summary: { ...rr.summary, billDiscount: value, discount: value } } : rr))
-                          } else {
-                            setManualBills(prev => prev.map(mm => mm.id === billId ? { ...mm, billDiscount: value, discount: value } : mm))
                           }
+                          setManualBills(prev => prev.map(mm => mm.id === billId ? { ...mm, billDiscount: value, discount: value } : mm))
                         }}
                         onSetName={(billId, name) => {
                           if (billId.startsWith('ocr-')) {
                             setResults(res => res.map((rr, ii) => ii === parseInt(billId.split('-')[1]!, 10) ? { ...rr, customName: name } : rr))
-                          } else {
-                            setManualBills(prev => prev.map(mm => mm.id === billId ? { ...mm, name } : mm))
                           }
+                          setManualBills(prev => prev.map(mm => mm.id === billId ? { ...mm, name } : mm))
                         }}
                         onSetPayer={(billId, memberId) => {
                           setReceiptPayerMap(prev => ({ ...prev, [billId]: memberId }))
