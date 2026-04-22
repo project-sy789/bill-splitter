@@ -24,10 +24,17 @@ export async function initLiff(): Promise<LineProfile | null> {
       console.log('LINE Profile Fetched:', profile)
       console.log('LINE ID Token:', idToken)
 
-      return {
+      const finalProfile = {
         ...profile,
         pictureUrl: profile.pictureUrl || idToken?.picture
       } as LineProfile
+
+      // Temporary debug alert to see what's happening on mobile
+      if (!finalProfile.pictureUrl) {
+        alert('DEBUG: No pictureUrl found in Profile or ID Token')
+      }
+
+      return finalProfile
     }
   } catch (err) {
     console.error('LIFF initialization failed', err)

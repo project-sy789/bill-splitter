@@ -279,15 +279,20 @@ function App() {
 
   // ── Auto-fill LINE Profile Effect ──
   useEffect(() => {
-    if (lineProfile) {
+    if (lineProfile && lineProfile.displayName) {
       setMembers(prev => {
         // If we find our own ID or the first member is default, update it
-        return prev.map((m, i) => {
-          if (i === 0 && (m.name === '' || m.name === 'ฉัน' || m.name === 'คนที่ 1')) {
-            return { ...m, name: lineProfile.displayName, pictureUrl: lineProfile.pictureUrl || '' }
+        const first = prev[0]
+        if (first && (first.name === '' || first.name === 'ฉัน' || first.name === 'คนที่ 1' || !first.pictureUrl)) {
+          const newMembers = [...prev]
+          newMembers[0] = { 
+            ...first, 
+            name: lineProfile.displayName, 
+            pictureUrl: lineProfile.pictureUrl || '' 
           }
-          return m
-        })
+          return newMembers
+        }
+        return prev
       })
     }
   }, [lineProfile])
