@@ -622,26 +622,6 @@ function App() {
     e.target.value = ''
   }, [handleFilesSelected])
 
-  const addMember = useCallback(() => {
-    const name = newMemberName.trim()
-    if (!name) return
-    const member: MemberDraft = {
-      id: crypto.randomUUID(),
-      name,
-      color: MEMBER_COLORS[members.length % MEMBER_COLORS.length]!,
-      promptPayId: '',
-    }
-    setMembers((prev) => [...prev, member])
-    setItems((prev) =>
-      prev.map((item) => ({
-        ...item,
-        consumerIds: [...new Set([...item.consumerIds, member.id])],
-        percentageByUser: { ...item.percentageByUser, [member.id]: 0 },
-        exactByUser: { ...item.exactByUser, [member.id]: 0 },
-      })),
-    )
-    setNewMemberName('')
-  }, [newMemberName, members.length])
 
   const addMember = useCallback(() => {
     setMembers((prev) => [
