@@ -240,7 +240,6 @@ function App() {
       { id: crypto.randomUUID(), name: 'เพื่อน', color: MEMBER_COLORS[1]!, promptPayId: '' },
     ],
   )
-  const [newMemberName, setNewMemberName] = useState('')
   const [items, setItems] = useState<BillItemDraft[]>(initialState?.items ?? [])
   const [allocationMode, setAllocationMode] = useState<AllocationMode>(initialState?.allocationMode ?? 'proportional')
   const [paidByMember, setPaidByMember] = useState<Record<string, number>>(initialState?.paidByMember ?? {})
