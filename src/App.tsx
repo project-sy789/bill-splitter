@@ -323,6 +323,10 @@ function App() {
     }
 
     logUsage(lineProfile.userId, action) // Log in background
+    
+    // Increment locally immediately so next click is blocked if limit reached
+    setUsageStats(prev => ({ ...prev, daily: prev.daily + 1, weekly: prev.weekly + 1 }))
+    
     return true
   }
 
