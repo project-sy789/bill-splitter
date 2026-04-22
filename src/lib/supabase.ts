@@ -122,3 +122,53 @@ export async function fetchBillById(billId: string): Promise<DbBill | null> {
 
   return data
 }
+
+// ── Usage Tracking Functions ──
+
+export async function logUsage(userId: string, actionType: string) {
+  if (!supabaseUrl) return
+
+  const { error } = await supabase
+    .from('usage_logs')
+    .insert({
+      user_id: userId,
+      action_type: actionType
+    })
+
+  if (error) {
+    console.error('Error logging usage:', error)
+  }
+}
+
+export async function fetchUsageStats(userId: string) {
+  if (!supabaseUrl) return { daily: 0, weekly: 0 }
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  
+  const lastWeek = new Date()
+  lastWeek.setDate(lastWeek.getDate() - 7)
+
+  // Count daily
+  const { count: dailyCount, error: dailyError } = await supabase
+    .from('usage_logs')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .gte('created_at', today.toISOString())
+
+  // Count weekly
+  const { count: weeklyCount, error: weeklyError } = await supabase
+    .from('usage_logs')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .gte('created_at', lastWeek.toISOString())
+
+  if (dailyError || weeklyError) {
+    console.error('Error fetching usage stats:', dailyError || weeklyError)
+  }
+
+  return {
+    daily: dailyCount || 0,
+    weekly: weeklyCount || 0
+  }
+}

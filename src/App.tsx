@@ -40,7 +40,9 @@ import {
 import type { SplitMode } from './types/bill'
 import { initLiff, login, logout, shareBillToFriends, type LineProfile } from './lib/liff'
 import liff from '@line/liff'
-import { subscribeToBill, fetchBillById, updateBillData } from './lib/supabase'
+import { subscribeToBill, fetchBillById, updateBillData, logUsage, fetchUsageStats } from './lib/supabase'
+import { getRandomAffiliateLink, USAGE_LIMITS } from './config/affiliate'
+import { ShoppingBag } from 'lucide-react'
 
 // ──────────────────────────────────────────────
 // Types
@@ -240,6 +242,32 @@ function App() {
   const [billIdFromUrl] = useState(() => new URLSearchParams(window.location.search).get('billId'))
   const [isBillOwner, setIsBillOwner] = useState(false)
   const [isLocked, setIsLocked] = useState(false)
+  const [usageStats, setUsageStats] = useState({ daily: 0, weekly: 0 })
+  const [showLimitModal, setShowLimitModal] = useState(false)
+  const [randomLink, setRandomLink] = useState('')
+
+  // ── Usage Tracking Effect ──
+  useEffect(() => {
+    if (lineProfile) {
+      fetchUsageStats(lineProfile.userId).then(setUsageStats)
+    }
+  }, [lineProfile])
+
+  const checkAndRecordUsage = async (action: string) => {
+    if (!lineProfile) return true // Allow guest or not logged in for now (per Option A)
+    
+    const stats = await fetchUsageStats(lineProfile.userId)
+    setUsageStats(stats)
+
+    if (stats.daily >= USAGE_LIMITS.DAILY || stats.weekly >= USAGE_LIMITS.WEEKLY) {
+      setRandomLink(getRandomAffiliateLink())
+      setShowLimitModal(true)
+      return false
+    }
+
+    await logUsage(lineProfile.userId, action)
+    return true
+  }
 
   // ── Collaborative Sync Effect ──
   useEffect(() => {
@@ -1226,7 +1254,7 @@ function App() {
                 </div>
                 <div className="flex gap-2">
                     <button
-                      onClick={() => fileInputRef.current?.click()}
+                      onClick={handleUploadReceipt}
                       disabled={isBusy}
                       className="flex-1 sm:flex-initial flex items-center justify-center gap-2 rounded-2xl border border-sky-100 bg-white/80 px-3 py-2 text-sm font-semibold text-sky-700 shadow-[0_8px_24px_rgba(14,165,233,0.08)] backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:bg-sky-50 hover:shadow-[0_14px_30px_rgba(14,165,233,0.12)] active:translate-y-0 disabled:translate-y-0 disabled:opacity-50 font-heading sm:px-4"
                     >
@@ -1234,7 +1262,7 @@ function App() {
                       {isBusy ? 'กำลังอ่านรูป...' : 'จากอัลบั้ม'}
                     </button>
                     <button
-                      onClick={() => cameraInputRef.current?.click()}
+                      onClick={handleScanReceipt}
                       disabled={isBusy}
                       className="flex-1 sm:flex-initial flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-violet-600 via-violet-500 to-fuchsia-500 px-3 py-2 text-sm font-bold text-white shadow-[0_14px_34px_rgba(124,58,237,0.28)] transition-all hover:-translate-y-0.5 hover:shadow-[0_18px_40px_rgba(124,58,237,0.34)] active:translate-y-0 font-heading sm:px-4"
                     >
