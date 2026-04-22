@@ -75,7 +75,7 @@ export default {
         return jsonResponse({ error: 'Missing imageBase64' }, { status: 400 }, origin, env)
       }
 
-    const maxRetries = 2
+    const maxRetries = 3
     let lastGeminiResponse: Response | null = null
 
     for (let i = 0; i < maxRetries; i++) {
@@ -139,9 +139,12 @@ export default {
         },
       )
 
-      if (lastGeminiResponse.status !== 429) break
-      // Wait 1s before retry on 429
-      if (i < maxRetries - 1) await new Promise(r => setTimeout(r, 1000))
+      const retryableStatuses = [429, 503];
+      if (!retryableStatuses.includes(lastGeminiResponse.status)) break
+      
+      // Wait a bit longer for 503 (High Demand)
+      const delay = lastGeminiResponse.status === 503 ? 2000 : 1000
+      if (i < maxRetries - 1) await new Promise(r => setTimeout(r, delay))
     }
 
     const geminiResponse = lastGeminiResponse!

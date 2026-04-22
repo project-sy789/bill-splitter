@@ -41,7 +41,7 @@ var src_default = {
       if (!body.imageBase64) {
         return jsonResponse({ error: "Missing imageBase64" }, { status: 400 }, origin, env);
       }
-      const maxRetries = 2;
+      const maxRetries = 3;
       let lastGeminiResponse = null;
       for (let i = 0; i < maxRetries; i++) {
         lastGeminiResponse = await fetch(
@@ -103,8 +103,10 @@ var src_default = {
             })
           }
         );
-        if (lastGeminiResponse.status !== 429) break;
-        if (i < maxRetries - 1) await new Promise((r) => setTimeout(r, 1e3));
+        const retryableStatuses = [429, 503];
+        if (!retryableStatuses.includes(lastGeminiResponse.status)) break;
+        const delay = lastGeminiResponse.status === 503 ? 2e3 : 1e3;
+        if (i < maxRetries - 1) await new Promise((r) => setTimeout(r, delay));
       }
       const geminiResponse = lastGeminiResponse;
       if (!geminiResponse.ok) {
