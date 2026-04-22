@@ -23,7 +23,7 @@ import * as htmlToImage from 'html-to-image'
 import { QrCode } from './components/qr-code'
 import { BillCard } from './components/bill-card'
 import { useReceiptOcr } from './hooks/use-receipt-ocr'
-import { useBillHistory } from './hooks/use-bill-history'
+import { useBillHistory, type BillHistoryMeta } from './hooks/use-bill-history'
 import { useGroups } from './hooks/use-groups'
 import { buildPromptPayPayload, formatPromptPay, toPromptPayTarget } from './lib/promptpay'
 import * as db from './lib/bill-db'
@@ -1499,7 +1499,7 @@ function App() {
               {history.length === 0 ? (
                 <div className="text-center text-sm text-gray-400 py-6">ยังไม่มีประวัติบิล</div>
               ) : (
-                history.map((h) => (
+                history.map((h: BillHistoryMeta) => (
                   <div key={h.id} className="flex items-center justify-between rounded-xl border border-gray-100 bg-white p-3 shadow-sm hover:border-violet-200 transition-colors">
                     <button onClick={() => loadHistoryBill(h.id)} className="flex-1 text-left min-w-0">
                       <p className={`text-sm font-semibold truncate ${h.id === currentBillId ? 'text-violet-600' : 'text-gray-800'}`}>

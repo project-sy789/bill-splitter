@@ -1,16 +1,18 @@
+import { useState, useEffect, useCallback } from 'react'
 import * as db from '../lib/bill-db'
-import { saveBillToCloud, fetchUserBills, deleteBillFromCloud } from '../lib/supabase'
+import { saveBillToCloud, fetchUserBills } from '../lib/supabase'
 
 export interface BillHistoryMeta {
   id: string
   title: string
   updatedAt: number
+  isCloud?: boolean
+  data?: any
 }
 
 export function useBillHistory(userId?: string | null) {
   const [history, setHistory] = useState<BillHistoryMeta[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [isCloudLoading, setIsCloudLoading] = useState(false)
 
   // Load history from IndexedDB and Supabase on mount
   useEffect(() => {
@@ -21,7 +23,6 @@ export function useBillHistory(userId?: string | null) {
         let cloudBills: BillHistoryMeta[] = []
         
         if (userId) {
-          setIsCloudLoading(true)
           const dbBills = await fetchUserBills(userId)
           cloudBills = dbBills.map(b => ({
             id: b.id,
@@ -30,7 +31,6 @@ export function useBillHistory(userId?: string | null) {
             isCloud: true,
             data: b.bill_data
           }))
-          setIsCloudLoading(false)
         }
 
         const combined = [...localBills, ...cloudBills].sort((a, b) => b.updatedAt - a.updatedAt)
@@ -55,8 +55,8 @@ export function useBillHistory(userId?: string | null) {
         void saveBillToCloud(userId, title, grandTotal, state)
       }
 
-      setHistory((prev) => {
-        const filtered = prev.filter((h) => h.id !== id)
+      setHistory((prev: BillHistoryMeta[]) => {
+        const filtered = prev.filter((h: BillHistoryMeta) => h.id !== id)
         return [{ id, title, updatedAt: Date.now() }, ...filtered]
       })
     } catch (err) {
@@ -67,7 +67,7 @@ export function useBillHistory(userId?: string | null) {
   const removeBill = useCallback(async (id: string) => {
     try {
       await db.deleteBill(id)
-      setHistory((prev) => prev.filter((h) => h.id !== id))
+      setHistory((prev: BillHistoryMeta[]) => prev.filter((h: BillHistoryMeta) => h.id !== id))
     } catch (err) {
       console.error('[useBillHistory] Failed to delete bill:', err)
     }
