@@ -721,11 +721,22 @@ function App() {
     const joinUrl = url.toString()
 
     if (liff.isLoggedIn()) {
-      await liff.sendMessages([{
-        type: 'text',
-        text: `ช่วยกันหารบิลหน่อย! กดลิงก์นี้เพื่อร่วมหารกัน: ${joinUrl}`
-      }])
-      alert('ส่งลิงก์เข้าแชทแล้ว!')
+      try {
+        const result = await liff.shareTargetPicker([
+          {
+            type: 'text',
+            text: `ช่วยกันหารบิลหน่อย! กดลิงก์นี้เพื่อร่วมหารกัน: ${joinUrl}`
+          }
+        ])
+        if (result) {
+          alert('ส่งคำเชิญเรียบร้อยแล้ว!')
+        }
+      } catch (err) {
+        console.error('Share target picker failed:', err)
+        // Fallback to clipboard if picker fails or is cancelled
+        await navigator.clipboard.writeText(joinUrl)
+        alert('คัดลอกลิงก์เข้าร่วมแล้ว! ส่งให้เพื่อนได้เลย')
+      }
     } else {
       await navigator.clipboard.writeText(joinUrl)
       alert('คัดลอกลิงก์เข้าร่วมแล้ว! ส่งให้เพื่อนได้เลย')
