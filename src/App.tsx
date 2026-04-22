@@ -297,6 +297,36 @@ function App() {
     }
   }, [])
 
+  const handleShareBill = useCallback(async (billId: string) => {
+    const el = document.getElementById(`bill-card-${billId}`)
+    if (!el) return
+    try {
+      const dataUrl = await htmlToImage.toPng(el, {
+        quality: 1, backgroundColor: '#ffffff', style: { borderRadius: '24px' }
+      })
+      const res = await fetch(dataUrl)
+      const blob = await res.blob()
+      const file = new File([blob], `bill-${billId}-${new Date().getTime()}.png`, { type: 'image/png' })
+
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          title: `รายการบิล ${billId}`,
+          files: [file]
+        })
+      } else {
+        const blobUrl = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.download = file.name
+        link.href = blobUrl
+        link.click()
+        URL.revokeObjectURL(blobUrl)
+      }
+    } catch (e) {
+      console.error('Share bill failed', e)
+      alert('ไม่สามารถแชร์บิลนี้ได้ในขณะนี้')
+    }
+  }, [])
+
   const { progress, results, mergedItems, error, lastSource, debugPayload, sourceHint, ocrStageLabel, scanFiles, reset, terminate, isBusy, setResults } = useReceiptOcr()
 
   // ── Calculations ──
@@ -1133,6 +1163,7 @@ function App() {
                         }}
                         onDeleteBill={handleDeleteBill}
                         onSetTotal={handleSetBillTotal}
+                        onShare={handleShareBill}
                       />
                     )
                   })}

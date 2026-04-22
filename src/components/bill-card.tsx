@@ -1,4 +1,4 @@
-import { Receipt, Zap, ChevronDown, Users, Check, Trash2 } from 'lucide-react'
+import { Receipt, Zap, ChevronDown, Users, Check, Trash2, Share } from 'lucide-react'
 
 import { type BillItemDraft, type ManualBill, type MemberDraft } from '../lib/bill-persistence'
 import type { ParsedReceiptResult } from '../types/ocr'
@@ -31,6 +31,7 @@ interface BillCardProps {
   onRemoveItem: (itemId: string) => void
   onAddItemToBill: (billId: string) => void
   onSetTotal: (billId: string, value: number) => void
+  onShare: (billId: string) => void
   onDeleteBill: (billId: string) => void
 }
 
@@ -53,6 +54,7 @@ export function BillCard({
   onRemoveItem,
   onAddItemToBill,
   onSetTotal,
+  onShare,
   onDeleteBill
 }: BillCardProps) {
   const currentItems = items.filter((it) => it.billId === bill.id)
@@ -75,7 +77,7 @@ export function BillCard({
   const deficit = Math.max(0, Math.round((bill.amount - currentItemsSum - billFeesAdjust) * 100) / 100)
 
   return (
-    <div className="receipt-serrated-top receipt-serrated-bottom receipt-thermal-texture relative border border-gray-200 rounded-[28px] shadow-[0_18px_40px_rgba(15,23,42,0.12)]">
+    <div id={`bill-card-${bill.id}`} className="receipt-serrated-top receipt-serrated-bottom receipt-thermal-texture relative border border-gray-200 rounded-[28px] shadow-[0_18px_40px_rgba(15,23,42,0.12)]">
       <div className="border-b border-dashed border-gray-200 px-4 pb-4 pt-7 sm:px-5">
         <div className="mb-2 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
@@ -86,17 +88,26 @@ export function BillCard({
               {itemCount} รายการ
             </span>
           </div>
-          <button
-            onClick={() => {
-              if (window.confirm('ยืนยันการลบบิลนี้และรายการทั้งหมดในบิล?')) {
-                onDeleteBill(bill.id)
-              }
-            }}
-            className="rounded-full p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500 transition-all active:scale-95"
-            title="ลบบิลนี้"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => onShare(bill.id)}
+              className="rounded-full p-1.5 text-gray-400 hover:bg-violet-50 hover:text-violet-600 transition-all active:scale-95"
+              title="แชร์บิลนี้เป็นรูปภาพ"
+            >
+              <Share className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={() => {
+                if (window.confirm('ยืนยันการลบบิลนี้และรายการทั้งหมดในบิล?')) {
+                  onDeleteBill(bill.id)
+                }
+              }}
+              className="rounded-full p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500 transition-all active:scale-95"
+              title="ลบบิลนี้"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
         <div className="group relative -ml-1">
           <input
