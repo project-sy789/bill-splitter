@@ -255,6 +255,7 @@ function App() {
   const [randomAd, setRandomAd] = useState<AffiliateLink | null>(null)
   const [isTemporarilyUnlocked, setIsTemporarilyUnlocked] = useState(false)
   const [remoteLinks, setRemoteLinks] = useState<AffiliateLink[]>([])
+  const [isInitialLoadFinished, setIsInitialLoadFinished] = useState(false)
 
   // ── Usage Tracking Effect ──
   useEffect(() => {
@@ -356,6 +357,7 @@ function App() {
         setManualBills(state.manualBills || [])
         setReceiptPayerMap(state.receiptPayerMap || {})
       }
+      setIsInitialLoadFinished(true)
 
       // Subscribe to real-time updates
       const unsubscribe = subscribeToBill(billIdFromUrl, (newState: any) => {
@@ -379,6 +381,11 @@ function App() {
       unsubPromise.then(unsub => unsub && unsub())
     }
   }, [billIdFromUrl, lineProfile])
+
+  // If it's a new bill (no ID in URL), we consider initial load finished immediately
+  useEffect(() => {
+    if (!billIdFromUrl) setIsInitialLoadFinished(true)
+  }, [billIdFromUrl])
 
   // ── Auto-fill LINE Profile Effect ──
   useEffect(() => {
@@ -679,12 +686,18 @@ function App() {
     if (items.length > 0 || members.length > 2 || Object.keys(paidByMember).length > 0 || manualBills.length > 0) {
       addOrUpdateBill(currentBillId, title, { ...state, grandTotal }, lineProfile?.userId)
       
-      // If we are in a collaborative bill, sync to Supabase (ONLY IF OWNER)
-      if (billIdFromUrl && isBillOwner && !remoteUpdating) {
-        updateBillData(billIdFromUrl, state)
+      // Collaborative Sync: 
+      // 1. Must be a shared bill
+      // 2. Initial data from cloud must be loaded (to prevent overwriting with empty local state)
+      // 3. Must NOT be a remote update triggering this effect
+      // 4. Must be owner OR the bill is NOT locked
+      if (billIdFromUrl && isInitialLoadFinished && !remoteUpdating) {
+        if (isBillOwner || !isLocked) {
+          updateBillData(billIdFromUrl, state)
+        }
       }
     }
-  }, [dbReady, members, items, allocationMode, paidByMember, settlementStatus, manualBills, receiptPayerMap, currentBillId, addOrUpdateBill, grandTotal, lineProfile, billIdFromUrl, remoteUpdating, isLocked, isBillOwner])
+  }, [dbReady, members, items, allocationMode, paidByMember, settlementStatus, manualBills, receiptPayerMap, currentBillId, addOrUpdateBill, grandTotal, lineProfile, billIdFromUrl, remoteUpdating, isLocked, isBillOwner, isInitialLoadFinished])
 
 
 
