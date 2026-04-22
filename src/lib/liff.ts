@@ -18,7 +18,16 @@ export async function initLiff(): Promise<LineProfile | null> {
   try {
     await liff.init({ liffId: LIFF_ID })
     if (liff.isLoggedIn()) {
-      return (await liff.getProfile()) as LineProfile
+      const profile = await liff.getProfile()
+      const idToken = liff.getDecodedIDToken()
+      
+      console.log('LINE Profile Fetched:', profile)
+      console.log('LINE ID Token:', idToken)
+
+      return {
+        ...profile,
+        pictureUrl: profile.pictureUrl || idToken?.picture
+      } as LineProfile
     }
   } catch (err) {
     console.error('LIFF initialization failed', err)
