@@ -76,8 +76,8 @@ export default {
       }
 
     const models = [
-      'gemini-2.0-flash-lite-preview-02-05', // เรียกใช้งาน Gemini 3.1 Flash Lite ตัวเต็ม
-      'gemini-1.5-flash'                     // เรียกใช้งาน Gemini 2.5 Flash
+      'gemini-3.1-flash-lite', // เรียกใช้งาน Gemini 3.1 Flash Lite ตัวเต็ม
+      'gemini-2.5-flash'       // เรียกใช้งาน Gemini 2.5 Flash
     ]
 
     const maxRetriesPerModel = 2
