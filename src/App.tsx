@@ -1046,6 +1046,10 @@ function App() {
                       <p className="break-all rounded-xl bg-violet-50 px-3 py-2 text-violet-700">{debugPayload.endpoint}</p>
                     </div>
                     <div>
+                      <p className="mb-1 font-black uppercase tracking-[0.16em] text-gray-400">Model Used</p>
+                      <p className="rounded-xl bg-sky-50 px-3 py-2 text-sky-700 font-bold">{debugPayload.parsed.modelUsed || '—'}</p>
+                    </div>
+                    <div>
                       <p className="mb-1 font-black uppercase tracking-[0.16em] text-gray-400">Raw text</p>
                       <pre className="max-h-40 overflow-auto rounded-xl bg-gray-50 px-3 py-2 text-[10px] leading-5 text-gray-700">{debugPayload.rawText || '—'}</pre>
                     </div>

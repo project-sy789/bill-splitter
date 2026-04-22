@@ -178,7 +178,7 @@ export function useReceiptOcr() {
           setProgress({ progress: 100, statusText: `🤖 Gemini อ่านสำเร็จ — พบ ${geminiResult.parsed.items.length} รายการ ✓` })
           setStatus('completed')
           setLastSource('gemini')
-          setSourceHint(`Gemini endpoint: ${geminiResult.endpoint}`)
+          setSourceHint(`Model: ${geminiResult.parsed.modelUsed || 'unknown'} (via ${geminiResult.endpoint})`)
           return geminiResult.parsed
         } catch (err) {
           if ((err as { name?: string })?.name === 'GeminiRateLimitError') {

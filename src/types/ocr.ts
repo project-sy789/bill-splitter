@@ -22,6 +22,7 @@ export interface ParsedReceiptResult {
   /** true when receipt explicitly states prices already include VAT (e.g. "VAT INCLUDED") */
   vatIncluded: boolean
   customName?: string
+  modelUsed?: string
 }
 
 export type OcrStatus = 'idle' | 'loading' | 'recognizing' | 'completed' | 'error'

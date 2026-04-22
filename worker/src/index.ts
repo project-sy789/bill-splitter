@@ -76,11 +76,14 @@ export default {
       }
 
     const models = [
-      'gemini-2.5-flash'                     // รุ่นที่คุณยืนยันว่าใช้งานได้
+      'gemini-3.1-flash-lite-preview',       // รุ่นหลัก (Primary)
+      'gemma-4-31b-it',                      // รุ่นใหม่ (ประสิทธิภาพสูง)
+      'gemini-2.5-flash'                     // รุ่นสำรองที่คุณยืนยันว่าใช้งานได้
     ]
 
     const maxRetriesPerModel = 2
     let lastGeminiResponse: Response | null = null
+    let successfulModelId: string | null = null
 
     for (const modelId of models) {
       for (let i = 0; i < maxRetriesPerModel; i++) {
@@ -145,6 +148,7 @@ export default {
         )
 
         if (lastGeminiResponse.ok) {
+          successfulModelId = modelId
           break
         }
 
@@ -202,7 +206,8 @@ export default {
             name: String(it.name || 'ไม่มีชื่อสินค้า').trim(),
             amount: cleanNum(it.amount)
           }))
-          .filter((it) => it.amount > 0 || it.name.length > 0)
+          .filter((it) => it.amount > 0 || it.name.length > 0),
+        modelUsed: successfulModelId
       }
 
       return jsonResponse(normalized, { status: 200 }, origin, env)
