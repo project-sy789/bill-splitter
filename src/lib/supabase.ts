@@ -172,3 +172,19 @@ export async function fetchUsageStats(userId: string) {
     weekly: weeklyCount || 0
   }
 }
+
+export async function fetchRemoteAffiliateLinks(): Promise<string[]> {
+  if (!supabaseUrl) return []
+
+  const { data, error } = await supabase
+    .from('affiliate_links')
+    .select('url')
+    .eq('is_active', true)
+
+  if (error) {
+    console.error('Error fetching affiliate links:', error)
+    return []
+  }
+
+  return data.map(item => item.url)
+}

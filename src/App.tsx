@@ -40,8 +40,8 @@ import {
 import type { SplitMode } from './types/bill'
 import { initLiff, login, logout, shareBillToFriends, type LineProfile } from './lib/liff'
 import liff from '@line/liff'
-import { subscribeToBill, fetchBillById, updateBillData, logUsage, fetchUsageStats } from './lib/supabase'
-import { getRandomAffiliateLink, USAGE_LIMITS } from './config/affiliate'
+import { subscribeToBill, fetchBillById, updateBillData, logUsage, fetchUsageStats, fetchRemoteAffiliateLinks } from './lib/supabase'
+import { getRandomAffiliateLink, USAGE_LIMITS, SHOPEE_AFFILIATE_LINKS } from './config/affiliate'
 import { ShoppingBag } from 'lucide-react'
 
 // ──────────────────────────────────────────────
@@ -246,12 +246,17 @@ function App() {
   const [showLimitModal, setShowLimitModal] = useState(false)
   const [randomLink, setRandomLink] = useState('')
   const [isTemporarilyUnlocked, setIsTemporarilyUnlocked] = useState(false)
+  const [remoteLinks, setRemoteLinks] = useState<string[]>([])
 
   // ── Usage Tracking Effect ──
   useEffect(() => {
     if (lineProfile) {
       fetchUsageStats(lineProfile.userId).then(setUsageStats)
     }
+    // Fetch affiliate links from Supabase
+    fetchRemoteAffiliateLinks().then(links => {
+      if (links.length > 0) setRemoteLinks(links)
+    })
   }, [lineProfile])
 
   const checkAndRecordUsage = async (action: string) => {
@@ -268,7 +273,10 @@ function App() {
     setUsageStats(stats)
 
     if (stats.daily >= USAGE_LIMITS.DAILY || stats.weekly >= USAGE_LIMITS.WEEKLY) {
-      setRandomLink(getRandomAffiliateLink())
+      // Pick from remote links if available, otherwise fallback to local config
+      const pool = remoteLinks.length > 0 ? remoteLinks : SHOPEE_AFFILIATE_LINKS
+      const pick = pool[Math.floor(Math.random() * pool.length)]
+      setRandomLink(pick || getRandomAffiliateLink())
       setShowLimitModal(true)
       return false
     }
