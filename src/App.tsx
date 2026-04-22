@@ -1163,14 +1163,6 @@ function App() {
           </div>
         </div>
       )}
-                className="w-full text-gray-400 text-xs font-bold py-2 hover:text-gray-600 transition-colors"
-              >
-                ไว้วันหลังนะ
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Header */}
       <header className="sticky top-0 z-40 border-b border-white/60 bg-white/75 backdrop-blur-2xl shadow-[0_1px_0_rgba(255,255,255,0.9),0_20px_60px_rgba(124,58,237,0.10)]" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
