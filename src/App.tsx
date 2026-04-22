@@ -41,7 +41,7 @@ import type { SplitMode } from './types/bill'
 import { initLiff, login, logout, shareBillToFriends, type LineProfile } from './lib/liff'
 import liff from '@line/liff'
 import { subscribeToBill, fetchBillById, updateBillData, logUsage, fetchUsageStats, fetchRemoteAffiliateLinks, deleteBill } from './lib/supabase'
-import { getRandomAffiliateLink, USAGE_LIMITS } from './config/affiliate'
+import { USAGE_LIMITS } from './config/affiliate'
 import { ShoppingBag } from 'lucide-react'
 
 // ──────────────────────────────────────────────
