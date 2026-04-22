@@ -346,6 +346,8 @@ function App() {
           setIsBillOwner(false)
         }
 
+        console.log('Successfully fetched bill data:', dbBill.bill_data)
+
         // Load initial state from cloud
         const state = dbBill.bill_data as PersistedBillState
         if (state) {
@@ -365,6 +367,7 @@ function App() {
 
       // Subscribe to real-time updates
       const unsubscribe = subscribeToBill(billIdFromUrl, (newState: any) => {
+        console.log('Real-time update received:', newState)
         setRemoteUpdating(true)
         if (newState.isLocked !== undefined) setIsLocked(newState.isLocked)
         if (newState.members) setMembers(newState.members)
@@ -374,7 +377,7 @@ function App() {
         if (newState.settlementStatus) setSettlementStatus(newState.settlementStatus)
         if (newState.manualBills) setManualBills(newState.manualBills)
         if (newState.receiptPayerMap) setReceiptPayerMap(newState.receiptPayerMap)
-        setTimeout(() => setRemoteUpdating(false), 100)
+        setTimeout(() => setRemoteUpdating(false), 200)
       })
 
       return unsubscribe
