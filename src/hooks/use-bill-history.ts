@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react'
 import * as db from '../lib/bill-db'
+import { saveBillToCloud, fetchUserBills, deleteBillFromCloud } from '../lib/supabase'
 
 export interface BillHistoryMeta {
   id: string
@@ -7,22 +7,54 @@ export interface BillHistoryMeta {
   updatedAt: number
 }
 
-export function useBillHistory() {
+export function useBillHistory(userId?: string | null) {
   const [history, setHistory] = useState<BillHistoryMeta[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isCloudLoading, setIsCloudLoading] = useState(false)
 
-  // Load history from IndexedDB on mount
+  // Load history from IndexedDB and Supabase on mount
   useEffect(() => {
-    db.listBills()
-      .then((bills) => setHistory(bills))
-      .catch(() => setHistory([]))
-      .finally(() => setIsLoading(false))
-  }, [])
+    const loadData = async () => {
+      setIsLoading(true)
+      try {
+        const localBills = await db.listBills()
+        let cloudBills: BillHistoryMeta[] = []
+        
+        if (userId) {
+          setIsCloudLoading(true)
+          const dbBills = await fetchUserBills(userId)
+          cloudBills = dbBills.map(b => ({
+            id: b.id,
+            title: `[Cloud] ${b.name}`,
+            updatedAt: b.created_at ? new Date(b.created_at).getTime() : Date.now(),
+            isCloud: true,
+            data: b.bill_data
+          }))
+          setIsCloudLoading(false)
+        }
 
-  const addOrUpdateBill = useCallback(async (id: string, title: string, state: object) => {
+        const combined = [...localBills, ...cloudBills].sort((a, b) => b.updatedAt - a.updatedAt)
+        setHistory(combined)
+      } catch (err) {
+        console.error('Failed to load history:', err)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    
+    loadData()
+  }, [userId])
+
+  const addOrUpdateBill = useCallback(async (id: string, title: string, state: object, userId?: string | null) => {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await db.saveBill(id, title, state as any)
+      
+      if (userId) {
+        const grandTotal = (state as any).grandTotal || 0
+        void saveBillToCloud(userId, title, grandTotal, state)
+      }
+
       setHistory((prev) => {
         const filtered = prev.filter((h) => h.id !== id)
         return [{ id, title, updatedAt: Date.now() }, ...filtered]

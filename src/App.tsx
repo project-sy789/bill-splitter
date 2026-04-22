@@ -231,7 +231,7 @@ function App() {
 
     // Clear legacy global fields in next save by ensuring they are not in the current state
   }, [dbReady, initialState])
-  const { history, addOrUpdateBill, removeBill } = useBillHistory()
+  const { history, addOrUpdateBill, removeBill } = useBillHistory(lineProfile?.userId)
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false)
   const [members, setMembers] = useState<MemberDraft[]>(
     initialState?.members ?? [
@@ -475,9 +475,9 @@ function App() {
 
     // Auto-save history if the bill has any meaningful data
     if (items.length > 0 || members.length > 2 || Object.keys(paidByMember).length > 0 || manualBills.length > 0) {
-      addOrUpdateBill(currentBillId, title, state)
+      addOrUpdateBill(currentBillId, title, { ...state, grandTotal }, lineProfile?.userId)
     }
-  }, [dbReady, members, items, allocationMode, paidByMember, settlementStatus, manualBills, receiptPayerMap, currentBillId, addOrUpdateBill, grandTotal])
+  }, [dbReady, members, items, allocationMode, paidByMember, settlementStatus, manualBills, receiptPayerMap, currentBillId, addOrUpdateBill, grandTotal, lineProfile])
 
 
 
