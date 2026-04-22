@@ -1,3 +1,31 @@
+interface GeminiResponse {
+  candidates?: Array<{
+    content?: {
+      parts?: Array<{
+        text?: string
+      }>
+    }
+  }>
+}
+
+interface RawParsedData {
+  rawText?: string
+  lines?: string[]
+  summary?: {
+    total?: number | string | null
+    subtotal?: number | string | null
+    vat?: number | string | null
+    serviceCharge?: number | string | null
+    discount?: number | string | null
+    billDiscount?: number | string | null
+    vatIncluded?: boolean
+  }
+  items?: Array<{
+    name?: string
+    amount?: number | string | null
+  }>
+}
+
 export interface Env {
   GEMINI_API_KEY: string
   CORS_ORIGIN?: string
@@ -123,10 +151,10 @@ export default {
       return jsonResponse({ error: `Gemini error ${geminiResponse.status}`, detail: text }, { status: geminiResponse.status }, origin, env)
     }
 
-      const data = await geminiResponse.json() as any
+      const data = await geminiResponse.json() as GeminiResponse
       const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
       
-      let parsed: any
+      let parsed: RawParsedData
       try {
         parsed = JSON.parse(text.replace(/```json|```/g, '').trim())
       } catch {
@@ -134,7 +162,7 @@ export default {
       }
 
       // --- Data Normalization ---
-      const cleanNum = (val: any): number => {
+      const cleanNum = (val: number | string | null | undefined): number => {
         if (typeof val === 'number') return val
         if (typeof val === 'string') {
           const n = parseFloat(val.replace(/,/g, '').replace(/[฿฿]/g, ''))
@@ -156,11 +184,11 @@ export default {
           vatIncluded: !!parsed.summary?.vatIncluded
         },
         items: (Array.isArray(parsed.items) ? parsed.items : [])
-          .map((it: any) => ({
+          .map((it) => ({
             name: String(it.name || 'ไม่มีชื่อสินค้า').trim(),
             amount: cleanNum(it.amount)
           }))
-          .filter((it: any) => it.amount > 0 || it.name.length > 0)
+          .filter((it) => it.amount > 0 || it.name.length > 0)
       }
 
       return jsonResponse(normalized, { status: 200 }, origin, env)
