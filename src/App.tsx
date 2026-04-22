@@ -348,14 +348,18 @@ function App() {
 
         // Load initial state from cloud
         const state = dbBill.bill_data as PersistedBillState
-        setIsLocked(state.isLocked || false)
-        setMembers(state.members)
-        setItems(state.items)
-        setAllocationMode(state.allocationMode)
-        setPaidByMember(state.paidByMember)
-        setSettlementStatus(state.settlementStatus || {})
-        setManualBills(state.manualBills || [])
-        setReceiptPayerMap(state.receiptPayerMap || {})
+        if (state) {
+          setIsLocked(state.isLocked || false)
+          if (state.members) setMembers(state.members)
+          if (state.items) setItems(state.items)
+          if (state.allocationMode) setAllocationMode(state.allocationMode)
+          if (state.paidByMember) setPaidByMember(state.paidByMember)
+          if (state.settlementStatus) setSettlementStatus(state.settlementStatus || {})
+          if (state.manualBills) setManualBills(state.manualBills || [])
+          if (state.receiptPayerMap) setReceiptPayerMap(state.receiptPayerMap || {})
+        }
+      } else {
+        console.warn('No bill found with ID:', billIdFromUrl)
       }
       setIsInitialLoadFinished(true)
 
