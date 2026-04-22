@@ -123,6 +123,20 @@ export async function fetchBillById(billId: string): Promise<DbBill | null> {
   return data
 }
 
+export async function deleteBill(billId: string, userId: string) {
+  if (!supabaseUrl) return
+
+  const { error } = await supabase
+    .from('bills')
+    .delete()
+    .eq('id', billId)
+    .eq('user_id', userId)
+
+  if (error) {
+    console.error('Error deleting bill from Supabase:', error)
+  }
+}
+
 // ── Usage Tracking Functions ──
 
 export async function logUsage(userId: string, actionType: string) {
@@ -173,12 +187,12 @@ export async function fetchUsageStats(userId: string) {
   }
 }
 
-export async function fetchRemoteAffiliateLinks(): Promise<string[]> {
+export async function fetchRemoteAffiliateLinks(): Promise<any[]> {
   if (!supabaseUrl) return []
 
   const { data, error } = await supabase
     .from('affiliate_links')
-    .select('url')
+    .select('url, image_url, description, price_text')
     .eq('is_active', true)
 
   if (error) {
@@ -186,5 +200,5 @@ export async function fetchRemoteAffiliateLinks(): Promise<string[]> {
     return []
   }
 
-  return data.map(item => item.url)
+  return data
 }

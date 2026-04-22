@@ -40,7 +40,7 @@ import {
 import type { SplitMode } from './types/bill'
 import { initLiff, login, logout, shareBillToFriends, type LineProfile } from './lib/liff'
 import liff from '@line/liff'
-import { subscribeToBill, fetchBillById, updateBillData, logUsage, fetchUsageStats, fetchRemoteAffiliateLinks } from './lib/supabase'
+import { subscribeToBill, fetchBillById, updateBillData, logUsage, fetchUsageStats, fetchRemoteAffiliateLinks, deleteBill } from './lib/supabase'
 import { getRandomAffiliateLink, USAGE_LIMITS } from './config/affiliate'
 import { ShoppingBag } from 'lucide-react'
 
@@ -1085,7 +1085,12 @@ function App() {
     prevMergedLenRef.current = 0
     prevResultsLenRef.current = 0
     setIsHistoryModalOpen(false)
-  }, [reset])
+
+    // If it was a shared bill and we are the owner, delete it from cloud
+    if (billIdFromUrl && isBillOwner && lineProfile) {
+      deleteBill(billIdFromUrl, lineProfile.userId)
+    }
+  }, [reset, billIdFromUrl, isBillOwner, lineProfile])
 
   // ──────────────────────────────────────────────
   // Render
