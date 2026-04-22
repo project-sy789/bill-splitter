@@ -643,6 +643,49 @@ function App() {
     setNewMemberName('')
   }, [newMemberName, members.length])
 
+  const addMember = useCallback(() => {
+    setMembers((prev) => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        name: '',
+        promptPayId: '',
+        color: MEMBER_COLORS[prev.length % MEMBER_COLORS.length]!,
+      },
+    ])
+  }, [])
+
+  const addMembersFromLine = useCallback(async () => {
+    if (!liff.isLoggedIn()) {
+      liff.login()
+      return
+    }
+
+    try {
+      const profile = await liff.getProfile()
+      setMembers(prev => {
+        const newMembers = [...prev]
+        // If the first member is empty/default, replace it
+        if (newMembers.length > 0 && (newMembers[0].name === '' || newMembers[0].name === 'ฉัน' || newMembers[0].name === 'คนที่ 1')) {
+          newMembers[0].name = profile.displayName
+          newMembers[0].pictureUrl = profile.pictureUrl
+        } else if (!newMembers.some(m => m.name === profile.displayName)) {
+          // Otherwise add a new member
+          newMembers.push({
+            id: crypto.randomUUID(),
+            name: profile.displayName,
+            promptPayId: '',
+            pictureUrl: profile.pictureUrl,
+            color: MEMBER_COLORS[newMembers.length % MEMBER_COLORS.length]!
+          })
+        }
+        return newMembers
+      })
+    } catch (err) {
+      console.error('Failed to get LINE profile:', err)
+    }
+  }, [])
+
   const removeMember = useCallback((id: string) => {
     if (members.length <= 1) return
     setMembers((prev) => prev.filter((m) => m.id !== id))
