@@ -130,7 +130,7 @@ export async function deleteBill(billId: string, userId: string) {
     .from('bills')
     .delete()
     .eq('id', billId)
-    .eq('user_id', userId)
+    .or(`user_id.eq.${userId},created_by.eq.${userId}`)
 
   if (error) {
     console.error('Error deleting bill from Supabase:', error)
