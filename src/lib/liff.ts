@@ -20,21 +20,11 @@ export async function initLiff(): Promise<LineProfile | null> {
     if (liff.isLoggedIn()) {
       const profile = await liff.getProfile()
       const idToken = liff.getDecodedIDToken()
-      
-      console.log('LINE Profile Fetched:', profile)
-      console.log('LINE ID Token:', idToken)
 
-      // Super Debug: Show all keys we got
-      const profileKeys = Object.keys(profile).join(', ')
-      const tokenKeys = idToken ? Object.keys(idToken).join(', ') : 'null'
-      alert(`DEBUG INFO:\nProfile Keys: ${profileKeys}\nToken Keys: ${tokenKeys}\nPicture in Token: ${idToken?.picture ? 'Yes' : 'No'}`)
-
-      const finalProfile = {
+      return {
         ...profile,
         pictureUrl: profile.pictureUrl || idToken?.picture
       } as LineProfile
-
-      return finalProfile
     }
   } catch (err) {
     console.error('LIFF initialization failed', err)
@@ -103,7 +93,7 @@ export async function shareBillToFriends(title: string, amount: number, promptPa
                       contents: [
                         {
                           type: 'text',
-                          text: 'ยอดที่ต้องจ่าย',
+                           text: 'ยอดที่ต้องจ่าย',
                           size: 'sm',
                           color: '#6B7280',
                         },
