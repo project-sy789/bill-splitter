@@ -56,7 +56,7 @@ export function BillCard({
   onDeleteBill
 }: BillCardProps) {
   const currentItems = items.filter((it) => it.billId === bill.id)
-  const currentItemsSum = currentItems.reduce((s, it) => s + it.amount, 0)
+  const currentItemsSum = currentItems.reduce((s, it) => s + Math.max(0, it.amount - (it.itemDiscount ?? 0)), 0)
   const itemCount = currentItems.length
   const sourceLabel = bill.id.startsWith('ocr-') ? 'OCR / Gemini' : 'Manual bill'
   const sourceVariant = bill.id.startsWith('ocr-') ? 'from-violet-50 text-violet-600' : 'bg-gray-100 text-gray-500'
