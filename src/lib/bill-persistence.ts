@@ -48,6 +48,8 @@ export interface PersistedBillState {
   settlementStatus?: Record<string, boolean>
   manualBills?: ManualBill[]
   receiptPayerMap?: Record<string, string>
+  isLocked?: boolean
+  createdBy?: string
 }
 
 export const STORAGE_KEY = 'bill-splitter:v4'

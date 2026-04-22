@@ -236,16 +236,29 @@ function App() {
 
   const [remoteUpdating, setRemoteUpdating] = useState(false)
   const [billIdFromUrl] = useState(() => new URLSearchParams(window.location.search).get('billId'))
+  const [isBillOwner, setIsBillOwner] = useState(false)
+  const [isLocked, setIsLocked] = useState(false)
 
   // ── Collaborative Sync Effect ──
   useEffect(() => {
-    if (!billIdFromUrl) return
+    if (!billIdFromUrl) {
+      setIsBillOwner(true) // New bills are owned by the creator
+      return
+    }
 
     const setupSync = async () => {
       const dbBill = await fetchBillById(billIdFromUrl)
       if (dbBill) {
+        // Check ownership
+        if (lineProfile && dbBill.user_id === lineProfile.userId) {
+          setIsBillOwner(true)
+        } else {
+          setIsBillOwner(false)
+        }
+
         // Load initial state from cloud
         const state = dbBill.bill_data as PersistedBillState
+        setIsLocked(state.isLocked || false)
         setMembers(state.members)
         setItems(state.items)
         setAllocationMode(state.allocationMode)
@@ -258,6 +271,7 @@ function App() {
       // Subscribe to real-time updates
       const unsubscribe = subscribeToBill(billIdFromUrl, (newState: any) => {
         setRemoteUpdating(true)
+        if (newState.isLocked !== undefined) setIsLocked(newState.isLocked)
         if (newState.members) setMembers(newState.members)
         if (newState.items) setItems(newState.items)
         if (newState.allocationMode) setAllocationMode(newState.allocationMode)
@@ -275,7 +289,7 @@ function App() {
     return () => {
       unsubPromise.then(unsub => unsub && unsub())
     }
-  }, [billIdFromUrl])
+  }, [billIdFromUrl, lineProfile])
 
   // ── Auto-fill LINE Profile Effect ──
   useEffect(() => {
@@ -548,7 +562,22 @@ function App() {
   // ── Persist to IndexedDB ──
   useEffect(() => {
     if (!dbReady) return
-    const state: PersistedBillState = { version: 4, members, items, serviceCharge: 0, vat: 0, billDiscount: 0, discount: 0, allocationMode, paidByMember, settlementStatus, manualBills, receiptPayerMap }
+    const state: PersistedBillState = { 
+      version: 4, 
+      members, 
+      items, 
+      serviceCharge: 0, 
+      vat: 0, 
+      billDiscount: 0, 
+      discount: 0, 
+      allocationMode, 
+      paidByMember, 
+      settlementStatus, 
+      manualBills, 
+      receiptPayerMap,
+      isLocked,
+      createdBy: lineProfile?.userId
+    }
     const title = `บิลวันที่ ${new Date().toLocaleDateString('th-TH')} - ยอด ฿${grandTotal.toFixed(2)}`
 
     void db.saveBill(currentBillId, title, state)
@@ -563,7 +592,7 @@ function App() {
         updateBillData(billIdFromUrl, state)
       }
     }
-  }, [dbReady, members, items, allocationMode, paidByMember, settlementStatus, manualBills, receiptPayerMap, currentBillId, addOrUpdateBill, grandTotal, lineProfile, billIdFromUrl, remoteUpdating])
+  }, [dbReady, members, items, allocationMode, paidByMember, settlementStatus, manualBills, receiptPayerMap, currentBillId, addOrUpdateBill, grandTotal, lineProfile, billIdFromUrl, remoteUpdating, isLocked])
 
 
 
@@ -1057,9 +1086,28 @@ function App() {
           <div className="flex items-start justify-between gap-3 mb-4">
             <StepBadge n={1} label="ใส่ชื่อคนที่จะหารบิล" />
             <div className="flex flex-wrap gap-2 justify-end">
+              {isBillOwner && (
+                <button 
+                  onClick={() => setIsLocked(!isLocked)}
+                  className={`text-xs flex items-center gap-1 px-2 py-1.5 rounded-lg font-bold transition-colors border ${
+                    isLocked 
+                      ? 'text-orange-600 bg-orange-50 border-orange-100 hover:bg-orange-100' 
+                      : 'text-gray-600 bg-gray-50 border-gray-100 hover:bg-gray-100'
+                  }`}
+                >
+                  {isLocked ? <Lock className="w-3.5 h-3.5"/> : <Unlock className="w-3.5 h-3.5"/>}
+                  {isLocked ? 'ปลดล็อคบิล' : 'ล็อคบิล'}
+                </button>
+              )}
+              {!isBillOwner && isLocked && (
+                <div className="text-[10px] bg-orange-100 text-orange-700 px-2 py-1.5 rounded-lg font-bold flex items-center gap-1 border border-orange-200 animate-pulse">
+                  <Lock className="w-3 h-3"/> บิลถูกล็อค (ดูได้อย่างเดียว)
+                </div>
+              )}
               <button 
                 onClick={shareJoinLink}
-                className="text-xs text-[#06C755] bg-[#06C755]/10 hover:bg-[#06C755]/20 flex items-center gap-1 px-2 py-1.5 rounded-lg font-bold transition-colors border border-[#06C755]/20"
+                disabled={isLocked && !isBillOwner}
+                className="text-xs text-[#06C755] bg-[#06C755]/10 hover:bg-[#06C755]/20 flex items-center gap-1 px-2 py-1.5 rounded-lg font-bold transition-colors border border-[#06C755]/20 disabled:opacity-50"
               >
                 <Share className="w-3.5 h-3.5"/> เชิญเพื่อน
               </button>
