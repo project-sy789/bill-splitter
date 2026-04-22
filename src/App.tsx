@@ -971,6 +971,39 @@ function App() {
   // Render
   // ──────────────────────────────────────────────
 
+  if (dbReady && !lineProfile && !billIdFromUrl) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-violet-600 via-violet-700 to-fuchsia-600 flex items-center justify-center p-6 text-white overflow-hidden relative">
+        {/* Animated background elements */}
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-white/10 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-fuchsia-500/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+
+        <div className="max-w-sm w-full text-center space-y-8 relative z-10">
+          <div className="space-y-4">
+            <div className="mx-auto w-20 h-20 bg-white/20 backdrop-blur-xl rounded-[28px] flex items-center justify-center shadow-2xl border border-white/30 animate-bounce">
+              <Receipt className="w-10 h-10 text-white" />
+            </div>
+            <div className="space-y-2">
+              <h1 className="text-4xl font-black tracking-tight">หารบิลกัน</h1>
+              <p className="text-violet-100 text-lg font-medium opacity-90">จัดการค่าใช้จ่ายกับเพื่อนได้ง่ายๆ <br/>ซิงค์ข้อมูลผ่าน LINE ทันที</p>
+            </div>
+          </div>
+
+          <div className="space-y-4 pt-4">
+            <button
+              onClick={login}
+              className="w-full flex items-center justify-center gap-3 bg-white text-violet-600 py-4 px-6 rounded-2xl font-black text-lg shadow-[0_20px_40px_rgba(0,0,0,0.2)] transition-all hover:-translate-y-1 hover:shadow-[0_25px_50px_rgba(0,0,0,0.25)] active:translate-y-0 active:scale-[0.98]"
+            >
+              <img src="https://upload.wikimedia.org/wikipedia/commons/4/41/LINE_logo.svg" className="w-6 h-6" alt="LINE" />
+              เข้าสู่ระบบด้วย LINE
+            </button>
+            <p className="text-[11px] text-violet-200/70 font-medium tracking-wide uppercase">ปลอดภัย • ซิงค์ข้อมูล Real-time • ใช้งานฟรี</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-violet-50 via-white to-sky-50 text-[15px] leading-6 tracking-[0.01em] sm:text-base">
       {/* Hidden inputs */}
