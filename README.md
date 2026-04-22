@@ -2,7 +2,7 @@
 
 # 💸 หารบิลกัน (Bill Splitter AI)
 
-**สแกนสลิป แชร์บิล จบทุกดราม่าในโต๊ะเดียว ด้วยพลัง Gemini 2.5 Flash**
+**สแกนสลิป แชร์บิล จบทุกดราม่าในโต๊ะเดียว ด้วยระบบ Multi-Tier AI (Gemini 3.1 & Gemma 4)**
 
 [![GitHub Stars](https://img.shields.io/github/stars/project-sy789/bill-splitter?style=for-the-badge&color=violet)](https://github.com/project-sy789/bill-splitter)
 [![License](https://img.shields.io/github/license/project-sy789/bill-splitter?style=for-the-badge&color=fuchsia)](LICENSE)
@@ -15,8 +15,9 @@
 
 ## 🚀 มีอะไรใหม่ในเวอร์ชันนี้?
 
-- **🤖 พลัง Gemini 2.5 Flash:** ใช้ AI รุ่นล่าสุดจาก Google มาช่วยอ่านสลิปภาษาไทย/อังกฤษ ได้แม่นยำกว่าเดิม
-- **⚡ OCR Hybrid Pipeline:** ระบบสลับอัตโนมัติ (Fallback) ไปใช้ Tesseract (Local OCR) ทันทีหาก Gemini ติดขัด
+- **🤖 ระบบ AI 3 ระดับ (Multi-Tier):** ใช้ Gemini 3.1 Flash-Lite เป็นหลัก เสริมด้วย Gemma 4 31B และ Gemini 2.5 Flash เพื่อความแม่นยำสูงสุด
+- **⚡ OCR Hybrid Pipeline:** ระบบสลับอัตโนมัติ (Fallback) ไปใช้ Tesseract (Local OCR) ทันทีหาก AI ทุกรุ่นติดขัด
+- **🔍 Model Transparency:** แสดงชื่อรุ่น AI ที่ประมวลผลจริงในหน้า Debug เพื่อความโปร่งใส
 - **🔄 Smart Auto-Retry:** ระบบลองใหม่อัตโนมัติเมื่อติด Rate Limit (429) เพื่อให้สแกนได้ลื่นไหลที่สุด
 - **🎨 New Progress UI:** แถบสถานะการอ่านแบบใหม่ เห็นชัดเจนว่า AI กำลังทำอะไรอยู่
 
@@ -37,7 +38,7 @@
 
 - **Frontend:** [React 19](https://react.dev/) + [Vite](https://vitejs.dev/) + [TypeScript](https://www.typescriptlang.org/)
 - **Styling:** [Tailwind CSS](https://tailwindcss.com/) + [Framer Motion](https://www.framer.com/motion/) (Animations)
-- **AI/OCR:** [Gemini 2.5 Flash API](https://aistudio.google.com/) + [Cloudflare Workers](https://workers.cloudflare.com/) (Proxy) + [Tesseract.js](https://tesseract.projectnaptha.com/)
+- **AI/OCR:** [Gemini 3.1 / Gemma 4 / Gemini 2.5](https://aistudio.google.com/) + [Cloudflare Workers](https://workers.cloudflare.com/) (Proxy) + [Tesseract.js](https://tesseract.projectnaptha.com/)
 - **Storage:** [IndexedDB](https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API) (เก็บข้อมูลในเครื่อง ปลอดภัย 100%)
 
 ---
