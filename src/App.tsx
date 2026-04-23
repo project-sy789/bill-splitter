@@ -470,7 +470,7 @@ function App() {
     }
   }, [lineProfile])
 
-  const { groups, saveGroup, deleteGroup } = useGroups()
+  const { groups, saveGroup, deleteGroup } = useGroups(lineProfile?.userId)
   const [groupModalMode, setGroupModalMode] = useState<'save' | 'load' | null>(null)
   const [newGroupName, setNewGroupName] = useState('')
   const [isManualBillModalOpen, setIsManualBillModalOpen] = useState(false)
