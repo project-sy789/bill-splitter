@@ -186,15 +186,15 @@ export async function fetchRemoteAffiliateLinks(): Promise<any[]> {
 
   const { data, error } = await supabase
     .from('affiliate_links')
-    .select('url, image_url, description, price_text')
-    .eq('is_active', true)
+    .select('*')
 
   if (error) {
-    console.error('Error fetching affiliate links:', error)
+    console.error('Error fetching affiliate links from Supabase:', error)
     return []
   }
 
-  return data
+  // Filter in JS to be more resilient
+  return data?.filter(d => d.is_active === true || d.is_active === null) || []
 }
 
 // ── Group Management Functions ──
