@@ -1076,18 +1076,6 @@ function App() {
     setIsHistoryModalOpen(false)
   }, [reset])
 
-    reset()
-    prevMergedLenRef.current = 0
-    prevResultsLenRef.current = 0
-    setIsHistoryModalOpen(false)
-
-    // If it was a shared bill and we are the owner, delete it from cloud
-    if (billIdFromUrl && isBillOwner && lineProfile) {
-      deleteBill(billIdFromUrl, lineProfile.userId)
-      // Clear URL to prevent re-saving
-      window.history.replaceState({}, '', window.location.pathname)
-    }
-  }, [reset, billIdFromUrl, isBillOwner, lineProfile])
 
   const handleRemoveHistoryBill = (id: string) => {
     if (confirm('คุณต้องการลบข้อมูลบิลนี้ออกจากประวัติและคลาวด์ใช่หรือไม่?')) {
