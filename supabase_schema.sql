@@ -29,3 +29,31 @@ CREATE POLICY "Users can update their own bills" ON public.bills
 
 CREATE POLICY "Users can delete their own bills" ON public.bills
     FOR DELETE USING (true);
+
+-- ──────────────────────────────────────────────
+-- Groups Table (บันทึกแก๊ง)
+-- ──────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS public.groups (
+  id uuid not null default gen_random_uuid(),
+  user_id text not null,
+  name text not null,
+  members jsonb not null,
+  created_at timestamp with time zone not null default timezone ('utc'::text, now()),
+  constraint groups_pkey primary key (id)
+);
+
+-- Enable Row Level Security
+ALTER TABLE public.groups ENABLE ROW LEVEL SECURITY;
+
+-- Allow reading groups
+CREATE POLICY "Users can view groups" ON public.groups
+    FOR SELECT USING (true);
+
+-- Allow inserting groups
+CREATE POLICY "Anyone can insert groups" ON public.groups
+    FOR INSERT WITH CHECK (true);
+
+-- Allow deleting groups
+CREATE POLICY "Users can delete groups" ON public.groups
+    FOR DELETE USING (true);
