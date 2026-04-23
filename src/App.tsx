@@ -754,6 +754,9 @@ function App() {
 
   // ── Recover orphaned OCR items across page reloads ──
   useEffect(() => {
+    // Only attempt recovery if we have items AND we're not in a loading/transient state
+    if (items.length === 0) return
+
     const knownIds = new Set([
       ...manualBills.map(m => m.id),
       ...results.map((_, i) => `ocr-${i}`)
@@ -1117,6 +1120,7 @@ function App() {
 
     setCurrentBillId(h.id)
     setMembers(data.members)
+    if (data.results) setResults(data.results)
     setItems(data.items)
     setAllocationMode(data.allocationMode ?? 'proportional')
     setPaidByMember(data.paidByMember ?? {})
@@ -1130,7 +1134,6 @@ function App() {
       vatIncluded: b.vatIncluded ?? false
     })))
     setReceiptPayerMap(data.receiptPayerMap ?? {})
-    if (data.results) setResults(data.results)
     reset()
     setIsHistoryModalOpen(false)
   }, [reset])
