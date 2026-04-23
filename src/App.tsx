@@ -354,8 +354,6 @@ function App() {
           setIsBillOwner(false)
         }
 
-        console.log('Successfully fetched bill data:', dbBill.bill_data)
-
         // Load initial state from cloud
         const state = dbBill.bill_data as PersistedBillState
         if (state) {
@@ -367,14 +365,14 @@ function App() {
           if (state.settlementStatus) setSettlementStatus(state.settlementStatus || {})
           if (state.manualBills) setManualBills(state.manualBills || [])
           if (state.receiptPayerMap) setReceiptPayerMap(state.receiptPayerMap || {})
-          console.log('Bill data loaded successfully');
+          console.log('Successfully loaded shared bill:', billIdFromUrl)
         } else {
-          console.error('Bill data is missing in the record');
-          alert('ไม่พบข้อมูลในบิลนี้');
+          console.error('Bill data is missing in record:', dbBill)
+          alert('พบข้อมูลบิลแต่ไม่มีเนื้อหา (Data missing)')
         }
       } else {
-        console.warn('No bill found with ID:', billIdFromUrl)
-        alert('หาบิลนี้ไม่พบในระบบ หรือคุณไม่มีสิทธิ์เข้าถึง');
+        console.error('No bill found in database for ID:', billIdFromUrl)
+        alert(`หาบิลไม่พบในคลาวด์ (ID: ${billIdFromUrl})\n\nคำแนะนำ: ลองให้เพื่อนกด "เซฟ" หรือ "แก้ข้อมูล" อีกครั้งเพื่อให้ข้อมูลอัปโหลดขึ้นคลาวด์ครับ`)
       }
       setIsInitialLoadFinished(true)
 
@@ -517,8 +515,10 @@ function App() {
     }
   }, [])
 
-  const handleShareBill = useCallback(async (billId: string) => {
-    const el = document.getElementById(`bill-card-${billId}`)
+  const handleShareBill = useCallback(async (id: string) => {
+    // Always share the current active bill session ID
+    const shareUrl = `${window.location.origin}${window.location.pathname}?billId=${currentBillId}`
+    const el = document.getElementById(`bill-card-${id}`)
     if (!el) return
     try {
       const dataUrl = await htmlToImage.toPng(el, {
