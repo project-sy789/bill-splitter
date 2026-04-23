@@ -19,12 +19,13 @@ export interface DbBill {
   updated_at?: string
 }
 
-export async function saveBillToCloud(userId: string, name: string, total: number, data: any) {
+export async function saveBillToCloud(billId: string, userId: string, name: string, total: number, data: any) {
   if (!supabaseUrl) return
 
   const { error } = await supabase
     .from('bills')
     .upsert({
+      id: billId, // Use the provided ID
       user_id: userId,
       name: name,
       total_amount: total,
