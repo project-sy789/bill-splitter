@@ -249,6 +249,8 @@ function App() {
   const [billIdFromUrl] = useState(() => new URLSearchParams(window.location.search).get('billId'))
   const [isBillOwner, setIsBillOwner] = useState(false)
   const [isLocked, setIsLocked] = useState(false)
+  const isGuest = !lineProfile && !!billIdFromUrl
+  const effectiveLocked = isLocked || isGuest
   const [usageStats, setUsageStats] = useState({ daily: 0, weekly: 0 })
   const [showLimitModal, setShowLimitModal] = useState(false)
   const [randomLink, setRandomLink] = useState('')
@@ -716,7 +718,7 @@ function App() {
     }, 1000)
 
     return () => clearTimeout(timer)
-  }, [dbReady, members, items, isLocked, allocationMode, paidByMember, settlementStatus, manualBills, receiptPayerMap, currentBillId, addOrUpdateBill, grandTotal, lineProfile, billIdFromUrl, remoteUpdating, isLocked, isBillOwner, isInitialLoadFinished])
+  }, [dbReady, members, items, isLocked, isGuest, allocationMode, paidByMember, settlementStatus, manualBills, receiptPayerMap, currentBillId, addOrUpdateBill, grandTotal, lineProfile, billIdFromUrl, remoteUpdating, isBillOwner, isInitialLoadFinished])
 
 
 
@@ -1296,7 +1298,8 @@ function App() {
             </button>
             <button
               onClick={handleCreateNewBill}
-              className="rounded-xl border border-red-100 p-2 text-red-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+              disabled={effectiveLocked}
+              className="rounded-xl border border-red-100 p-2 text-red-400 hover:bg-red-50 hover:text-red-500 transition-colors disabled:opacity-50"
               title="ล้างข้อมูลทั้งหมด"
             >
               <Trash2 className="h-4 w-4" />
@@ -1359,14 +1362,15 @@ function App() {
                   {isLocked ? 'ปลดล็อคบิล' : 'ล็อคบิล'}
                 </button>
               )}
-              {!isBillOwner && isLocked && (
+              {(isGuest || (!isBillOwner && isLocked)) && (
                 <div className="text-[10px] bg-orange-100 text-orange-700 px-2 py-1.5 rounded-lg font-bold flex items-center gap-1 border border-orange-200 animate-pulse">
-                  <Lock className="w-3 h-3"/> บิลถูกล็อค (ดูได้อย่างเดียว)
+                  <Lock className="w-3 h-3"/> 
+                  {isGuest ? 'โหมดผู้เยี่ยมชม (ดูได้อย่างเดียว)' : 'บิลถูกล็อค (ดูได้อย่างเดียว)'}
                 </div>
               )}
               <button 
                 onClick={shareJoinLink}
-                disabled={isLocked && !isBillOwner}
+                disabled={effectiveLocked && !isBillOwner}
                 className="text-xs text-[#06C755] bg-[#06C755]/10 hover:bg-[#06C755]/20 flex items-center gap-1 px-2 py-1.5 rounded-lg font-bold transition-colors border border-[#06C755]/20 disabled:opacity-50"
               >
                 <Share className="w-3.5 h-3.5"/> เชิญเพื่อน
