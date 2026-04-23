@@ -1089,6 +1089,8 @@ function App() {
     // If it was a shared bill and we are the owner, delete it from cloud
     if (billIdFromUrl && isBillOwner && lineProfile) {
       deleteBill(billIdFromUrl, lineProfile.userId)
+      // Clear URL to prevent re-saving
+      window.history.replaceState({}, '', window.location.pathname)
     }
   }, [reset, billIdFromUrl, isBillOwner, lineProfile])
 
@@ -1097,6 +1099,11 @@ function App() {
       removeBill(id)
       if (lineProfile) {
         deleteBill(id, lineProfile.userId)
+      }
+      // If the deleted bill is the current one, reset the app to local mode
+      if (id === billIdFromUrl) {
+        window.history.replaceState({}, '', window.location.pathname)
+        resetAll()
       }
     }
   }
