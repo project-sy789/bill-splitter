@@ -2085,7 +2085,12 @@ function App() {
                   <button
                     onClick={() => {
                       if (!newGroupName.trim()) return
-                      saveGroup(newGroupName, members.map(m => ({ name: m.name, promptPayId: m.promptPayId })))
+                      saveGroup(newGroupName, members.map(m => ({ 
+                        name: m.name, 
+                        promptPayId: m.promptPayId,
+                        pictureUrl: m.pictureUrl,
+                        userId: m.userId
+                      })))
                       setGroupModalMode(null)
                       setNewGroupName('')
                     }}
@@ -2111,7 +2116,9 @@ function App() {
                                   id: crypto.randomUUID(),
                                   name: m.name,
                                   promptPayId: m.promptPayId || '',
-                                  color: MEMBER_COLORS[i % MEMBER_COLORS.length]!
+                                  color: MEMBER_COLORS[i % MEMBER_COLORS.length]!,
+                                  pictureUrl: m.pictureUrl,
+                                  userId: m.userId
                                 }))
                                 setMembers(loadedMembers)
                                 setGroupModalMode(null)
