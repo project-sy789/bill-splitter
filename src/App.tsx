@@ -19,8 +19,8 @@ import {
   AlertCircle,
   Lock,
   Unlock,
-  Zap,
-  ShoppingBag, // Single import here
+  Zap as ZapIcon,
+  ShoppingBag as ShoppingBagIcon, // Using alias to avoid any hidden conflicts
 } from 'lucide-react'
 import * as htmlToImage from 'html-to-image'
 
@@ -1303,11 +1303,11 @@ function App() {
               ) : (
                 <div className="bg-gradient-to-br from-[#EE4D2D] to-[#FF7337] p-8 text-center text-white relative h-48 flex flex-col items-center justify-center overflow-hidden">
                   <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
-                    <div className="absolute top-2 left-4 rotate-12"><ShoppingBag className="w-12 h-12" /></div>
+                    <div className="absolute top-2 left-4 rotate-12"><ShoppingBagIcon className="w-12 h-12" /></div>
                     <div className="absolute bottom-4 right-6 -rotate-12"><Receipt className="w-16 h-16" /></div>
                   </div>
                   <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center mb-3 shadow-inner border border-white/30">
-                    <ShoppingBag className="w-8 h-8 text-white" />
+                    <ShoppingBagIcon className="w-8 h-8 text-white" />
                   </div>
                   <h3 className="text-lg font-black leading-tight">สนับสนุนแอปเพื่อใช้ต่อ!</h3>
                   <p className="text-orange-50 text-[10px] font-medium opacity-90 mt-1">ขอบคุณที่ช่วยให้เราพัฒนาแอปต่อไปได้ครับ</p>
@@ -1348,7 +1348,7 @@ function App() {
                   className="group relative w-full flex items-center justify-center gap-3 bg-[#EE4D2D] text-white py-4 rounded-2xl font-black text-lg shadow-[0_10px_25px_rgba(238,77,45,0.35)] transition-all hover:-translate-y-1 hover:shadow-[0_15px_35px_rgba(238,77,45,0.45)] active:translate-y-0 active:scale-95 overflow-hidden"
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-                  <ShoppingBag className="w-6 h-6" />
+                  <ShoppingBagIcon className="w-6 h-6" />
                   ไปที่ Shopee เพื่อใช้งานต่อ
                 </a>
                 
@@ -1373,7 +1373,7 @@ function App() {
               ? 'bg-emerald-500/90 text-white border-emerald-400' 
               : 'bg-violet-600/90 text-white border-violet-400'
           }`}>
-            {toast.type === 'success' ? <Check className="w-4 h-4" /> : <Zap className="w-4 h-4" />}
+            {toast.type === 'success' ? <Check className="w-4 h-4" /> : <ZapIcon className="w-4 h-4" />}
             <span className="text-sm font-bold tracking-tight">{toast.message}</span>
           </div>
         </div>
