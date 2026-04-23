@@ -679,46 +679,44 @@ function App() {
     return round2(unifiedBills.reduce((acc, b) => acc + b.amount, 0) + items.filter(it => !it.billId).reduce((acc, it) => acc + it.amount, 0))
   }, [unifiedBills, items])
 
-  // ── Persist to IndexedDB ──
+  // ── Persistence Effect (Debounced) ──
   useEffect(() => {
     if (!dbReady) return
-    const state: PersistedBillState = { 
-      version: 4, 
-      members, 
-      items, 
-      serviceCharge: 0, 
-      vat: 0, 
-      billDiscount: 0, 
-      discount: 0, 
-      allocationMode, 
-      paidByMember, 
-      settlementStatus, 
-      manualBills, 
-      receiptPayerMap,
-      isLocked,
-      createdBy: lineProfile?.userId
-    }
-    const title = `บิลวันที่ ${new Date().toLocaleDateString('th-TH')} - ยอด ฿${grandTotal.toFixed(2)}`
 
-    void db.saveBill(currentBillId, title, state)
-    void db.setSetting('current-bill-id', currentBillId)
+    const timer = setTimeout(() => {
+      const state: PersistedBillState = { 
+        version: 4, 
+        members, 
+        items, 
+        isLocked,
+        allocationMode, 
+        paidByMember, 
+        settlementStatus, 
+        manualBills, 
+        receiptPayerMap,
+        createdBy: lineProfile?.userId,
+        grandTotal
+      }
+      const title = `บิลวันที่ ${new Date().toLocaleDateString('th-TH')} - ยอด ฿${grandTotal.toFixed(2)}`
 
-    // Auto-save history if the bill has any meaningful data
-    if (items.length > 0 || members.length > 2 || Object.keys(paidByMember).length > 0 || manualBills.length > 0) {
-      addOrUpdateBill(currentBillId, title, { ...state, grandTotal }, lineProfile?.userId)
-      
-      // Collaborative Sync: 
-      // 1. Must be a shared bill
-      // 2. Initial data from cloud must be loaded (to prevent overwriting with empty local state)
-      // 3. Must NOT be a remote update triggering this effect
-      // 4. Must be owner OR the bill is NOT locked
-      if (billIdFromUrl && isInitialLoadFinished && !remoteUpdating) {
-        if (isBillOwner || !isLocked) {
-          updateBillData(billIdFromUrl, state)
+      void db.saveBill(currentBillId, title, state)
+      void db.setSetting('current-bill-id', currentBillId)
+
+      // Auto-save history if the bill has any meaningful data
+      if (items.length > 0 || members.length > 2 || Object.keys(paidByMember).length > 0 || manualBills.length > 0) {
+        addOrUpdateBill(currentBillId, title, { ...state, grandTotal }, lineProfile?.userId)
+        
+        // Collaborative Sync: 
+        if (billIdFromUrl && isInitialLoadFinished && !remoteUpdating) {
+          if (isBillOwner || !isLocked) {
+            updateBillData(billIdFromUrl, state)
+          }
         }
       }
-    }
-  }, [dbReady, members, items, allocationMode, paidByMember, settlementStatus, manualBills, receiptPayerMap, currentBillId, addOrUpdateBill, grandTotal, lineProfile, billIdFromUrl, remoteUpdating, isLocked, isBillOwner, isInitialLoadFinished])
+    }, 1000)
+
+    return () => clearTimeout(timer)
+  }, [dbReady, members, items, isLocked, allocationMode, paidByMember, settlementStatus, manualBills, receiptPayerMap, currentBillId, addOrUpdateBill, grandTotal, lineProfile, billIdFromUrl, remoteUpdating, isLocked, isBillOwner, isInitialLoadFinished])
 
 
 
