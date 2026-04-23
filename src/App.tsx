@@ -289,10 +289,6 @@ function App() {
   }, [lineProfile])
 
   // Pre-calculate if limit is reached to make the click handler ultra-fast
-  const isLimitReached = useMemo(() => {
-    if (!lineProfile) return false;
-    return usageStats.daily >= USAGE_LIMITS.DAILY || usageStats.weekly >= USAGE_LIMITS.WEEKLY;
-  }, [usageStats, lineProfile]);
 
   // Pre-pick the ad whenever remoteLinks change or modal is shown
   useEffect(() => {
