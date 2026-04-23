@@ -19,6 +19,8 @@ import {
   AlertCircle,
   Lock,
   Unlock,
+  Zap,
+  ShoppingBag,
 } from 'lucide-react'
 import * as htmlToImage from 'html-to-image'
 
