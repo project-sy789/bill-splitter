@@ -71,14 +71,18 @@ export async function updateBillData(billId: string, data: any) {
 
   const { error } = await supabase
     .from('bills')
-    .update({
+    .upsert({
+      id: billId,
       bill_data: data,
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', billId)
+      user_id: data.createdBy || 'unknown',
+      name: `บิลวันที่ ${new Date().toLocaleDateString('th-TH')}`,
+      total_amount: data.grandTotal || 0,
+      updated_at: new Date().toISOString(),
+      is_locked: data.isLocked || false
+    }, { onConflict: 'id' })
 
   if (error) {
-    console.error('Error updating bill in Supabase:', error)
+    console.error('Error upserting bill in Supabase:', error)
   }
 }
 
