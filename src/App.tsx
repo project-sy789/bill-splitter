@@ -1257,15 +1257,6 @@ function App() {
                 )}
               </div>
 
-              <div className="bg-gray-50 rounded-2xl p-3 border border-gray-100 flex items-center justify-between">
-                <div>
-                  <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">สถานะโควตาของคุณ</p>
-                  <p className="text-sm font-black text-gray-700">{usageStats.daily} / {USAGE_LIMITS.DAILY} ครั้งวันนี้</p>
-                </div>
-                <div className="h-8 w-8 rounded-full bg-orange-100 flex items-center justify-center">
-                  <div className="h-4 w-4 rounded-full border-2 border-orange-500 border-t-transparent animate-spin" />
-                </div>
-              </div>
               
               <a
                 href={randomLink}
