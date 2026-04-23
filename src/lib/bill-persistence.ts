@@ -50,6 +50,7 @@ export interface PersistedBillState {
   receiptPayerMap?: Record<string, string>
   isLocked?: boolean
   createdBy?: string
+  grandTotal?: number
 }
 
 export const STORAGE_KEY = 'bill-splitter:v4'
@@ -74,6 +75,9 @@ export function safeParseBillState(raw: string | null): PersistedBillState | nul
       settlementStatus: parsed.settlementStatus ?? {},
       manualBills: parsed.manualBills ?? [],
       receiptPayerMap: parsed.receiptPayerMap ?? {},
+      isLocked: parsed.isLocked ?? false,
+      createdBy: parsed.createdBy,
+      grandTotal: parsed.grandTotal ?? 0
     }
   } catch {
     return null
