@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { Receipt, Zap, ChevronDown, Users, Check, Trash2, Share } from 'lucide-react'
 
 import { type BillItemDraft, type ManualBill, type MemberDraft } from '../lib/bill-persistence'
