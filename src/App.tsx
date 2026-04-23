@@ -294,9 +294,9 @@ function App() {
     return usageStats.daily >= USAGE_LIMITS.DAILY || usageStats.weekly >= USAGE_LIMITS.WEEKLY;
   }, [usageStats, lineProfile]);
 
-  // Pre-pick the ad whenever remoteLinks or usageStats change
+  // Pre-pick the ad whenever remoteLinks change or modal is shown
   useEffect(() => {
-    if (isLimitReached && remoteLinks.length > 0 && !randomAd) {
+    if (showLimitModal && remoteLinks.length > 0) {
       const pick = { ...remoteLinks[Math.floor(Math.random() * remoteLinks.length)] };
       if (!pick.image_url && pick.url.startsWith('http')) {
         const workerUrl = import.meta.env.VITE_OCR_WORKER_URL || '';
@@ -311,7 +311,7 @@ function App() {
       setRandomAd(pick);
       setRandomLink(pick.url);
     }
-  }, [isLimitReached, remoteLinks, randomAd]);
+  }, [showLimitModal, remoteLinks]);
 
   const checkAndRecordUsage = (action: string): boolean => {
     // ALWAYS show ad if not temporarily unlocked
