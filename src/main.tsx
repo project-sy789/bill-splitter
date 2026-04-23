@@ -15,7 +15,7 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     if (import.meta.env.PROD) {
       navigator.serviceWorker
-        .register('/bill-splitter/sw.js', { scope: '/bill-splitter/' })
+        .register(`${import.meta.env.BASE_URL}sw.js`, { scope: import.meta.env.BASE_URL })
         .catch(() => { /* SW unavailable in this environment — safe to ignore */ })
       return
     }
