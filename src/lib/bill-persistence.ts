@@ -8,6 +8,7 @@ export interface MemberDraft {
   color: string
   promptPayId: string
   pictureUrl?: string
+  userId?: string
 }
 
 export interface BillItemDraft {
