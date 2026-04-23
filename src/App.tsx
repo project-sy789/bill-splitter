@@ -20,7 +20,7 @@ import {
   Lock,
   Unlock,
   Zap,
-  ShoppingBag,
+  ShoppingBag, // Single import here
 } from 'lucide-react'
 import * as htmlToImage from 'html-to-image'
 
