@@ -18,54 +18,6 @@ export interface DbBill {
   created_at?: string
 }
 
-export async function saveBillToCloud(userId: string, name: string, total: number, data: any) {
-  if (!supabaseUrl) return
-
-  const { error } = await supabase
-    .from('bills')
-    .upsert({
-      user_id: userId,
-      name: name,
-      total_amount: total,
-      bill_data: data,
-      updated_at: new Date().toISOString()
-    }, { onConflict: 'id' })
-
-  if (error) {
-    console.error('Error saving bill to Supabase:', error)
-  }
-}
-
-export async function fetchUserBills(userId: string): Promise<DbBill[]> {
-  if (!supabaseUrl) return []
-
-  const { data, error } = await supabase
-    .from('bills')
-    .select('*')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false })
-
-  if (error) {
-    console.error('Error fetching bills from Supabase:', error)
-    return []
-  }
-
-  return data || []
-}
-
-export async function deleteBillFromCloud(billId: string) {
-  if (!supabaseUrl) return
-
-  const { error } = await supabase
-    .from('bills')
-    .delete()
-    .eq('id', billId)
-
-  if (error) {
-    console.error('Error deleting bill from Supabase:', error)
-  }
-}
-
 export async function updateBillData(billId: string, data: any) {
   if (!supabaseUrl) return
 
@@ -130,14 +82,17 @@ export async function fetchBillById(billId: string): Promise<DbBill | null> {
 export async function deleteBill(billId: string, userId: string) {
   if (!supabaseUrl) return
 
+  // Delete from Supabase
   const { error } = await supabase
     .from('bills')
     .delete()
     .eq('id', billId)
-    .eq('user_id', userId) // Matches your schema: user_id text not null
+    .eq('user_id', userId)
 
   if (error) {
     console.error('Error deleting bill from Supabase:', error)
+  } else {
+    console.log('Bill deleted from Supabase successfully')
   }
 }
 
@@ -167,14 +122,12 @@ export async function fetchUsageStats(userId: string) {
   const lastWeek = new Date()
   lastWeek.setDate(lastWeek.getDate() - 7)
 
-  // Count daily
   const { count: dailyCount, error: dailyError } = await supabase
     .from('usage_logs')
     .select('*', { count: 'exact', head: true })
     .eq('user_id', userId)
     .gte('created_at', today.toISOString())
 
-  // Count weekly
   const { count: weeklyCount, error: weeklyError } = await supabase
     .from('usage_logs')
     .select('*', { count: 'exact', head: true })
