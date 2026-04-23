@@ -1111,7 +1111,10 @@ function App() {
     if (allowed) {
       window.history.replaceState({}, '', window.location.pathname)
       resetAll()
-    }  const handleJoinBill = () => {
+    }
+  }
+
+  const handleJoinBill = () => {
     if (!lineProfile) return;
     const exists = members.some(m => m.userId === lineProfile.userId || m.name === lineProfile.displayName);
     if (!exists) {
@@ -1127,7 +1130,6 @@ function App() {
     } else {
       alert('คุณอยู่ในรายชื่อคนหารบิลนี้เรียบร้อยแล้วครับ');
     }
-  }
   }
 
   // ──────────────────────────────────────────────
