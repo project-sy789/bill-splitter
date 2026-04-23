@@ -1047,16 +1047,27 @@ function App() {
     setTimeout(() => setCopiedId(null), 1500)
   }, [])
 
-  const loadHistoryBill = useCallback(async (id: string) => {
-    const data = await db.getBill(id)
-    if (!data) return
-    setCurrentBillId(id)
+  const loadHistoryBill = useCallback(async (h: BillHistoryMeta) => {
+    // If we have data directly in the history item (Cloud bills usually have this), use it
+    let data = h.data;
+    
+    // Otherwise, try to get it from local IndexedDB
+    if (!data) {
+      data = await db.getBill(h.id)
+    }
+
+    if (!data) {
+      alert('ไม่พบข้อมูลบิลนี้ในระบบครับ')
+      return
+    }
+
+    setCurrentBillId(h.id)
     setMembers(data.members)
     setItems(data.items)
     setAllocationMode(data.allocationMode ?? 'proportional')
     setPaidByMember(data.paidByMember ?? {})
     setSettlementStatus(data.settlementStatus ?? {})
-    setManualBills((data.manualBills ?? []).map(b => ({
+    setManualBills((data.manualBills ?? []).map((b: any) => ({
       ...b,
       serviceCharge: b.serviceCharge ?? 0,
       vat: b.vat ?? 0,
@@ -1934,7 +1945,7 @@ function App() {
               ) : (
                 history.map((h: BillHistoryMeta) => (
                   <div key={h.id} className="flex items-center justify-between rounded-xl border border-gray-100 bg-white p-3 shadow-sm hover:border-violet-200 transition-colors">
-                    <button onClick={() => loadHistoryBill(h.id)} className="flex-1 text-left min-w-0">
+                    <button onClick={() => loadHistoryBill(h)} className="flex-1 text-left min-w-0">
                       <p className={`text-sm font-semibold truncate ${h.id === currentBillId ? 'text-violet-600' : 'text-gray-800'}`}>
                         {h.title}
                         {h.id === currentBillId && <span className="ml-2 text-[10px] bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded-md">เปิดอยู่</span>}
