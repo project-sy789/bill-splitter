@@ -290,20 +290,32 @@ function App() {
 
   // Pre-pick the ad whenever remoteLinks change or modal is shown
   useEffect(() => {
-    if (showLimitModal && remoteLinks.length > 0) {
-      const pick = { ...remoteLinks[Math.floor(Math.random() * remoteLinks.length)] };
-      if (!pick.image_url && pick.url.startsWith('http')) {
-        const workerUrl = import.meta.env.VITE_OCR_WORKER_URL || '';
-        fetch(`${workerUrl}/unfurl?url=${encodeURIComponent(pick.url)}`)
-          .then(res => res.json())
-          .then(data => {
-            if (data.image) {
-              setRandomAd(prev => (prev?.url === pick.url ? { ...prev, image_url: data.image } : prev));
-            }
-          }).catch(() => {});
+    const defaultAd = {
+      url: 'https://s.shopee.co.th/9zu0cMC4qQ',
+      description: 'สนับสนุนแอปด้วยการช้อปปิ้งสินค้าแนะนำครับ',
+      price_text: 'เริ่มต้น ฿49'
+    };
+
+    if (showLimitModal) {
+      if (remoteLinks.length > 0) {
+        const pick = { ...remoteLinks[Math.floor(Math.random() * remoteLinks.length)] };
+        if (!pick.image_url && pick.url.startsWith('http')) {
+          const workerUrl = import.meta.env.VITE_OCR_WORKER_URL || '';
+          fetch(`${workerUrl}/unfurl?url=${encodeURIComponent(pick.url)}`)
+            .then(res => res.json())
+            .then(data => {
+              if (data.image) {
+                setRandomAd(prev => (prev?.url === pick.url ? { ...prev, image_url: data.image } : prev));
+              }
+            }).catch(() => {});
+        }
+        setRandomAd(pick);
+        setRandomLink(pick.url);
+      } else {
+        // Fallback to default ad if no remote links
+        setRandomAd(defaultAd);
+        setRandomLink(defaultAd.url);
       }
-      setRandomAd(pick);
-      setRandomLink(pick.url);
     }
   }, [showLimitModal, remoteLinks]);
 
