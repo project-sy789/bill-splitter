@@ -1264,65 +1264,84 @@ function App() {
       {showLimitModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-white rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300 border border-white/20">
-            {/* Ad Banner Image */}
-            {randomAd?.image_url ? (
-              <div className="h-48 w-full overflow-hidden relative group">
-                <img src={randomAd.image_url} alt="Ad" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
-                <div className="absolute top-3 left-3 bg-[#EE4D2D] text-white text-[10px] font-black px-2 py-1 rounded shadow-lg uppercase tracking-widest">
-                  Hot Deal
+            {/* Header / Image Area */}
+            <div className="relative group">
+              {randomAd?.image_url ? (
+                <div className="relative h-56 w-full overflow-hidden">
+                  <img 
+                    src={randomAd.image_url} 
+                    alt="Product" 
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                  <div className="absolute bottom-4 left-4 right-4">
+                    <div className="inline-block px-2 py-0.5 bg-[#EE4D2D] text-white text-[9px] font-black rounded mb-1 uppercase tracking-widest shadow-lg">
+                      Recommended
+                    </div>
+                    <h3 className="text-white font-bold text-sm line-clamp-1 leading-tight">
+                      {randomAd.description}
+                    </h3>
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <div className="bg-gradient-to-br from-[#EE4D2D] to-[#FF7337] p-8 text-center text-white relative">
-                <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
-                  <div className="absolute top-2 left-4 rotate-12"><ShoppingBag className="w-12 h-12" /></div>
-                  <div className="absolute bottom-4 right-6 -rotate-12"><Receipt className="w-16 h-16" /></div>
+              ) : (
+                <div className="bg-gradient-to-br from-[#EE4D2D] to-[#FF7337] p-8 text-center text-white relative h-48 flex flex-col items-center justify-center overflow-hidden">
+                  <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
+                    <div className="absolute top-2 left-4 rotate-12"><ShoppingBag className="w-12 h-12" /></div>
+                    <div className="absolute bottom-4 right-6 -rotate-12"><Receipt className="w-16 h-16" /></div>
+                  </div>
+                  <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center mb-3 shadow-inner border border-white/30">
+                    <ShoppingBag className="w-8 h-8 text-white" />
+                  </div>
+                  <h3 className="text-lg font-black leading-tight">สนับสนุนแอปเพื่อใช้ต่อ!</h3>
+                  <p className="text-orange-50 text-[10px] font-medium opacity-90 mt-1">ขอบคุณที่ช่วยให้เราพัฒนาแอปต่อไปได้ครับ</p>
                 </div>
-                <div className="mx-auto w-16 h-16 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center mb-4 shadow-inner border border-white/30">
-                  <AlertCircle className="w-8 h-8 text-white" />
-                </div>
-                <h3 className="text-xl font-black mb-1">สนับสนุนแอปเพื่อใช้ต่อ!</h3>
-                <p className="text-orange-50 text-xs font-medium opacity-90">ขอบคุณที่ช่วยให้เราพัฒนาแอปต่อไปได้ครับ</p>
-              </div>
-            )}
+              )}
+            </div>
 
-            <div className="p-6 space-y-4">
-              {/* Ad Content */}
-              <div className="space-y-2">
-                <h4 className="text-sm font-black text-gray-800 leading-tight line-clamp-2">
-                  {randomAd?.description || 'ขอบคุณที่สนับสนุนเรา! ช่วยดูโฆษณาเพื่อปลดล็อคการใช้งานต่อครับ'}
-                </h4>
-                {randomAd?.price_text && (
-                  <p className="text-lg font-black text-[#EE4D2D]">{randomAd.price_text}</p>
+            <div className="p-6 space-y-5 text-center">
+              <div className="space-y-1.5">
+                {!randomAd?.image_url && randomAd?.description && (
+                  <h4 className="text-sm font-black text-gray-800 leading-tight">
+                    {randomAd.description}
+                  </h4>
+                )}
+                {randomAd?.price_text ? (
+                  <div className="inline-flex items-baseline gap-1 bg-orange-50 px-4 py-1.5 rounded-2xl border border-orange-100">
+                    <span className="text-xs font-bold text-[#EE4D2D]">ราคา</span>
+                    <span className="text-2xl font-black text-[#EE4D2D]">{randomAd.price_text}</span>
+                  </div>
+                ) : (
+                  <p className="text-gray-400 text-xs font-medium italic">คลิกเพื่อรับสิทธิพิเศษจาก Shopee</p>
                 )}
               </div>
 
-              
-              <a
-                href={randomLink || '#'}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => {
-                  if (!randomLink) {
-                    e.preventDefault();
-                    return;
-                  }
-                  setIsTemporarilyUnlocked(true);
-                  setTimeout(() => setShowLimitModal(false), 800);
-                }}
-                className="w-full flex items-center justify-center gap-3 bg-[#EE4D2D] text-white py-4 rounded-2xl font-black text-lg shadow-[0_10px_25px_rgba(238,77,45,0.35)] transition-all hover:-translate-y-1 hover:shadow-[0_15px_35px_rgba(238,77,45,0.45)] active:translate-y-0 active:scale-95"
-              >
-                <ShoppingBag className="w-6 h-6" />
-                ไปที่ Shopee เพื่อใช้งานต่อ
-              </a>
-              
-              <button 
-                onClick={() => setShowLimitModal(false)}
-                className="w-full text-gray-400 text-[10px] font-bold py-2 hover:text-gray-600 transition-colors uppercase tracking-widest"
-              >
-                ยังไม่พร้อมตอนนี้
-              </button>
+              <div className="space-y-3">
+                <a
+                  href={randomLink || '#'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => {
+                    if (!randomLink) {
+                      e.preventDefault();
+                      return;
+                    }
+                    setIsTemporarilyUnlocked(true);
+                    setTimeout(() => setShowLimitModal(false), 800);
+                  }}
+                  className="group relative w-full flex items-center justify-center gap-3 bg-[#EE4D2D] text-white py-4 rounded-2xl font-black text-lg shadow-[0_10px_25px_rgba(238,77,45,0.35)] transition-all hover:-translate-y-1 hover:shadow-[0_15px_35px_rgba(238,77,45,0.45)] active:translate-y-0 active:scale-95 overflow-hidden"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+                  <ShoppingBag className="w-6 h-6" />
+                  ไปที่ Shopee เพื่อใช้งานต่อ
+                </a>
+                
+                <button 
+                  onClick={() => setShowLimitModal(false)}
+                  className="w-full text-gray-400 text-[10px] font-bold py-2 hover:text-gray-600 transition-colors uppercase tracking-widest"
+                >
+                  ยังไม่พร้อมตอนนี้
+                </button>
+              </div>
             </div>
           </div>
         </div>
