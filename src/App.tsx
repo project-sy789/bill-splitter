@@ -41,7 +41,6 @@ import type { SplitMode } from './types/bill'
 import { initLiff, login, logout, shareBillToFriends, type LineProfile } from './lib/liff'
 import liff from '@line/liff'
 import { subscribeToBill, fetchBillById, updateBillData, logUsage, fetchUsageStats, fetchRemoteAffiliateLinks, deleteBill } from './lib/supabase'
-import { USAGE_LIMITS } from './config/affiliate'
 import { ShoppingBag } from 'lucide-react'
 
 // ──────────────────────────────────────────────
@@ -251,7 +250,6 @@ function App() {
   const [isLocked, setIsLocked] = useState(false)
   const isGuest = !lineProfile && !!billIdFromUrl
   const effectiveLocked = isLocked || isGuest
-  const [usageStats, setUsageStats] = useState({ daily: 0, weekly: 0 })
   const [showLimitModal, setShowLimitModal] = useState(false)
   const [randomLink, setRandomLink] = useState('')
   const [randomAd, setRandomAd] = useState<AffiliateLink | null>(null)
@@ -259,11 +257,7 @@ function App() {
   const [remoteLinks, setRemoteLinks] = useState<AffiliateLink[]>([])
   const [isInitialLoadFinished, setIsInitialLoadFinished] = useState(false)
 
-  // ── Usage Tracking Effect ──
   useEffect(() => {
-    if (lineProfile) {
-      fetchUsageStats(lineProfile.userId).then(setUsageStats)
-    }
     // Fetch affiliate links from Supabase
     fetchRemoteAffiliateLinks().then((links: any[]) => {
       if (links.length > 0) {
@@ -319,7 +313,6 @@ function App() {
     // If we reach here, it means they just "unlocked" by clicking/viewing an ad
     if (lineProfile) {
       logUsage(lineProfile.userId, action);
-      setUsageStats(prev => ({ ...prev, daily: prev.daily + 1, weekly: prev.weekly + 1 }));
     }
     
     // Reset unlock state so NEXT action requires another ad
