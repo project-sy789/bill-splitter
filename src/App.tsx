@@ -526,11 +526,12 @@ function App() {
       })
       const res = await fetch(dataUrl)
       const blob = await res.blob()
-      const file = new File([blob], `bill-${billId}-${new Date().getTime()}.png`, { type: 'image/png' })
+      const file = new File([blob], `bill-${id}-${new Date().getTime()}.png`, { type: 'image/png' })
 
       if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
-          title: `รายการบิล ${billId}`,
+          title: `ช่วยกันหารบิลหน่อย!`,
+          text: `กดลิงก์นี้เพื่อร่วมหารกัน: ${shareUrl}`,
           files: [file]
         })
       } else {
