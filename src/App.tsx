@@ -314,16 +314,20 @@ function App() {
   }, [isLimitReached, remoteLinks, randomAd]);
 
   const checkAndRecordUsage = (action: string): boolean => {
-    if (isLimitReached && !isTemporarilyUnlocked) {
+    // ALWAYS show ad if not temporarily unlocked
+    if (!isTemporarilyUnlocked) {
       setShowLimitModal(true);
       return false;
     }
     
+    // If we reach here, it means they just "unlocked" by clicking/viewing an ad
     if (lineProfile) {
       logUsage(lineProfile.userId, action);
       setUsageStats(prev => ({ ...prev, daily: prev.daily + 1, weekly: prev.weekly + 1 }));
-      if (isTemporarilyUnlocked) setIsTemporarilyUnlocked(false);
     }
+    
+    // Reset unlock state so NEXT action requires another ad
+    setIsTemporarilyUnlocked(false);
     return true;
   }
 
@@ -1237,8 +1241,8 @@ function App() {
                 <div className="mx-auto w-16 h-16 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center mb-4 shadow-inner border border-white/30">
                   <AlertCircle className="w-8 h-8 text-white" />
                 </div>
-                <h3 className="text-xl font-black mb-1">ใช้งานครบโควตาแล้ว!</h3>
-                <p className="text-orange-50 text-xs font-medium opacity-90">เพื่อสนับสนุนแอปให้เราไปต่อได้...</p>
+                <h3 className="text-xl font-black mb-1">สนับสนุนแอปเพื่อใช้ต่อ!</h3>
+                <p className="text-orange-50 text-xs font-medium opacity-90">ขอบคุณที่ช่วยให้เราพัฒนาแอปต่อไปได้ครับ</p>
               </div>
             )}
 
@@ -1246,7 +1250,7 @@ function App() {
               {/* Ad Content */}
               <div className="space-y-2">
                 <h4 className="text-sm font-black text-gray-800 leading-tight line-clamp-2">
-                  {randomAd?.description || 'ขอบคุณที่สนับสนุนเรา! ช่วยช้อปปิ้งเพื่อปลดล็อคการใช้งานต่อครับ'}
+                  {randomAd?.description || 'ขอบคุณที่สนับสนุนเรา! ช่วยดูโฆษณาเพื่อปลดล็อคการใช้งานต่อครับ'}
                 </h4>
                 {randomAd?.price_text && (
                   <p className="text-lg font-black text-[#EE4D2D]">{randomAd.price_text}</p>
