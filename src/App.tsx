@@ -264,7 +264,7 @@ function App() {
         // Enhance links: parse if they look like the Shopee message pattern
         const enhanced = links.map((item: any) => {
           if (typeof item.url === 'string' && item.url.includes('ลองดู')) {
-            const urlMatch = item.url.match(/https:\/\/s\.shopee\.co\.th\/[a-zA-Z0-9]+/);
+            const urlMatch = item.url.match(/https?:\/\/[^\s]+/);
             const descMatch = item.url.match(/ลองดู (.*) ในราคา/);
             const priceMatch = item.url.match(/ในราคา (.*) ที่ Shopee/);
             
@@ -1254,9 +1254,15 @@ function App() {
               <button
                 onClick={() => {
                   if (randomLink) {
-                    window.open(randomLink, '_blank');
+                    // Use LIFF's native window opening if available
+                    if (liff.isInClient()) {
+                      liff.openWindow({ url: randomLink, external: true });
+                    } else {
+                      window.open(randomLink, '_blank');
+                    }
                     setIsTemporarilyUnlocked(true);
-                    setTimeout(() => setShowLimitModal(false), 500);
+                    // Give some time for the window to open before closing modal
+                    setTimeout(() => setShowLimitModal(false), 800);
                   }
                 }}
                 className="w-full flex items-center justify-center gap-3 bg-[#EE4D2D] text-white py-4 rounded-2xl font-black text-lg shadow-[0_10px_25px_rgba(238,77,45,0.35)] transition-all hover:-translate-y-1 hover:shadow-[0_15px_35px_rgba(238,77,45,0.45)] active:translate-y-0 active:scale-95"
