@@ -832,6 +832,26 @@ function App() {
     prevResultsLenRef.current = results.length
   }, [mergedItems, results, members])
 
+  // ── Auto-heal: Ensure every item has at least one consumer (default to all) ──
+  useEffect(() => {
+    if (members.length === 0) return
+    const needsHeal = items.some(it => it.consumerIds.length === 0)
+    if (needsHeal) {
+      setItems(prev => prev.map(it => {
+        if (it.consumerIds.length === 0) {
+          return {
+            ...it,
+            consumerIds: members.map(m => m.id),
+            // Reset split data to equal since consumers changed from 0 to all
+            percentageByUser: Object.fromEntries(members.map(m => [m.id, round2(100 / members.length)])),
+            exactByUser: Object.fromEntries(members.map(m => [m.id, round2(it.amount / members.length)]))
+          }
+        }
+        return it
+      }))
+    }
+  }, [items, members])
+
   useEffect(() => () => { void terminate() }, [terminate])
 
   const totalPaidByMember = useMemo(() => {
