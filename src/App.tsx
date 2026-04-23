@@ -278,6 +278,10 @@ function App() {
           return item as AffiliateLink;
         });
         setRemoteLinks(enhanced);
+        // Pick an initial ad right away so we're always ready
+        const pick = { ...enhanced[Math.floor(Math.random() * enhanced.length)] };
+        setRandomAd(pick);
+        setRandomLink(pick.url);
       }
     })
   }, [lineProfile])
@@ -1247,19 +1251,19 @@ function App() {
               </div>
 
               
-              <a
-                href={randomLink}
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
                 onClick={() => {
-                  setIsTemporarilyUnlocked(true)
-                  setTimeout(() => setShowLimitModal(false), 1500)
+                  if (randomLink) {
+                    window.open(randomLink, '_blank');
+                    setIsTemporarilyUnlocked(true);
+                    setTimeout(() => setShowLimitModal(false), 500);
+                  }
                 }}
                 className="w-full flex items-center justify-center gap-3 bg-[#EE4D2D] text-white py-4 rounded-2xl font-black text-lg shadow-[0_10px_25px_rgba(238,77,45,0.35)] transition-all hover:-translate-y-1 hover:shadow-[0_15px_35px_rgba(238,77,45,0.45)] active:translate-y-0 active:scale-95"
               >
                 <ShoppingBag className="w-6 h-6" />
                 ไปที่ Shopee เพื่อใช้งานต่อ
-              </a>
+              </button>
               
               <button 
                 onClick={() => setShowLimitModal(false)}
