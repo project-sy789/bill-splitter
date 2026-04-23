@@ -311,29 +311,29 @@ function App() {
     }
   }, [isLimitReached, remoteLinks, randomAd]);
 
-  const handleScanReceipt = () => {
+  const checkAndRecordUsage = (action: string): boolean => {
     if (isLimitReached && !isTemporarilyUnlocked) {
       setShowLimitModal(true);
-    } else {
+      return false;
+    }
+    
+    if (lineProfile) {
+      logUsage(lineProfile.userId, action);
+      setUsageStats(prev => ({ ...prev, daily: prev.daily + 1, weekly: prev.weekly + 1 }));
+      if (isTemporarilyUnlocked) setIsTemporarilyUnlocked(false);
+    }
+    return true;
+  }
+
+  const handleScanReceipt = () => {
+    if (checkAndRecordUsage('scan_receipt')) {
       cameraInputRef.current?.click();
-      if (lineProfile) {
-        logUsage(lineProfile.userId, 'scan_receipt');
-        setUsageStats(prev => ({ ...prev, daily: prev.daily + 1, weekly: prev.weekly + 1 }));
-        if (isTemporarilyUnlocked) setIsTemporarilyUnlocked(false);
-      }
     }
   }
 
   const handleUploadReceipt = () => {
-    if (isLimitReached && !isTemporarilyUnlocked) {
-      setShowLimitModal(true);
-    } else {
+    if (checkAndRecordUsage('upload_receipt')) {
       fileInputRef.current?.click();
-      if (lineProfile) {
-        logUsage(lineProfile.userId, 'upload_receipt');
-        setUsageStats(prev => ({ ...prev, daily: prev.daily + 1, weekly: prev.weekly + 1 }));
-        if (isTemporarilyUnlocked) setIsTemporarilyUnlocked(false);
-      }
     }
   }
 
@@ -1076,17 +1076,6 @@ function App() {
     setIsHistoryModalOpen(false)
   }, [reset])
 
-  const createNewBill = useCallback(() => {
-    setCurrentBillId(crypto.randomUUID())
-    setMembers([
-      { id: crypto.randomUUID(), name: 'ฉัน', color: MEMBER_COLORS[0]!, promptPayId: '' },
-      { id: crypto.randomUUID(), name: 'เพื่อน', color: MEMBER_COLORS[1]!, promptPayId: '' },
-    ])
-    setItems([])
-    setPaidByMember({})
-    setSettlementStatus({})
-    setManualBills([])
-    setReceiptPayerMap({})
     reset()
     prevMergedLenRef.current = 0
     prevResultsLenRef.current = 0
