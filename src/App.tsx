@@ -472,6 +472,12 @@ function App() {
   })) ?? [])
   const [receiptPayerMap, setReceiptPayerMap] = useState<Record<string, string>>(effectiveInitialState?.receiptPayerMap ?? {})
   const [activeSettlementIdx, setActiveSettlementIdx] = useState<number | null>(null)
+  const [toast, setToast] = useState<{ message: string, type: 'success' | 'info' } | null>(null)
+
+  const showToast = useCallback((message: string, type: 'success' | 'info' = 'success') => {
+    setToast({ message, type })
+    setTimeout(() => setToast(null), 3000)
+  }, [])
   const [copiedId, setCopiedId] = useState<string | null>(null)
 
   // ── Auto-fill LINE Profile ──
@@ -1136,7 +1142,8 @@ function App() {
     setReceiptPayerMap(data.receiptPayerMap ?? {})
     reset()
     setIsHistoryModalOpen(false)
-  }, [reset])
+    showToast(`โหลดบิล "${h.title}" สำเร็จ`, 'info')
+  }, [reset, showToast])
 
 
   const handleRemoveHistoryBill = (id: string) => {
@@ -1160,13 +1167,19 @@ function App() {
     if (isActuallyEmpty) {
       window.history.replaceState({}, '', window.location.pathname)
       resetAll()
+      setIsHistoryModalOpen(false)
       return
     }
+
+    // Close history modal first so the ad modal can be seen clearly
+    setIsHistoryModalOpen(false)
 
     const allowed = checkAndRecordUsage('create_bill')
     if (allowed) {
       window.history.replaceState({}, '', window.location.pathname)
       resetAll()
+      showToast('เริ่มบิลใหม่เรียบร้อยแล้ว ✨')
+      window.scrollTo({ top: 0, behavior: 'smooth' })
     }
   }
 
@@ -1351,6 +1364,20 @@ function App() {
       )}
 
       {/* Header */}
+      {/* Toast Notification */}
+      {toast && (
+        <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[200] animate-in slide-in-from-top-4 duration-300">
+          <div className={`px-6 py-3 rounded-2xl shadow-2xl backdrop-blur-xl border flex items-center gap-2 ${
+            toast.type === 'success' 
+              ? 'bg-emerald-500/90 text-white border-emerald-400' 
+              : 'bg-violet-600/90 text-white border-violet-400'
+          }`}>
+            {toast.type === 'success' ? <Check className="w-4 h-4" /> : <Zap className="w-4 h-4" />}
+            <span className="text-sm font-bold tracking-tight">{toast.message}</span>
+          </div>
+        </div>
+      )}
+
       <header className="sticky top-0 z-40 border-b border-white/60 bg-white/75 backdrop-blur-2xl shadow-[0_1px_0_rgba(255,255,255,0.9),0_20px_60px_rgba(124,58,237,0.10)]" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         <div className="mx-auto flex max-w-3xl items-center justify-between px-3 py-2 sm:px-4 sm:py-3">
           <div className="flex items-center gap-2">
