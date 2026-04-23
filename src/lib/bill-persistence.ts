@@ -39,6 +39,7 @@ export interface PersistedBillState {
   version: number
   members: MemberDraft[]
   items: BillItemDraft[]
+  results?: any[] // Store OCR results to preserve receipt context
   serviceCharge?: number
   vat?: number
   itemDiscount?: number
@@ -66,6 +67,7 @@ export function safeParseBillState(raw: string | null): PersistedBillState | nul
       version: parsed.version ?? 1,
       members: parsed.members,
       items: parsed.items,
+      results: parsed.results ?? [],
       serviceCharge: parsed.serviceCharge ?? 0,
       vat: parsed.vat ?? 0,
       itemDiscount: parsed.itemDiscount ?? 0,

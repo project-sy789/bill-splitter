@@ -385,6 +385,7 @@ function App() {
           if (state.settlementStatus) setSettlementStatus(state.settlementStatus || {})
           if (state.manualBills) setManualBills(state.manualBills || [])
           if (state.receiptPayerMap) setReceiptPayerMap(state.receiptPayerMap || {})
+          if (state.results) setResults(state.results || [])
           console.log('Successfully loaded shared bill:', billIdFromUrl)
         } else {
           console.error('Bill data is missing in record:', dbBill)
@@ -408,6 +409,7 @@ function App() {
         if (newState.settlementStatus) setSettlementStatus(newState.settlementStatus)
         if (newState.manualBills) setManualBills(newState.manualBills)
         if (newState.receiptPayerMap) setReceiptPayerMap(newState.receiptPayerMap)
+        if (newState.results) setResults(newState.results)
         setTimeout(() => setRemoteUpdating(false), 200)
       })
 
@@ -711,6 +713,7 @@ function App() {
         version: 4, 
         members, 
         items, 
+        results,
         isLocked,
         allocationMode, 
         paidByMember, 
@@ -1107,6 +1110,7 @@ function App() {
       vatIncluded: b.vatIncluded ?? false
     })))
     setReceiptPayerMap(data.receiptPayerMap ?? {})
+    if (data.results) setResults(data.results)
     reset()
     setIsHistoryModalOpen(false)
   }, [reset])
