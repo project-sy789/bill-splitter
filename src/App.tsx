@@ -260,10 +260,10 @@ function App() {
   useEffect(() => {
     // Fetch affiliate links from Supabase
     fetchRemoteAffiliateLinks().then((links: any[]) => {
-      if (links.length > 0) {
+      if (links && links.length > 0) {
         // Enhance links: parse if they look like the Shopee message pattern
         const enhanced = links.map((item: any) => {
-          if (typeof item.url === 'string' && item.url.includes('ลองดู')) {
+          if (typeof item.url === 'string' && (item.url.includes('ลองดู') || item.url.includes('http'))) {
             const urlMatch = item.url.match(/https?:\/\/[^\s]+/);
             const descMatch = item.url.match(/ลองดู (.*) ในราคา/);
             const priceMatch = item.url.match(/ในราคา (.*) ที่ Shopee/);
@@ -277,45 +277,39 @@ function App() {
           }
           return item as AffiliateLink;
         });
+        
         setRemoteLinks(enhanced);
-        // Pick an initial ad right away so we're always ready
-        const pick = { ...enhanced[Math.floor(Math.random() * enhanced.length)] };
-        setRandomAd(pick);
-        setRandomLink(pick.url);
+        // Pick an initial ad from the fetched links
+        if (enhanced.length > 0) {
+          const pick = { ...enhanced[Math.floor(Math.random() * enhanced.length)] };
+          setRandomAd(pick);
+          setRandomLink(pick.url);
+        }
       }
-    })
-  }, [lineProfile])
+    });
+  }, []);
 
   // Pre-calculate if limit is reached to make the click handler ultra-fast
 
-  // Pre-pick the ad whenever remoteLinks change or modal is shown
+  // Pick a fresh random ad from the available remote links whenever modal shows
   useEffect(() => {
-    const defaultAd = {
-      url: 'https://s.shopee.co.th/9zu0cMC4qQ',
-      description: 'สนับสนุนแอปด้วยการช้อปปิ้งสินค้าแนะนำครับ',
-      price_text: 'เริ่มต้น ฿49'
-    };
-
-    if (showLimitModal) {
-      if (remoteLinks.length > 0) {
-        const pick = { ...remoteLinks[Math.floor(Math.random() * remoteLinks.length)] };
-        if (!pick.image_url && pick.url.startsWith('http')) {
-          const workerUrl = import.meta.env.VITE_OCR_WORKER_URL || '';
-          fetch(`${workerUrl}/unfurl?url=${encodeURIComponent(pick.url)}`)
-            .then(res => res.json())
-            .then(data => {
-              if (data.image) {
-                setRandomAd(prev => (prev?.url === pick.url ? { ...prev, image_url: data.image } : prev));
-              }
-            }).catch(() => {});
-        }
-        setRandomAd(pick);
-        setRandomLink(pick.url);
-      } else {
-        // Fallback to default ad if no remote links
-        setRandomAd(defaultAd);
-        setRandomLink(defaultAd.url);
+    if (showLimitModal && remoteLinks.length > 0) {
+      const pick = { ...remoteLinks[Math.floor(Math.random() * remoteLinks.length)] };
+      
+      // Try to unfurl image if missing
+      if (!pick.image_url && pick.url.startsWith('http')) {
+        const workerUrl = import.meta.env.VITE_OCR_WORKER_URL || '';
+        fetch(`${workerUrl}/unfurl?url=${encodeURIComponent(pick.url)}`)
+          .then(res => res.json())
+          .then(data => {
+            if (data.image) {
+              setRandomAd(prev => (prev?.url === pick.url ? { ...prev, image_url: data.image } : prev));
+            }
+          }).catch(() => {});
       }
+      
+      setRandomAd(pick);
+      setRandomLink(pick.url);
     }
   }, [showLimitModal, remoteLinks]);
 
