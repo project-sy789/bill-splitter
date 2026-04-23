@@ -263,19 +263,19 @@ function App() {
       if (links && links.length > 0) {
         // Enhance links: parse if they look like the Shopee message pattern
         const enhanced = links.map((item: any) => {
-          if (typeof item.url === 'string' && (item.url.includes('ลองดู') || item.url.includes('http'))) {
-            const urlMatch = item.url.match(/https?:\/\/[^\s]+/);
-            const descMatch = item.url.match(/ลองดู (.*) ในราคา/);
-            const priceMatch = item.url.match(/ในราคา (.*) ที่ Shopee/);
-            
-            return {
-              ...item,
-              url: urlMatch ? urlMatch[0] : item.url,
-              description: item.description || (descMatch ? descMatch[1] : ''),
-              price_text: item.price_text || (priceMatch ? priceMatch[1] : '')
-            };
-          }
-          return item as AffiliateLink;
+          const rawUrl = item.url || '';
+          const urlMatch = rawUrl.match(/https?:\/\/[^\s]+/);
+          const descMatch = rawUrl.match(/ลองดู (.*) ในราคา/);
+          const priceMatch = rawUrl.match(/ในราคา (.*) ที่ Shopee/);
+          
+          const cleanUrl = urlMatch ? urlMatch[0].trim() : rawUrl.trim();
+          
+          return {
+            ...item,
+            url: cleanUrl,
+            description: item.description || (descMatch ? descMatch[1] : ''),
+            price_text: item.price_text || (priceMatch ? priceMatch[1] : '')
+          };
         });
         
         setRemoteLinks(enhanced);
@@ -293,6 +293,21 @@ function App() {
 
   // Pick a fresh random ad from the available remote links whenever modal shows
   useEffect(() => {
+    // If modal shows but we have no links, try fetching one last time
+    if (showLimitModal && remoteLinks.length === 0) {
+      fetchRemoteAffiliateLinks().then(links => {
+        if (links && links.length > 0) {
+          const enhanced = links.map((item: any) => {
+            const rawUrl = item.url || '';
+            const urlMatch = rawUrl.match(/https?:\/\/[^\s]+/);
+            const cleanUrl = urlMatch ? urlMatch[0].trim() : rawUrl.trim();
+            return { ...item, url: cleanUrl };
+          });
+          setRemoteLinks(enhanced);
+        }
+      });
+    }
+
     if (showLimitModal && remoteLinks.length > 0) {
       const pick = { ...remoteLinks[Math.floor(Math.random() * remoteLinks.length)] };
       
@@ -1257,25 +1272,23 @@ function App() {
               </div>
 
               
-              <button
-                onClick={() => {
-                  if (randomLink) {
-                    // Use LIFF's native window opening if available
-                    if (liff.isInClient()) {
-                      liff.openWindow({ url: randomLink, external: true });
-                    } else {
-                      window.open(randomLink, '_blank');
-                    }
-                    setIsTemporarilyUnlocked(true);
-                    // Give some time for the window to open before closing modal
-                    setTimeout(() => setShowLimitModal(false), 800);
+              <a
+                href={randomLink || '#'}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => {
+                  if (!randomLink) {
+                    e.preventDefault();
+                    return;
                   }
+                  setIsTemporarilyUnlocked(true);
+                  setTimeout(() => setShowLimitModal(false), 800);
                 }}
                 className="w-full flex items-center justify-center gap-3 bg-[#EE4D2D] text-white py-4 rounded-2xl font-black text-lg shadow-[0_10px_25px_rgba(238,77,45,0.35)] transition-all hover:-translate-y-1 hover:shadow-[0_15px_35px_rgba(238,77,45,0.45)] active:translate-y-0 active:scale-95"
               >
                 <ShoppingBag className="w-6 h-6" />
                 ไปที่ Shopee เพื่อใช้งานต่อ
-              </button>
+              </a>
               
               <button 
                 onClick={() => setShowLimitModal(false)}
