@@ -1114,6 +1114,23 @@ function App() {
     }
   }
 
+  const handleCreateNewBill = () => {
+    // If it's a completely fresh start (no data), don't count quota
+    const isActuallyEmpty = members.length <= 2 && items.length === 0 && manualBills.length === 0;
+    
+    if (isActuallyEmpty) {
+      window.history.replaceState({}, '', window.location.pathname)
+      resetAll()
+      return
+    }
+
+    const allowed = checkAndRecordUsage('create_bill')
+    if (allowed) {
+      window.history.replaceState({}, '', window.location.pathname)
+      resetAll()
+    }
+  }
+
   // ──────────────────────────────────────────────
   // Render
   // ──────────────────────────────────────────────
@@ -1296,9 +1313,7 @@ function App() {
               <Download className="h-4 w-4" />
             </button>
             <button
-              onClick={() => {
-                if(confirm('คุณแน่ใจหรือไม่ว่าต้องการล้างข้อมูลทั้งหมด?')) resetAll()
-              }}
+              onClick={handleCreateNewBill}
               className="rounded-xl border border-red-100 p-2 text-red-400 hover:bg-red-50 hover:text-red-500 transition-colors"
               title="ล้างข้อมูลทั้งหมด"
             >
@@ -1936,7 +1951,7 @@ function App() {
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
               <button
-                onClick={createNewBill}
+                onClick={handleCreateNewBill}
                 className="w-full flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-violet-200 bg-violet-50 py-3 text-sm font-semibold text-violet-700 hover:bg-violet-100 transition-colors"
               >
                 <Plus className="h-4 w-4" />
