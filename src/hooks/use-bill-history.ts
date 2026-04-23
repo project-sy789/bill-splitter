@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import * as db from '../lib/bill-db'
-import { saveBillToCloud, fetchUserBills } from '../lib/supabase'
+import { saveBillToCloud, fetchUserBills, type DbBill } from '../lib/supabase'
 
 export interface BillHistoryMeta {
   id: string
@@ -24,7 +24,7 @@ export function useBillHistory(userId?: string | null) {
         
         if (userId) {
           const dbBills = await fetchUserBills(userId)
-          cloudBills = dbBills.map(b => ({
+          cloudBills = dbBills.map((b: DbBill) => ({
             id: b.id,
             title: `[Cloud] ${b.name}`,
             updatedAt: b.created_at ? new Date(b.created_at).getTime() : Date.now(),

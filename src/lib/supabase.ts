@@ -16,6 +16,42 @@ export interface DbBill {
   total_amount: number
   bill_data: any
   created_at?: string
+  updated_at?: string
+}
+
+export async function saveBillToCloud(userId: string, name: string, total: number, data: any) {
+  if (!supabaseUrl) return
+
+  const { error } = await supabase
+    .from('bills')
+    .upsert({
+      user_id: userId,
+      name: name,
+      total_amount: total,
+      bill_data: data,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'id' })
+
+  if (error) {
+    console.error('Error saving bill to Supabase:', error)
+  }
+}
+
+export async function fetchUserBills(userId: string): Promise<DbBill[]> {
+  if (!supabaseUrl) return []
+
+  const { data, error } = await supabase
+    .from('bills')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    console.error('Error fetching bills from Supabase:', error)
+    return []
+  }
+
+  return data || []
 }
 
 export async function updateBillData(billId: string, data: any) {
