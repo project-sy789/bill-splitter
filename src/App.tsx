@@ -1111,7 +1111,23 @@ function App() {
     if (allowed) {
       window.history.replaceState({}, '', window.location.pathname)
       resetAll()
+    }  const handleJoinBill = () => {
+    if (!lineProfile) return;
+    const exists = members.some(m => m.userId === lineProfile.userId || m.name === lineProfile.displayName);
+    if (!exists) {
+      setMembers(prev => [...prev, {
+        id: crypto.randomUUID(),
+        name: lineProfile.displayName,
+        color: MEMBER_COLORS[prev.length % MEMBER_COLORS.length]!,
+        promptPayId: '',
+        pictureUrl: lineProfile.pictureUrl,
+        userId: lineProfile.userId
+      }]);
+      alert(`ยินดีต้อนรับคุณ ${lineProfile.displayName} เข้าสู่การหารบิลครับ!`);
+    } else {
+      alert('คุณอยู่ในรายชื่อคนหารบิลนี้เรียบร้อยแล้วครับ');
     }
+  }
   }
 
   // ──────────────────────────────────────────────
@@ -1375,6 +1391,15 @@ function App() {
               >
                 <Share className="w-3.5 h-3.5"/> เชิญเพื่อน
               </button>
+              
+              {lineProfile && !isBillOwner && !members.some(m => m.userId === lineProfile.userId || m.name === lineProfile.displayName) && (
+                <button 
+                  onClick={handleJoinBill}
+                  className="text-xs text-white bg-violet-600 hover:bg-violet-700 flex items-center gap-1 px-3 py-1.5 rounded-lg font-bold transition-all shadow-md active:scale-95"
+                >
+                  <Plus className="w-3.5 h-3.5"/> เข้าร่วมหารบิลนี้
+                </button>
+              )}
               <button 
                 onClick={() => setGroupModalMode('save')} 
                 className="text-xs text-violet-600 bg-violet-50 hover:bg-violet-100 flex items-center gap-1 px-2 py-1.5 rounded-lg font-medium transition-colors border border-violet-100"
