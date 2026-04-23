@@ -367,9 +367,14 @@ function App() {
           if (state.settlementStatus) setSettlementStatus(state.settlementStatus || {})
           if (state.manualBills) setManualBills(state.manualBills || [])
           if (state.receiptPayerMap) setReceiptPayerMap(state.receiptPayerMap || {})
+          console.log('Bill data loaded successfully');
+        } else {
+          console.error('Bill data is missing in the record');
+          alert('ไม่พบข้อมูลในบิลนี้');
         }
       } else {
         console.warn('No bill found with ID:', billIdFromUrl)
+        alert('หาบิลนี้ไม่พบในระบบ หรือคุณไม่มีสิทธิ์เข้าถึง');
       }
       setIsInitialLoadFinished(true)
 
@@ -1111,6 +1116,16 @@ function App() {
   // ──────────────────────────────────────────────
   // Render
   // ──────────────────────────────────────────────
+
+  if (billIdFromUrl && !isInitialLoadFinished) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 p-6">
+        <div className="mb-4 h-12 w-12 animate-spin rounded-full border-4 border-violet-500 border-t-transparent"></div>
+        <p className="text-lg font-bold text-gray-600">กำลังดึงข้อมูลบิลจากคลาวด์...</p>
+        <p className="mt-2 text-sm text-gray-400">รอกันสักครู่นะเพื่อน</p>
+      </div>
+    )
+  }
 
   if (dbReady && !lineProfile && !billIdFromUrl) {
     return (
