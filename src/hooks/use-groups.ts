@@ -3,7 +3,12 @@ import { useState, useCallback } from 'react'
 export interface SavedGroup {
   id: string
   name: string
-  members: { name: string; promptPayId: string }[]
+  members: { 
+    name: string; 
+    promptPayId: string;
+    pictureUrl?: string;
+    userId?: string;
+  }[]
 }
 
 const GROUPS_KEY = 'bill-splitter-saved-groups'
@@ -18,7 +23,7 @@ export function useGroups() {
     }
   })
 
-  const saveGroup = useCallback((name: string, members: { name: string; promptPayId: string }[]) => {
+  const saveGroup = useCallback((name: string, members: { name: string; promptPayId: string; pictureUrl?: string; userId?: string }[]) => {
     const newGroupId = crypto.randomUUID()
     setGroups((prev) => {
       const newGroups = [...prev, { id: newGroupId, name, members }]
