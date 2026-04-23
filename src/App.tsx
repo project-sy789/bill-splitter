@@ -1033,6 +1033,8 @@ function App() {
   }, [reset])
 
   const resetAll = useCallback(() => {
+    const newId = crypto.randomUUID()
+    setCurrentBillId(newId)
     setItems([])
     setPaidByMember({})
     setSettlementStatus({})
@@ -1041,7 +1043,13 @@ function App() {
     reset()
     prevMergedLenRef.current = 0
     prevResultsLenRef.current = 0
-  }, [reset])
+    
+    // Reset members to default
+    setMembers([
+      { id: crypto.randomUUID(), name: lineProfile?.displayName || 'ฉัน', color: MEMBER_COLORS[0]!, promptPayId: '', pictureUrl: lineProfile?.pictureUrl, userId: lineProfile?.userId },
+      { id: crypto.randomUUID(), name: 'เพื่อน', color: MEMBER_COLORS[1]!, promptPayId: '' },
+    ])
+  }, [reset, lineProfile])
 
   const copyText = useCallback(async (text: string, id: string) => {
     await navigator.clipboard.writeText(text)
