@@ -52,7 +52,7 @@ export function useBillHistory(userId?: string | null) {
       
       if (userId) {
         const grandTotal = (state as any).grandTotal || 0
-        void saveBillToCloud(userId, title, grandTotal, state)
+        void saveBillToCloud(id, userId, title, grandTotal, state)
       }
 
       setHistory((prev: BillHistoryMeta[]) => {
