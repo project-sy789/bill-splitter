@@ -45,18 +45,22 @@ export function logout() {
   }
 }
 
-export async function shareBillToFriends(title: string, amount: number, promptPayId: string) {
+export async function shareBillToFriends(billId: string, title: string, amount: number, promptPayId: string) {
   if (!liff.isLoggedIn()) {
     liff.login()
     return
   }
+
+  const url = new URL(window.location.href)
+  url.searchParams.set('billId', billId)
+  const joinUrl = url.toString()
 
   if (liff.isApiAvailable('shareTargetPicker')) {
     try {
       const result = await liff.shareTargetPicker([
         {
           type: 'flex',
-          altText: `แจ้งยอดหารบิล: ${title}`,
+          altText: `💰 แจ้งยอดหารบิล: ${title}`,
           contents: {
             type: 'bubble',
             body: {
@@ -133,7 +137,7 @@ export async function shareBillToFriends(title: string, amount: number, promptPa
                   action: {
                     type: 'uri',
                     label: 'กดดูรายละเอียด / จ่ายเงิน',
-                    uri: `https://liff.line.me/${LIFF_ID}`,
+                    uri: joinUrl,
                   },
                   style: 'primary',
                   color: '#7C3AED',

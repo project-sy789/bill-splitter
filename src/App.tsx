@@ -890,12 +890,7 @@ function App() {
       }
 
       try {
-        const result = await liff.shareTargetPicker([
-          {
-            type: 'text',
-            text: `ช่วยกันหารบิลหน่อย! กดลิงก์นี้เพื่อร่วมหารกัน: ${joinUrl}`
-          }
-        ])
+        const result = await shareBillToFriends(currentBillId, `เชิญร่วมหารบิล: ${items.length} รายการ`, grandTotal, members[0]?.promptPayId || '')
         if (result) {
           alert('ส่งคำเชิญเรียบร้อยแล้ว!')
         }
@@ -1120,6 +1115,7 @@ function App() {
     )
   }
 
+  // Skip login screen if we have a billId from URL (Guest Mode)
   if (dbReady && !lineProfile && !billIdFromUrl) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-violet-600 via-violet-700 to-fuchsia-600 flex items-center justify-center p-6 text-white overflow-hidden relative">
@@ -1853,7 +1849,7 @@ function App() {
                               </button>
                             )}
                             <button
-                              onClick={() => void shareBillToFriends(`${from.name} → ${to.name}`, s.amount, to.promptPayId)}
+                              onClick={() => void shareBillToFriends(currentBillId, `${from.name} → ${to.name}`, s.amount, to.promptPayId)}
                               className="rounded-lg p-2 text-emerald-500 hover:bg-emerald-50 transition-colors"
                               title="แชร์เข้า LINE"
                             >
