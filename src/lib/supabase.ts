@@ -196,3 +196,60 @@ export async function fetchRemoteAffiliateLinks(): Promise<any[]> {
 
   return data
 }
+
+// ── Group Management Functions ──
+
+export interface DbGroup {
+  id: string
+  user_id: string
+  name: string
+  members: any[]
+  created_at?: string
+}
+
+export async function saveGroupToCloud(userId: string, name: string, members: any[]) {
+  if (!supabaseUrl) return
+
+  const { error } = await supabase
+    .from('groups')
+    .insert({
+      user_id: userId,
+      name: name,
+      members: members
+    })
+
+  if (error) {
+    console.error('Error saving group to Supabase:', error)
+  }
+}
+
+export async function fetchUserGroups(userId: string): Promise<DbGroup[]> {
+  if (!supabaseUrl) return []
+
+  const { data, error } = await supabase
+    .from('groups')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    console.error('Error fetching groups from Supabase:', error)
+    return []
+  }
+
+  return data || []
+}
+
+export async function deleteGroupFromCloud(groupId: string, userId: string) {
+  if (!supabaseUrl) return
+
+  const { error } = await supabase
+    .from('groups')
+    .delete()
+    .eq('id', groupId)
+    .eq('user_id', userId)
+
+  if (error) {
+    console.error('Error deleting group from Supabase:', error)
+  }
+}
