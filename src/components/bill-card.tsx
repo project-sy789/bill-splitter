@@ -1,3 +1,4 @@
+import React, { useState, useEffect } from 'react'
 import { Receipt, Zap, ChevronDown, Users, Check, Trash2, Share } from 'lucide-react'
 
 import { type BillItemDraft, type ManualBill, type MemberDraft } from '../lib/bill-persistence'
@@ -33,6 +34,7 @@ interface BillCardProps {
   onSetTotal: (billId: string, value: number) => void
   onShare: (billId: string) => void
   onDeleteBill: (billId: string) => void
+  readOnly?: boolean
 }
 
 export function BillCard({
@@ -55,7 +57,8 @@ export function BillCard({
   onAddItemToBill,
   onSetTotal,
   onShare,
-  onDeleteBill
+  onDeleteBill,
+  readOnly = false
 }: BillCardProps) {
   const currentItems = items.filter((it) => it.billId === bill.id)
   const currentItemsSum = currentItems.reduce((s, it) => s + Math.max(0, it.amount - (it.itemDiscount ?? 0)), 0)
@@ -75,6 +78,14 @@ export function BillCard({
       })()
 
   const deficit = Math.max(0, Math.round((bill.amount - currentItemsSum - billFeesAdjust) * 100) / 100)
+
+  // Local state for the total amount input to prevent jumping while typing
+  const [localAmount, setLocalAmount] = useState<string>(bill.amount.toString())
+  
+  // Sync local amount when bill.amount changes from parent (e.g. loaded from history)
+  useEffect(() => {
+    setLocalAmount(bill.amount.toString())
+  }, [bill.amount])
 
   return (
     <div id={`bill-card-${bill.id}`} className="receipt-serrated-top receipt-serrated-bottom receipt-thermal-texture relative border border-gray-200 rounded-[28px] shadow-[0_18px_40px_rgba(15,23,42,0.12)]">
@@ -113,7 +124,8 @@ export function BillCard({
           <input
             value={bill.title}
             onChange={(e) => onSetName(bill.id, e.target.value)}
-            className="w-full rounded-xl border-none bg-transparent px-1 py-0.5 text-[17px] font-bold tracking-tight text-gray-900 outline-none transition-all placeholder:text-gray-300 hover:bg-gray-100/50 focus:bg-white focus:ring-2 focus:ring-violet-200 sm:text-lg"
+            readOnly={readOnly}
+            className={`w-full rounded-xl border-none bg-transparent px-1 py-0.5 text-[17px] font-bold tracking-tight text-gray-900 outline-none transition-all placeholder:text-gray-300 ${readOnly ? '' : 'hover:bg-gray-100/50 focus:bg-white focus:ring-2 focus:ring-violet-200'} sm:text-lg`}
             placeholder="ตั้งชื่อบิลรายการนี้..."
           />
         </div>
@@ -124,9 +136,14 @@ export function BillCard({
               <span className="text-xl font-bold text-violet-300 mr-1">฿</span>
               <input
                 type="number"
-                value={bill.amount || ''}
-                onChange={(e) => onSetTotal(bill.id, Number(e.target.value) || 0)}
-                className="w-32 rounded-xl border-none bg-transparent text-right font-mono text-2xl font-semibold tabular-nums tracking-tight text-violet-700 outline-none transition-all hover:bg-violet-50 focus:bg-white focus:ring-4 focus:ring-violet-100"
+                value={localAmount}
+                onChange={(e) => setLocalAmount(e.target.value)}
+                onBlur={() => {
+                  const val = parseFloat(localAmount) || 0
+                  onSetTotal(bill.id, val)
+                }}
+                readOnly={readOnly}
+                className={`w-32 rounded-xl border-none bg-transparent text-right font-mono text-2xl font-semibold tabular-nums tracking-tight text-violet-700 outline-none transition-all ${readOnly ? '' : 'hover:bg-violet-50 focus:bg-white focus:ring-4 focus:ring-violet-100'}`}
                 placeholder="0.00"
               />
             </div>
@@ -185,7 +202,8 @@ export function BillCard({
                     value={it.name}
                     onChange={(e) => onEditItem(it.id, 'name', e.target.value)}
                     placeholder="ชื่อรายการ"
-                    className="min-w-0 flex-1 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-800 outline-none placeholder:text-gray-300 focus:ring-2 focus:ring-violet-300"
+                    readOnly={readOnly}
+                    className={`min-w-0 flex-1 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-800 outline-none placeholder:text-gray-300 ${readOnly ? '' : 'focus:ring-2 focus:ring-violet-300'}`}
                   />
                   <div className="text-right shrink-0">
                     <p className="text-[9px] font-black uppercase tracking-[0.14em] text-gray-300">ยอดสุทธิ</p>
@@ -204,7 +222,8 @@ export function BillCard({
                           value={it.amount || ''}
                           onChange={(e) => onEditItem(it.id, 'amount', Number(e.target.value) || 0)}
                           placeholder="0.00"
-                          className="w-full rounded-xl border border-gray-200 bg-gray-50/50 py-2.5 pl-7 pr-3 text-right text-xs font-bold text-gray-700 outline-none transition-all focus:border-violet-300 focus:bg-white focus:ring-4 focus:ring-violet-50"
+                          readOnly={readOnly}
+                          className={`w-full rounded-xl border border-gray-200 bg-gray-50/50 py-2.5 pl-7 pr-3 text-right text-xs font-bold text-gray-700 outline-none transition-all ${readOnly ? '' : 'focus:border-violet-300 focus:bg-white focus:ring-4 focus:ring-violet-50'}`}
                         />
                       </div>
                     </div>
@@ -219,7 +238,8 @@ export function BillCard({
                           value={it.itemDiscount || ''}
                           onChange={(e) => onEditItem(it.id, 'itemDiscount', Number(e.target.value) || 0)}
                           placeholder="0.00"
-                          className="w-full rounded-xl border border-pink-100 bg-pink-50/20 py-2.5 pl-7 pr-3 text-right text-xs font-bold text-pink-600 outline-none transition-all focus:border-pink-300 focus:bg-white focus:ring-4 focus:ring-pink-50"
+                          readOnly={readOnly}
+                          className={`w-full rounded-xl border border-pink-100 bg-pink-50/20 py-2.5 pl-7 pr-3 text-right text-xs font-bold text-pink-600 outline-none transition-all ${readOnly ? '' : 'focus:border-pink-300 focus:bg-white focus:ring-4 focus:ring-pink-50'}`}
                         />
                       </div>
                     </div>
@@ -357,7 +377,8 @@ export function BillCard({
                   value={(bill.id.startsWith('ocr-') ? results[parseInt(bill.id.split('-')[1]!, 10)]?.summary.serviceCharge : manualBills.find((m) => m.id === bill.id)?.serviceCharge) || ''}
                   onChange={(e) => onSetServiceCharge(bill.id, Number(e.target.value) || 0)}
                   placeholder="0"
-                  className="w-full rounded-xl border border-violet-100 bg-white px-3 py-2 text-right text-sm font-semibold text-gray-800 outline-none focus:ring-2 focus:ring-violet-400"
+                  readOnly={readOnly}
+                  className={`w-full rounded-xl border border-violet-100 bg-white px-3 py-2 text-right text-sm font-semibold text-gray-800 outline-none ${readOnly ? '' : 'focus:ring-2 focus:ring-violet-400'}`}
                 />
               </div>
               <p className="mt-2 text-[10px] leading-4 text-violet-500">ใส่ค่าบริการรวมของบิล เช่น 10% หรือจำนวนเงินจริง</p>
@@ -368,9 +389,11 @@ export function BillCard({
                 <span className="text-[10px] font-black uppercase tracking-[0.16em] text-amber-700">VAT</span>
                 <button
                   onClick={() => {
+                    if (readOnly) return
                     const next = !(bill.id.startsWith('ocr-') ? results[parseInt(bill.id.split('-')[1]!, 10)]?.vatIncluded : manualBills.find((m) => m.id === bill.id)?.vatIncluded)
                     onToggleVatIncluded(bill.id, next)
                   }}
+                  disabled={readOnly}
                   className={`rounded-full px-2 py-1 text-[9px] font-black transition-colors ${
                     (bill.id.startsWith('ocr-') ? results[parseInt(bill.id.split('-')[1]!, 10)]?.vatIncluded : manualBills.find((m) => m.id === bill.id)?.vatIncluded)
                       ? 'bg-amber-200 text-amber-800'
@@ -386,9 +409,10 @@ export function BillCard({
                   type="number"
                   value={(bill.id.startsWith('ocr-') ? results[parseInt(bill.id.split('-')[1]!, 10)]?.summary.vat : manualBills.find((m) => m.id === bill.id)?.vat) || ''}
                   onChange={(e) => onSetVat(bill.id, Number(e.target.value) || 0)}
-                  disabled={(bill.id.startsWith('ocr-') ? results[parseInt(bill.id.split('-')[1]!, 10)]?.vatIncluded : manualBills.find((m) => m.id === bill.id)?.vatIncluded)}
+                  disabled={(bill.id.startsWith('ocr-') ? results[parseInt(bill.id.split('-')[1]!, 10)]?.vatIncluded : manualBills.find((m) => m.id === bill.id)?.vatIncluded) || readOnly}
                   placeholder="0"
-                  className="w-full rounded-xl border border-amber-100 bg-white px-3 py-2 text-right text-sm font-semibold text-gray-800 outline-none focus:ring-2 focus:ring-amber-300 disabled:bg-gray-50 disabled:text-gray-400"
+                  readOnly={readOnly}
+                  className={`w-full rounded-xl border border-amber-100 bg-white px-3 py-2 text-right text-sm font-semibold text-gray-800 outline-none ${readOnly ? '' : 'focus:ring-2 focus:ring-amber-300'} disabled:bg-gray-50 disabled:text-gray-400`}
                 />
               </div>
               <p className="mt-2 text-[10px] leading-4 text-amber-600">สลับได้ว่า VAT รวมอยู่ในยอดแล้ว หรือคิดแยกต่างหาก</p>
@@ -406,7 +430,8 @@ export function BillCard({
                   value={(bill.id.startsWith('ocr-') ? (results[parseInt(bill.id.split('-')[1]!, 10)]?.summary.billDiscount ?? results[parseInt(bill.id.split('-')[1]!, 10)]?.summary.discount) : (manualBills.find((m) => m.id === bill.id)?.billDiscount ?? manualBills.find((m) => m.id === bill.id)?.discount)) || ''}
                   onChange={(e) => onSetDiscount(bill.id, Number(e.target.value) || 0)}
                   placeholder="0"
-                  className="w-full rounded-xl border border-pink-100 bg-white px-3 py-2 text-right text-sm font-semibold text-gray-800 outline-none focus:ring-2 focus:ring-pink-300"
+                  readOnly={readOnly}
+                  className={`w-full rounded-xl border border-pink-100 bg-white px-3 py-2 text-right text-sm font-semibold text-gray-800 outline-none ${readOnly ? '' : 'focus:ring-2 focus:ring-pink-300'}`}
                 />
               </div>
               <p className="mt-2 text-[10px] leading-4 text-pink-500">ส่วนลดทั้งบิล เช่น คูปอง โปร หรือเงินที่ต้องตัดออก</p>

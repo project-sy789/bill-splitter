@@ -682,13 +682,16 @@ function App() {
       const subtotal = billItems.reduce((s, it) => s + Math.max(0, it.amount - (it.itemDiscount ?? 0)), 0)
       const billDiscount = m.billDiscount ?? (m.discount ?? 0)
       const calculatedTotal = round2(subtotal + m.serviceCharge + (m.vatIncluded ? 0 : m.vat) - billDiscount)
-
-      const amount = m.amount > 0 ? m.amount : calculatedTotal
+      
+      // If m.amount is explicitly set (> 0), use it. Otherwise, fallback to calculated total.
+      const amount = (m.amount && m.amount > 0) ? m.amount : calculatedTotal
 
       return {
         id: m.id,
         title: m.name,
-        subtitle: m.amount > 0 ? (billItems.length > 0 ? `${billItems.length} รายการ` : 'ยอดใส่เอง') : 'คำนวณตามรายการ',
+        subtitle: m.amount > 0 
+          ? (billItems.length > 0 ? `${billItems.length} รายการ (ยอดใส่เอง)` : 'ยอดใส่เอง') 
+          : (billItems.length > 0 ? `${billItems.length} รายการ (คำนวณให้)` : 'ยังไม่มีรายการ'),
         amount,
         calculatedTotal,
       }
@@ -1693,6 +1696,7 @@ function App() {
                         onDeleteBill={handleDeleteBill}
                         onSetTotal={handleSetBillTotal}
                         onShare={handleShareBill}
+                        readOnly={effectiveLocked}
                       />
                     )
                   })}
