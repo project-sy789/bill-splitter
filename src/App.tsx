@@ -43,7 +43,6 @@ import type { SplitMode } from './types/bill'
 import { initLiff, login, logout, shareBillToFriends, type LineProfile } from './lib/liff'
 import liff from '@line/liff'
 import { subscribeToBill, fetchBillById, updateBillData, logUsage, fetchRemoteAffiliateLinks, deleteBill } from './lib/supabase'
-import { ShoppingBag } from 'lucide-react'
 
 // ──────────────────────────────────────────────
 // Types
