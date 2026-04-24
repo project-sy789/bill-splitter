@@ -92,12 +92,24 @@ export default {
 
         let image = findMeta('og:image') || findMeta('twitter:image') || findMeta('image') || html.match(/<link[^>]*rel=["']image_src["'][^>]*href=["']([^"']+)["']/i)?.[1] || null
         
-        // --- Shopee Specific Fix ---
-        // If the image looks like a generic banner (deo.shopeemobile.com) or logo, try to find a better one
-        if (image && (image.includes('homepagefe') || image.includes('logo') || image.includes('banner'))) {
-          // Look for product images in Shopee's specific patterns (often in JSON or specific script tags)
-          const productImgMatch = html.match(/https:\/\/down-th\.img\.susercontent\.com\/file\/[a-z0-9_]+/i)
-          if (productImgMatch) image = productImgMatch[0]
+        // --- Aggressive Shopee/Lazada Product Image Extraction ---
+        // If we got a generic banner or no image, search for product image patterns in the entire HTML
+        if (!image || image.includes('homepagefe') || image.includes('logo') || image.includes('banner')) {
+          const productImgPatterns = [
+            /https:\/\/(?:down-th|cf)\.img\.susercontent\.com\/file\/[a-z0-9_]+/gi,
+            /https:\/\/cf\.shopee\.co\.th\/file\/[a-z0-9_]+/gi,
+            /https:\/\/lzd-img-global\.slatic\.net\/g\/p\/[a-z0-9_.]+/gi
+          ]
+          
+          for (const pattern of productImgPatterns) {
+            const matches = html.match(pattern)
+            if (matches && matches.length > 0) {
+              // Usually the first few matches are product images
+              // We pick the first one that doesn't look like a tiny icon
+              image = matches[0] || null
+              break
+            }
+          }
         }
 
         // If it's a relative URL, try to make it absolute
