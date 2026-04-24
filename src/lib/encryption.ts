@@ -86,20 +86,23 @@ export async function decrypt(encryptedBase64: string): Promise<string> {
 export async function processSensitiveData(obj: any, mode: 'encrypt' | 'decrypt'): Promise<any> {
   if (!obj || typeof obj !== 'object') return obj;
 
-  // Create a deep enough copy to avoid mutations
-  const newObj = Array.isArray(obj) ? [...obj] : { ...obj };
+  // Use JSON stringify/parse for a true deep copy to avoid reference issues
+  const newObj = JSON.parse(JSON.stringify(obj));
 
-  for (const key in newObj) {
-    const value = newObj[key];
-    
-    if (key === 'promptPayId' && typeof value === 'string' && value) {
-      const processed = mode === 'encrypt' ? await encrypt(value) : await decrypt(value);
-      newObj[key] = processed;
-      console.log(`[Encryption] ✅ ${mode}ed ${key}:`, processed.slice(0, 10) + '...');
-    } else if (value !== null && typeof value === 'object') {
-      newObj[key] = await processSensitiveData(value, mode);
+  const walk = async (current: any) => {
+    if (!current || typeof current !== 'object') return;
+
+    for (const key in current) {
+      const value = current[key];
+      if (key === 'promptPayId' && typeof value === 'string' && value) {
+        current[key] = mode === 'encrypt' ? await encrypt(value) : await decrypt(value);
+        console.log(`[Encryption] ✅ ${mode}ed ${key}:`, current[key].slice(0, 10) + '...');
+      } else if (value !== null && typeof value === 'object') {
+        await walk(value);
+      }
     }
-  }
+  };
 
+  await walk(newObj);
   return newObj;
 }

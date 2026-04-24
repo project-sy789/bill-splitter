@@ -24,7 +24,7 @@ export async function saveBillToCloud(billId: string, userId: string, name: stri
   if (!supabaseUrl) return
 
   const encryptedData = await processSensitiveData(data, 'encrypt')
-  console.log('[Supabase] 🚀 Saving bill with encrypted data:', encryptedData)
+  console.log('[Supabase] 🚀 Saving bill (JSON):', JSON.stringify(encryptedData, null, 2))
 
   const { error } = await supabase
     .from('bills')
@@ -69,7 +69,7 @@ export async function updateBillData(billId: string, data: any) {
   if (!supabaseUrl) return
 
   const encryptedData = await processSensitiveData(data, 'encrypt')
-  console.log('[Supabase] 🚀 Updating bill data (encrypted):', encryptedData)
+  console.log('[Supabase] 🚀 Updating bill (JSON):', JSON.stringify(encryptedData, null, 2))
 
   const { error } = await supabase
     .from('bills')
