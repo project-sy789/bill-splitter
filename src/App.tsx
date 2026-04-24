@@ -849,17 +849,24 @@ function App() {
     prevResultsLenRef.current = results.length
   }, [mergedItems, results, members])
 
-  // ── Auto-heal: Ensure every item has at least one consumer (default to all) ──
+  // ── Auto-heal: Ensure every item has valid consumers (default to all if invalid or empty) ──
   useEffect(() => {
     if (members.length === 0) return
-    const needsHeal = items.some(it => it.consumerIds.length === 0)
+    
+    // An item needs healing if:
+    // 1. It has no consumers
+    // 2. OR it contains consumer IDs that no longer exist in the current members list (e.g. after loading a group)
+    const memberIds = new Set(members.map(m => m.id))
+    const needsHeal = items.some(it => it.consumerIds.length === 0 || it.consumerIds.some(id => !memberIds.has(id)))
+    
     if (needsHeal) {
       setItems(prev => prev.map(it => {
-        if (it.consumerIds.length === 0) {
+        const hasInvalid = it.consumerIds.some(id => !memberIds.has(id))
+        if (it.consumerIds.length === 0 || hasInvalid) {
           return {
             ...it,
             consumerIds: members.map(m => m.id),
-            // Reset split data to equal since consumers changed from 0 to all
+            // Reset split data to equal since consumers changed
             percentageByUser: Object.fromEntries(members.map(m => [m.id, round2(100 / members.length)])),
             exactByUser: Object.fromEntries(members.map(m => [m.id, round2(it.amount / members.length)]))
           }
