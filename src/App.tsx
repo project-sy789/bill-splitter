@@ -736,50 +736,52 @@ function App() {
     return round2(unifiedBills.reduce((acc, b) => acc + b.amount, 0) + items.filter(it => !it.billId).reduce((acc, it) => acc + it.amount, 0))
   }, [unifiedBills, items])
 
-  // ── Persistence Effect (Debounced) ──
+  // ── Persistence Effect ──
   useEffect(() => {
-    if (!dbReady) return
+    if (!dbReady || remoteUpdating || isGuest) return
 
+    const state = {
+      members,
+      items,
+      allocationMode,
+      paidByMember,
+      settlementStatus,
+      manualBills,
+      receiptPayerMap,
+      results,
+      version: 4,
+      isLocked,
+      createdBy: lineProfile?.userId || 'anonymous',
+      grandTotal
+    }
+
+    // Build a title
+    const billNames = [
+      ...manualBills.map(b => b.name).filter(n => n && n.trim()),
+      ...results.map(r => r.customName || '').filter(n => n && n.trim())
+    ]
+    const title = billNames.length > 0 
+      ? `${billNames.join(', ')} - ฿${grandTotal.toFixed(0)}`
+      : `บิลวันที่ ${new Date().toLocaleDateString('th-TH')} - ฿${grandTotal.toFixed(0)}`
+
+    // 1. Save to local IndexedDB immediately for maximum reliability
+    void db.saveBill(currentBillId, title, state as any)
+    void db.setSetting('current-bill-id', currentBillId)
+    
+    // 2. Debounce cloud sync
     const timer = setTimeout(() => {
-      const state: PersistedBillState = { 
-        version: 4, 
-        members, 
-        items, 
-        results,
-        isLocked,
-        allocationMode, 
-        paidByMember, 
-        settlementStatus, 
-        manualBills, 
-        receiptPayerMap,
-        createdBy: lineProfile?.userId,
-        grandTotal
+      if (lineProfile?.userId && (items.length > 0 || members.length > 2 || manualBills.length > 0)) {
+        addOrUpdateBill(currentBillId, title, state, lineProfile.userId)
       }
-      // Build a meaningful title from the bill content
-      const billNames = [
-        ...manualBills.map(b => b.name).filter(n => n && n.trim()),
-        ...results.map(r => r.customName || '').filter(n => n && n.trim())
-      ]
-      const title = billNames.length > 0 
-        ? `${billNames.join(', ')} - ฿${grandTotal.toFixed(0)}`
-        : `บิลวันที่ ${new Date().toLocaleDateString('th-TH')} - ฿${grandTotal.toFixed(0)}`
 
-      void db.saveBill(currentBillId, title, state)
-      void db.setSetting('current-bill-id', currentBillId)
-
-      // Auto-save history if the bill has any meaningful data
-      if (items.length > 0 || members.length > 2 || Object.keys(paidByMember).length > 0 || manualBills.length > 0) {
-        addOrUpdateBill(currentBillId, title, { ...state, grandTotal }, lineProfile?.userId)
-        
-        // Collaborative Sync: 
-        if (billIdFromUrl && isInitialLoadFinished && !remoteUpdating) {
-          if (isBillOwner || !isLocked) {
-            updateBillData(billIdFromUrl, state)
-          }
+      // Collaborative Sync for shared bills
+      if (billIdFromUrl && isInitialLoadFinished && !remoteUpdating) {
+        if (isBillOwner || !isLocked) {
+          updateBillData(billIdFromUrl, state)
         }
       }
-    }, 1000)
-
+    }, 2000)
+    
     return () => clearTimeout(timer)
   }, [dbReady, members, items, isLocked, isGuest, allocationMode, paidByMember, settlementStatus, manualBills, receiptPayerMap, currentBillId, addOrUpdateBill, grandTotal, lineProfile, billIdFromUrl, remoteUpdating, isBillOwner, isInitialLoadFinished])
 
@@ -1143,10 +1145,25 @@ function App() {
     prevResultsLenRef.current = 0
     
     // Reset members to default
-    setMembers([
+    const initialMembers = [
       { id: crypto.randomUUID(), name: lineProfile?.displayName || 'ฉัน', color: MEMBER_COLORS[0]!, promptPayId: '', pictureUrl: lineProfile?.pictureUrl, userId: lineProfile?.userId },
       { id: crypto.randomUUID(), name: 'เพื่อน', color: MEMBER_COLORS[1]!, promptPayId: '' },
-    ])
+    ]
+    setMembers(initialMembers)
+    
+    // Save the new empty bill immediately so it exists in IndexedDB
+    void db.saveBill(newId, 'บิลใหม่', {
+      members: initialMembers,
+      items: [],
+      allocationMode: 'proportional',
+      paidByMember: {},
+      settlementStatus: {},
+      manualBills: [],
+      receiptPayerMap: {},
+      results: [],
+      version: 4,
+      grandTotal: 0
+    })
   }, [reset, lineProfile])
 
   const copyText = useCallback(async (text: string, id: string) => {
