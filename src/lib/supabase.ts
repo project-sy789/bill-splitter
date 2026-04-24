@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { processSensitiveData } from './encryption'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -29,7 +30,7 @@ export async function saveBillToCloud(billId: string, userId: string, name: stri
       user_id: userId,
       name: name,
       total_amount: total,
-      bill_data: data,
+      bill_data: await processSensitiveData(data, 'encrypt'),
       updated_at: new Date().toISOString()
     }, { onConflict: 'id' })
 
@@ -52,6 +53,12 @@ export async function fetchUserBills(userId: string): Promise<DbBill[]> {
     return []
   }
 
+  if (data) {
+    for (const bill of data) {
+      bill.bill_data = await processSensitiveData(bill.bill_data, 'decrypt')
+    }
+  }
+
   return data || []
 }
 
@@ -62,7 +69,7 @@ export async function updateBillData(billId: string, data: any) {
     .from('bills')
     .upsert({
       id: billId,
-      bill_data: data,
+      bill_data: await processSensitiveData(data, 'encrypt'),
       user_id: data.createdBy || 'unknown',
       name: `บิลวันที่ ${new Date().toLocaleDateString('th-TH')}`,
       total_amount: data.grandTotal || 0,
@@ -88,8 +95,9 @@ export function subscribeToBill(billId: string, onUpdate: (data: any) => void) {
         table: 'bills',
         filter: `id=eq.${billId}`
       },
-      (payload) => {
-        onUpdate(payload.new.bill_data)
+      async (payload) => {
+        const decryptedData = await processSensitiveData(payload.new.bill_data, 'decrypt')
+        onUpdate(decryptedData)
       }
     )
     .subscribe()
@@ -111,6 +119,10 @@ export async function fetchBillById(billId: string): Promise<DbBill | null> {
   if (error) {
     console.error('Error fetching bill by ID:', error)
     return null
+  }
+
+  if (data) {
+    data.bill_data = await processSensitiveData(data.bill_data, 'decrypt')
   }
 
   return data
@@ -215,7 +227,7 @@ export async function saveGroupToCloud(userId: string, name: string, members: an
     .insert({
       user_id: userId,
       name: name,
-      members: members
+      members: await processSensitiveData(members, 'encrypt')
     })
 
   if (error) {
@@ -235,6 +247,12 @@ export async function fetchUserGroups(userId: string): Promise<DbGroup[]> {
   if (error) {
     console.error('Error fetching groups from Supabase:', error)
     return []
+  }
+
+  if (data) {
+    for (const group of data) {
+      group.members = await processSensitiveData(group.members, 'decrypt')
+    }
   }
 
   return data || []
