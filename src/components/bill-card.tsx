@@ -82,6 +82,10 @@ export function BillCard({
   // Local state for the total amount input to prevent jumping while typing
   const [localAmount, setLocalAmount] = useState<string>(bill.amount.toString())
   
+  // Fee mode: 'auto' uses OCR-scanned values (read-only), 'manual' allows editing
+  const isOcrBill = bill.id.startsWith('ocr-')
+  const [feeMode, setFeeMode] = useState<'auto' | 'manual'>(isOcrBill ? 'auto' : 'manual')
+  
   // Sync local amount when bill.amount changes from parent (e.g. loaded from history)
   useEffect(() => {
     setLocalAmount(bill.amount.toString())
@@ -364,77 +368,138 @@ export function BillCard({
         )}
 
         <div className="space-y-3 rounded-2xl border border-violet-100 bg-white p-3 shadow-sm">
+          {/* Auto/Manual Toggle for OCR bills */}
+          {bill.id.startsWith('ocr-') && (
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-black uppercase tracking-[0.16em] text-gray-400">ค่าบริการ / VAT / ส่วนลด</span>
+              <div className="flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50 p-0.5">
+                <button
+                  onClick={() => setFeeMode('auto')}
+                  className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[9px] font-black transition-all ${
+                    feeMode === 'auto' 
+                      ? 'bg-violet-500 text-white shadow-sm' 
+                      : 'text-gray-400 hover:text-gray-600'
+                  }`}
+                >
+                  <Zap className="h-2.5 w-2.5" />
+                  อัตโนมัติ
+                </button>
+                <button
+                  onClick={() => setFeeMode('manual')}
+                  className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[9px] font-black transition-all ${
+                    feeMode === 'manual' 
+                      ? 'bg-violet-500 text-white shadow-sm' 
+                      : 'text-gray-400 hover:text-gray-600'
+                  }`}
+                >
+                  ✏️ Manual
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <div className="rounded-2xl border border-violet-100 bg-violet-50/70 p-3">
+            {/* Service Fee */}
+            <div className={`rounded-2xl border p-3 ${feeMode === 'auto' && isOcrBill ? 'border-violet-200/60 bg-violet-50/40' : 'border-violet-100 bg-violet-50/70'}`}>
               <div className="mb-2 flex items-center justify-between gap-2">
                 <span className="text-[10px] font-black uppercase tracking-[0.16em] text-violet-700">Service fee</span>
-                <span className="rounded-full bg-white px-2 py-0.5 text-[9px] font-black text-violet-500">เพิ่มตามบิล</span>
+                <span className={`rounded-full px-2 py-0.5 text-[9px] font-black ${feeMode === 'auto' && isOcrBill ? 'bg-violet-100 text-violet-400' : 'bg-white text-violet-500'}`}>
+                  {feeMode === 'auto' && isOcrBill ? '🤖 อ่านจากบิล' : 'เพิ่มตามบิล'}
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-bold text-violet-500">฿</span>
                 <input
                   type="number"
-                  value={(bill.id.startsWith('ocr-') ? results[parseInt(bill.id.split('-')[1]!, 10)]?.summary.serviceCharge : manualBills.find((m) => m.id === bill.id)?.serviceCharge) || ''}
+                  value={(isOcrBill ? results[parseInt(bill.id.split('-')[1]!, 10)]?.summary.serviceCharge : manualBills.find((m) => m.id === bill.id)?.serviceCharge) || ''}
                   onChange={(e) => onSetServiceCharge(bill.id, Number(e.target.value) || 0)}
                   placeholder="0"
-                  readOnly={readOnly}
-                  className={`w-full rounded-xl border border-violet-100 bg-white px-3 py-2 text-right text-sm font-semibold text-gray-800 outline-none ${readOnly ? '' : 'focus:ring-2 focus:ring-violet-400'}`}
+                  readOnly={readOnly || (feeMode === 'auto' && isOcrBill)}
+                  className={`w-full rounded-xl border border-violet-100 bg-white px-3 py-2 text-right text-sm font-semibold outline-none transition-all ${
+                    feeMode === 'auto' && isOcrBill 
+                      ? 'text-violet-400 bg-violet-50/50 cursor-not-allowed' 
+                      : 'text-gray-800 focus:ring-2 focus:ring-violet-400'
+                  }`}
                 />
               </div>
-              <p className="mt-2 text-[10px] leading-4 text-violet-500">ใส่ค่าบริการรวมของบิล เช่น 10% หรือจำนวนเงินจริง</p>
+              {feeMode === 'auto' && isOcrBill ? (
+                <p className="mt-2 text-[10px] leading-4 text-violet-400 italic">ค่านี้ถูกอ่านจากใบเสร็จอัตโนมัติ</p>
+              ) : (
+                <p className="mt-2 text-[10px] leading-4 text-violet-500">ใส่ค่าบริการรวมของบิล เช่น 10% หรือจำนวนเงินจริง</p>
+              )}
             </div>
 
-            <div className="rounded-2xl border border-amber-100 bg-amber-50/70 p-3">
+            {/* VAT */}
+            <div className={`rounded-2xl border p-3 ${feeMode === 'auto' && isOcrBill ? 'border-amber-200/60 bg-amber-50/40' : 'border-amber-100 bg-amber-50/70'}`}>
               <div className="mb-2 flex items-center justify-between gap-2">
                 <span className="text-[10px] font-black uppercase tracking-[0.16em] text-amber-700">VAT</span>
                 <button
                   onClick={() => {
-                    if (readOnly) return
-                    const next = !(bill.id.startsWith('ocr-') ? results[parseInt(bill.id.split('-')[1]!, 10)]?.vatIncluded : manualBills.find((m) => m.id === bill.id)?.vatIncluded)
+                    if (readOnly || (feeMode === 'auto' && isOcrBill)) return
+                    const next = !(isOcrBill ? results[parseInt(bill.id.split('-')[1]!, 10)]?.vatIncluded : manualBills.find((m) => m.id === bill.id)?.vatIncluded)
                     onToggleVatIncluded(bill.id, next)
                   }}
-                  disabled={readOnly}
+                  disabled={readOnly || (feeMode === 'auto' && isOcrBill)}
                   className={`rounded-full px-2 py-1 text-[9px] font-black transition-colors ${
-                    (bill.id.startsWith('ocr-') ? results[parseInt(bill.id.split('-')[1]!, 10)]?.vatIncluded : manualBills.find((m) => m.id === bill.id)?.vatIncluded)
-                      ? 'bg-amber-200 text-amber-800'
-                      : 'bg-white text-amber-700'
+                    (isOcrBill ? results[parseInt(bill.id.split('-')[1]!, 10)]?.vatIncluded : manualBills.find((m) => m.id === bill.id)?.vatIncluded)
+                      ? (feeMode === 'auto' && isOcrBill ? 'bg-amber-100 text-amber-400' : 'bg-amber-200 text-amber-800')
+                      : (feeMode === 'auto' && isOcrBill ? 'bg-amber-50 text-amber-300' : 'bg-white text-amber-700')
                   }`}
                 >
-                  {(bill.id.startsWith('ocr-') ? results[parseInt(bill.id.split('-')[1]!, 10)]?.vatIncluded : manualBills.find((m) => m.id === bill.id)?.vatIncluded) ? 'รวมแล้ว' : 'แยก VAT'}
+                  {(isOcrBill ? results[parseInt(bill.id.split('-')[1]!, 10)]?.vatIncluded : manualBills.find((m) => m.id === bill.id)?.vatIncluded) ? 'รวมแล้ว' : 'แยก VAT'}
                 </button>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-bold text-amber-500">฿</span>
                 <input
                   type="number"
-                  value={(bill.id.startsWith('ocr-') ? results[parseInt(bill.id.split('-')[1]!, 10)]?.summary.vat : manualBills.find((m) => m.id === bill.id)?.vat) || ''}
+                  value={(isOcrBill ? results[parseInt(bill.id.split('-')[1]!, 10)]?.summary.vat : manualBills.find((m) => m.id === bill.id)?.vat) || ''}
                   onChange={(e) => onSetVat(bill.id, Number(e.target.value) || 0)}
-                  disabled={(bill.id.startsWith('ocr-') ? results[parseInt(bill.id.split('-')[1]!, 10)]?.vatIncluded : manualBills.find((m) => m.id === bill.id)?.vatIncluded) || readOnly}
+                  disabled={(isOcrBill ? results[parseInt(bill.id.split('-')[1]!, 10)]?.vatIncluded : manualBills.find((m) => m.id === bill.id)?.vatIncluded) || readOnly || (feeMode === 'auto' && isOcrBill)}
                   placeholder="0"
-                  readOnly={readOnly}
-                  className={`w-full rounded-xl border border-amber-100 bg-white px-3 py-2 text-right text-sm font-semibold text-gray-800 outline-none ${readOnly ? '' : 'focus:ring-2 focus:ring-amber-300'} disabled:bg-gray-50 disabled:text-gray-400`}
+                  readOnly={readOnly || (feeMode === 'auto' && isOcrBill)}
+                  className={`w-full rounded-xl border border-amber-100 bg-white px-3 py-2 text-right text-sm font-semibold outline-none transition-all ${
+                    feeMode === 'auto' && isOcrBill
+                      ? 'text-amber-400 bg-amber-50/50 cursor-not-allowed'
+                      : 'text-gray-800 focus:ring-2 focus:ring-amber-300'
+                  } disabled:bg-gray-50 disabled:text-gray-400`}
                 />
               </div>
-              <p className="mt-2 text-[10px] leading-4 text-amber-600">สลับได้ว่า VAT รวมอยู่ในยอดแล้ว หรือคิดแยกต่างหาก</p>
+              {feeMode === 'auto' && isOcrBill ? (
+                <p className="mt-2 text-[10px] leading-4 text-amber-400 italic">ค่านี้ถูกอ่านจากใบเสร็จอัตโนมัติ</p>
+              ) : (
+                <p className="mt-2 text-[10px] leading-4 text-amber-600">สลับได้ว่า VAT รวมอยู่ในยอดแล้ว หรือคิดแยกต่างหาก</p>
+              )}
             </div>
 
-            <div className="rounded-2xl border border-pink-100 bg-pink-50/70 p-3">
+            {/* Discount */}
+            <div className={`rounded-2xl border p-3 ${feeMode === 'auto' && isOcrBill ? 'border-pink-200/60 bg-pink-50/40' : 'border-pink-100 bg-pink-50/70'}`}>
               <div className="mb-2 flex items-center justify-between gap-2">
                 <span className="text-[10px] font-black uppercase tracking-[0.16em] text-pink-600">Discount</span>
-                <span className="rounded-full bg-white px-2 py-0.5 text-[9px] font-black text-pink-500">หักออก</span>
+                <span className={`rounded-full px-2 py-0.5 text-[9px] font-black ${feeMode === 'auto' && isOcrBill ? 'bg-pink-100 text-pink-400' : 'bg-white text-pink-500'}`}>
+                  {feeMode === 'auto' && isOcrBill ? '🤖 อ่านจากบิล' : 'หักออก'}
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-bold text-pink-500">฿</span>
                 <input
                   type="number"
-                  value={(bill.id.startsWith('ocr-') ? (results[parseInt(bill.id.split('-')[1]!, 10)]?.summary.billDiscount ?? results[parseInt(bill.id.split('-')[1]!, 10)]?.summary.discount) : (manualBills.find((m) => m.id === bill.id)?.billDiscount ?? manualBills.find((m) => m.id === bill.id)?.discount)) || ''}
+                  value={(isOcrBill ? (results[parseInt(bill.id.split('-')[1]!, 10)]?.summary.billDiscount ?? results[parseInt(bill.id.split('-')[1]!, 10)]?.summary.discount) : (manualBills.find((m) => m.id === bill.id)?.billDiscount ?? manualBills.find((m) => m.id === bill.id)?.discount)) || ''}
                   onChange={(e) => onSetDiscount(bill.id, Number(e.target.value) || 0)}
                   placeholder="0"
-                  readOnly={readOnly}
-                  className={`w-full rounded-xl border border-pink-100 bg-white px-3 py-2 text-right text-sm font-semibold text-gray-800 outline-none ${readOnly ? '' : 'focus:ring-2 focus:ring-pink-300'}`}
+                  readOnly={readOnly || (feeMode === 'auto' && isOcrBill)}
+                  className={`w-full rounded-xl border border-pink-100 bg-white px-3 py-2 text-right text-sm font-semibold outline-none transition-all ${
+                    feeMode === 'auto' && isOcrBill
+                      ? 'text-pink-400 bg-pink-50/50 cursor-not-allowed'
+                      : 'text-gray-800 focus:ring-2 focus:ring-pink-300'
+                  }`}
                 />
               </div>
-              <p className="mt-2 text-[10px] leading-4 text-pink-500">ส่วนลดทั้งบิล เช่น คูปอง โปร หรือเงินที่ต้องตัดออก</p>
+              {feeMode === 'auto' && isOcrBill ? (
+                <p className="mt-2 text-[10px] leading-4 text-pink-400 italic">ค่านี้ถูกอ่านจากใบเสร็จอัตโนมัติ</p>
+              ) : (
+                <p className="mt-2 text-[10px] leading-4 text-pink-500">ส่วนลดทั้งบิล เช่น คูปอง โปร หรือเงินที่ต้องตัดออก</p>
+              )}
             </div>
           </div>
 
