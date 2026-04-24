@@ -15,6 +15,7 @@ export interface BillItemDraft {
   id: string
   name: string
   amount: number
+  qty?: number
   itemDiscount: number
   splitMode: SplitMode
   consumerIds: string[]

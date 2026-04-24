@@ -159,7 +159,7 @@ export default {
                       กฎเหล็ก:
                       1. ห้ามตอบนอกเหนือจาก JSON (ห้ามมีคำอธิบาย หรือ Markdown)
                       2. ข้อมูลตัวเลข (amount, total, etc.) ต้องเป็นตัวเลข (number) เท่านั้น ห้ามใส่เครื่องหมายคอมม่า (,) หรือหน่วยเงิน (฿, THB)
-                      3. ดึงรายการสินค้าให้ครบทุกบรรทัด (items)
+                      3. ดึงรายการสินค้าให้ครบทุกบรรทัด (items) โดยระบุจำนวน (qty) และยอดรวมของสินค้านั้น (amount) หากไม่ระบุจำนวนให้ถือว่าเป็น 1
                       4. สรุปยอด (summary) ต้องประกอบด้วย:
                          - total: ยอดสุทธิท้ายสลิป
                          - subtotal: ยอดก่อนภาษี/ค่าบริการ (ถ้ามี)
@@ -182,7 +182,7 @@ export default {
                           "vatIncluded": boolean
                         },
                         "items": [
-                          { "name": "ชื่อสินค้า", "amount": number }
+                          { "name": "ชื่อสินค้า", "qty": number, "amount": number }
                         ]
                       }`,
                     },
@@ -260,6 +260,7 @@ export default {
         items: (Array.isArray(parsed.items) ? parsed.items : [])
           .map((it) => ({
             name: String(it.name || 'ไม่มีชื่อสินค้า').trim(),
+            qty: cleanNum(it.qty) || 1,
             amount: cleanNum(it.amount)
           }))
           .filter((it) => it.amount > 0 || it.name.length > 0),

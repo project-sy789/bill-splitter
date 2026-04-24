@@ -226,11 +226,36 @@ export function BillCard({
                   />
                   <div className="text-right shrink-0">
                     <p className="text-[9px] font-black uppercase tracking-[0.14em] text-gray-300">ยอดสุทธิ</p>
-                    <p className="font-mono text-sm font-bold text-violet-700">฿{(Math.max(0, it.amount - (it.itemDiscount ?? 0))).toFixed(2)}</p>
+                    <p className="font-mono text-sm font-bold text-violet-700">฿{(Math.max(0, (it.amount * (it.qty ?? 1)) - (it.itemDiscount ?? 0))).toFixed(2)}</p>
                   </div>
                 </div>
                 <div className="mt-3 space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-[1fr_1.5fr_1fr] gap-2">
+                    {/* Qty Input */}
+                    <div className="flex flex-col gap-1">
+                      <label className="ml-1 text-[9px] font-black uppercase tracking-[0.16em] text-blue-400">จำนวน</label>
+                      <div className="relative flex items-center h-[38px] rounded-xl border border-gray-200 bg-gray-50/50 transition-all focus-within:border-blue-300 focus-within:bg-white focus-within:ring-4 focus-within:ring-blue-50 overflow-hidden">
+                        <button 
+                          onClick={() => onEditItem(it.id, 'qty', Math.max(1, (it.qty ?? 1) - 1))}
+                          className="flex h-full w-8 items-center justify-center text-gray-500 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                        >
+                          -
+                        </button>
+                        <input
+                          type="number"
+                          value={it.qty ?? 1}
+                          onChange={(e) => onEditItem(it.id, 'qty', Math.max(1, Number(e.target.value) || 1))}
+                          readOnly={readOnly}
+                          className="w-full h-full bg-transparent text-center text-xs font-bold text-gray-700 outline-none"
+                        />
+                        <button 
+                          onClick={() => onEditItem(it.id, 'qty', (it.qty ?? 1) + 1)}
+                          className="flex h-full w-8 items-center justify-center text-gray-500 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
                     {/* Price Input */}
                     <div className="flex flex-col gap-1">
                       <label className="ml-1 text-[9px] font-black uppercase tracking-[0.16em] text-gray-400">ราคาต่อหน่วย</label>

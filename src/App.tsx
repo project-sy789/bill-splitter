@@ -82,11 +82,11 @@ function calcItemSplit(item: BillItemDraft, members: MemberDraft[]) {
   if (selected.length === 0) return result
 
   if (item.splitMode === 'equally') {
-    const each = item.amount / selected.length
+    const each = (item.amount * (item.qty ?? 1)) / selected.length
     selected.forEach((id) => { result[id] = each })
   } else if (item.splitMode === 'percentage') {
     selected.forEach((id) => {
-      result[id] = (item.amount * (item.percentageByUser[id] ?? 0)) / 100
+      result[id] = ((item.amount * (item.qty ?? 1)) * (item.percentageByUser[id] ?? 0)) / 100
     })
   } else if (item.splitMode === 'exact') {
     selected.forEach((id) => { result[id] = item.exactByUser[id] ?? 0 })
@@ -585,7 +585,7 @@ function App() {
   const baseTotalsByMember = useMemo(() => {
     const totals: Record<string, number> = Object.fromEntries(members.map((m) => [m.id, 0]))
     items.forEach((item) => {
-      const split = calcItemSplit({ ...item, amount: round2(Math.max(0, item.amount - (item.itemDiscount ?? 0))) }, members)
+      const split = calcItemSplit({ ...item, amount: round2(Math.max(0, (item.amount * (item.qty ?? 1)) - (item.itemDiscount ?? 0))) }, members)
       Object.entries(split).forEach(([id, amt]) => { totals[id] = (totals[id] ?? 0) + amt })
     })
     Object.keys(totals).forEach((id) => { totals[id] = round2(totals[id]!) })
@@ -622,7 +622,7 @@ function App() {
     billContexts.forEach((bill) => {
       const base: Record<string, number> = Object.fromEntries(members.map((m) => [m.id, 0]))
       bill.items.forEach((it) => {
-        const split = calcItemSplit({ ...it, amount: round2(Math.max(0, it.amount - (it.itemDiscount ?? 0))) }, members)
+        const split = calcItemSplit({ ...it, amount: round2(Math.max(0, (it.amount * (it.qty ?? 1)) - (it.itemDiscount ?? 0))) }, members)
         Object.entries(split).forEach(([id, amt]) => { base[id] = (base[id] ?? 0) + amt })
       })
       map.set(bill.id, base)
@@ -641,7 +641,7 @@ function App() {
         ? (results[parseInt(bill.id.split('-')[1]!, 10)]?.summary.total ?? 0)
         : (manualBills.find(m => m.id === bill.id)?.amount ?? 0)
       
-      const itemsSum = bill.items.reduce((s, it) => s + Math.max(0, it.amount - (it.itemDiscount ?? 0)), 0)
+      const itemsSum = bill.items.reduce((s, it) => s + Math.max(0, (it.amount * (it.qty ?? 1)) - (it.itemDiscount ?? 0)), 0)
       
       // Total adjustment is everything that isn't the items themselves (fees + discrepancy)
       // This ensures: itemsSum + netAdjustment = targetAmount (if targetAmount is set)
@@ -676,7 +676,7 @@ function App() {
     ...results.map((r, i) => {
       const bId = `ocr-${i}`
       const billItems = items.filter((it) => it.billId === bId)
-      const subtotal = billItems.reduce((s, it) => s + Math.max(0, it.amount - (it.itemDiscount ?? 0)), 0)
+      const subtotal = billItems.reduce((s, it) => s + Math.max(0, (it.amount * (it.qty ?? 1)) - (it.itemDiscount ?? 0)), 0)
       const billDiscount = r.summary.billDiscount ?? r.summary.discount ?? 0
       const calculatedTotal = round2(subtotal + (r.summary.serviceCharge ?? 0) + (r.vatIncluded ? 0 : (r.summary.vat ?? 0)) - billDiscount)
 
@@ -690,7 +690,7 @@ function App() {
     }),
     ...manualBills.map((m) => {
       const billItems = items.filter((it) => it.billId === m.id)
-      const subtotal = billItems.reduce((s, it) => s + Math.max(0, it.amount - (it.itemDiscount ?? 0)), 0)
+      const subtotal = billItems.reduce((s, it) => s + Math.max(0, (it.amount * (it.qty ?? 1)) - (it.itemDiscount ?? 0)), 0)
       const billDiscount = m.billDiscount ?? (m.discount ?? 0)
       const calculatedTotal = round2(subtotal + m.serviceCharge + (m.vatIncluded ? 0 : m.vat) - billDiscount)
       
@@ -813,29 +813,31 @@ function App() {
       newOcrItems.forEach((oi) => {
         // Grouping: Check if an exact match of (name + exact price) exists IN THE SAME BILL
         const matchBaseIdx = next.findIndex((x) =>
-          (x.name === oi.name || x.name.startsWith(`${oi.name} (x`)) &&
-          Math.abs((x.amount / (parseInt(x.name.match(/\(x(\d+)\)$/)?.[1] || '1', 10))) - oi.amount) < 0.01 &&
+          x.name === oi.name &&
+          Math.abs((x.amount * (x.qty ?? 1)) - (oi.amount * (oi.qty ?? 1))) < 0.01 &&
           x.billId === oi.billId
         )
 
         if (matchBaseIdx !== -1) {
           const item = next[matchBaseIdx]!
-          const match = item.name.match(/\(x(\d+)\)$/)
-          const currentCount = match ? parseInt(match[1]!) : 1
-          const newCount = currentCount + 1
-          const baseName = match ? item.name.substring(0, item.name.lastIndexOf(' (x')) : item.name
-
+          const newQty = (item.qty ?? 1) + (oi.qty ?? 1)
+          
           next[matchBaseIdx] = {
             ...item,
-            name: `${baseName} (x${newCount})`,
-            amount: round2(item.amount + oi.amount),
-            exactByUser: Object.fromEntries(members.map((m) => [m.id, round2((item.amount + oi.amount) / Math.max(members.length, 1))])),
+            qty: newQty,
+            exactByUser: Object.fromEntries(members.map((m) => [m.id, round2((item.amount * newQty) / Math.max(members.length, 1))])),
           }
         } else {
+          // oi.amount from OCR is the total line amount.
+          // We define item.amount as Unit Price in the UI.
+          const qty = oi.qty && oi.qty > 0 ? oi.qty : 1
+          const unitPrice = round2(oi.amount / qty)
+
           next.push({
             id: oi.id,
             name: oi.name,
-            amount: oi.amount,
+            amount: unitPrice,
+            qty: qty,
             itemDiscount: 0,
             billId: oi.billId,
             splitMode: 'equally' as SplitMode,
@@ -847,6 +849,7 @@ function App() {
       })
       return next
     })
+
 
     prevResultsLenRef.current = results.length
   }, [mergedItems, results, members])

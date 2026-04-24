@@ -2,6 +2,7 @@ export interface ParsedReceiptItem {
   id: string
   name: string
   amount: number
+  qty?: number
 }
 
 export interface ParsedReceiptSummary {
