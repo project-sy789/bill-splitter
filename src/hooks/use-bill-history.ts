@@ -26,14 +26,19 @@ export function useBillHistory(userId?: string | null) {
           const dbBills = await fetchUserBills(userId)
           cloudBills = dbBills.map((b: DbBill) => ({
             id: b.id,
-            title: `[Cloud] ${b.name}`,
-            updatedAt: b.created_at ? new Date(b.created_at).getTime() : Date.now(),
+            title: b.name,
+            updatedAt: b.updated_at 
+              ? new Date(b.updated_at).getTime() 
+              : (b.created_at ? new Date(b.created_at).getTime() : Date.now()),
             isCloud: true,
             data: b.bill_data
           }))
         }
 
-        const combined = [...localBills, ...cloudBills].sort((a, b) => b.updatedAt - a.updatedAt)
+        // Deduplicate: cloud bills take precedence over local bills with the same ID
+        const cloudIds = new Set(cloudBills.map(b => b.id))
+        const uniqueLocalBills = localBills.filter(b => !cloudIds.has(b.id))
+        const combined = [...cloudBills, ...uniqueLocalBills].sort((a, b) => b.updatedAt - a.updatedAt)
         setHistory(combined)
       } catch (err) {
         console.error('Failed to load history:', err)

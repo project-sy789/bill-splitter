@@ -730,7 +730,14 @@ function App() {
         createdBy: lineProfile?.userId,
         grandTotal
       }
-      const title = `บิลวันที่ ${new Date().toLocaleDateString('th-TH')} - ยอด ฿${grandTotal.toFixed(2)}`
+      // Build a meaningful title from the bill content
+      const billNames = [
+        ...manualBills.map(b => b.name).filter(n => n && n.trim()),
+        ...results.map(r => r.customName || '').filter(n => n && n.trim())
+      ]
+      const title = billNames.length > 0 
+        ? `${billNames.join(', ')} - ฿${grandTotal.toFixed(0)}`
+        : `บิลวันที่ ${new Date().toLocaleDateString('th-TH')} - ฿${grandTotal.toFixed(0)}`
 
       void db.saveBill(currentBillId, title, state)
       void db.setSetting('current-bill-id', currentBillId)
