@@ -1750,6 +1750,9 @@ function App() {
                           }
                           setManualBills(prev => prev.map(mm => mm.id === billId ? { ...mm, billDiscount: value, discount: value } : mm))
                         }}
+                        onSetFeeMode={(billId, field, mode) => {
+                          setManualBills(prev => prev.map(mm => mm.id === billId ? { ...mm, [field]: mode } : mm))
+                        }}
                         onSetName={(billId, name) => {
                           if (billId.startsWith('ocr-')) {
                             setResults(res => res.map((rr, ii) => ii === parseInt(billId.split('-')[1]!, 10) ? { ...rr, customName: name } : rr))

@@ -23,6 +23,8 @@ export interface BillItemDraft {
   billId?: string
 }
 
+export type FeeInputMode = 'amount' | 'percent'
+
 export interface ManualBill {
   id: string
   name: string
@@ -33,6 +35,9 @@ export interface ManualBill {
   billDiscount: number
   discount?: number
   vatIncluded: boolean
+  serviceChargeMode?: FeeInputMode
+  vatMode?: FeeInputMode
+  discountMode?: FeeInputMode
 }
 
 export interface PersistedBillState {

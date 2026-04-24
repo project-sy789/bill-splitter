@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
-import { Receipt, Zap, ChevronDown, Users, Check, Trash2, Share } from 'lucide-react'
+import { Receipt, Zap, ChevronDown, Users, Check, Trash2, Share, Percent, DollarSign } from 'lucide-react'
 
-import { type BillItemDraft, type ManualBill, type MemberDraft } from '../lib/bill-persistence'
+import { type BillItemDraft, type ManualBill, type MemberDraft, type FeeInputMode } from '../lib/bill-persistence'
 import type { ParsedReceiptResult } from '../types/ocr'
 
 export interface UnifiedBill {
@@ -26,6 +26,7 @@ interface BillCardProps {
   onToggleVatIncluded: (billId: string, next: boolean) => void
   onSetVat: (billId: string, value: number) => void
   onSetDiscount: (billId: string, value: number) => void
+  onSetFeeMode: (billId: string, field: 'serviceChargeMode' | 'vatMode' | 'discountMode', mode: FeeInputMode) => void
   onSetName: (billId: string, name: string) => void
   onSetPayer: (billId: string, memberId: string) => void
   onEditItem: (itemId: string, field: keyof BillItemDraft, value: BillItemDraft[keyof BillItemDraft]) => void
@@ -50,6 +51,7 @@ export function BillCard({
   onToggleVatIncluded,
   onSetVat,
   onSetDiscount,
+  onSetFeeMode,
   onSetName,
   onSetPayer,
   onEditItem,
@@ -65,26 +67,39 @@ export function BillCard({
   const itemCount = currentItems.length
   const sourceLabel = bill.id.startsWith('ocr-') ? 'OCR / Gemini' : 'Manual bill'
   const sourceVariant = bill.id.startsWith('ocr-') ? 'from-violet-50 text-violet-600' : 'bg-gray-100 text-gray-500'
+  const isOcrBill = bill.id.startsWith('ocr-')
 
-  const billFeeSource = bill.id.startsWith('ocr-') ? results[parseInt(bill.id.split('-')[1]!, 10)] : manualBills.find((m) => m.id === bill.id)
-  const billFeesAdjust = bill.id.startsWith('ocr-')
+  // Helper: resolve fee value — if mode is 'percent', convert to ฿ based on subtotal
+  const resolveAmount = (value: number, mode: FeeInputMode | undefined, subtotal: number) => {
+    if (mode === 'percent') return Math.round(subtotal * value / 100 * 100) / 100
+    return value
+  }
+
+  // Get current fee modes
+  const manualBill = manualBills.find((m) => m.id === bill.id)
+  const scMode = isOcrBill ? 'amount' : (manualBill?.serviceChargeMode ?? 'amount')
+  const vtMode = isOcrBill ? 'amount' : (manualBill?.vatMode ?? 'amount')
+  const dcMode = isOcrBill ? 'amount' : (manualBill?.discountMode ?? 'amount')
+
+  const billFeeSource = isOcrBill ? results[parseInt(bill.id.split('-')[1]!, 10)] : manualBill
+  const billFeesAdjust = isOcrBill
     ? (() => {
         const r = billFeeSource as (typeof results)[number] | undefined
         return r ? (r.summary.serviceCharge ?? 0) + (r.vatIncluded ? 0 : (r.summary.vat ?? 0)) - (r.summary.billDiscount ?? r.summary.discount ?? 0) : 0
       })()
     : (() => {
         const m = billFeeSource as ManualBill | undefined
-        return m ? (m.serviceCharge ?? 0) + (m.vatIncluded ? 0 : (m.vat ?? 0)) - (m.billDiscount ?? m.discount ?? 0) : 0
+        if (!m) return 0
+        const sc = resolveAmount(m.serviceCharge ?? 0, m.serviceChargeMode, currentItemsSum)
+        const vt = resolveAmount(m.vat ?? 0, m.vatMode, currentItemsSum)
+        const dc = resolveAmount(m.billDiscount ?? m.discount ?? 0, m.discountMode, currentItemsSum)
+        return sc + (m.vatIncluded ? 0 : vt) - dc
       })()
 
   const deficit = Math.max(0, Math.round((bill.amount - currentItemsSum - billFeesAdjust) * 100) / 100)
 
   // Local state for the total amount input to prevent jumping while typing
   const [localAmount, setLocalAmount] = useState<string>(bill.amount.toString())
-  
-  // Fee mode: 'auto' uses OCR-scanned values (read-only), 'manual' allows editing
-  const isOcrBill = bill.id.startsWith('ocr-')
-  const [feeMode, setFeeMode] = useState<'auto' | 'manual'>(isOcrBill ? 'auto' : 'manual')
   
   // Sync local amount when bill.amount changes from parent (e.g. loaded from history)
   useEffect(() => {
@@ -368,138 +383,161 @@ export function BillCard({
         )}
 
         <div className="space-y-3 rounded-2xl border border-violet-100 bg-white p-3 shadow-sm">
-          {/* Auto/Manual Toggle for OCR bills */}
-          {bill.id.startsWith('ocr-') && (
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-black uppercase tracking-[0.16em] text-gray-400">ค่าบริการ / VAT / ส่วนลด</span>
-              <div className="flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50 p-0.5">
-                <button
-                  onClick={() => setFeeMode('auto')}
-                  className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[9px] font-black transition-all ${
-                    feeMode === 'auto' 
-                      ? 'bg-violet-500 text-white shadow-sm' 
-                      : 'text-gray-400 hover:text-gray-600'
-                  }`}
-                >
-                  <Zap className="h-2.5 w-2.5" />
-                  อัตโนมัติ
-                </button>
-                <button
-                  onClick={() => setFeeMode('manual')}
-                  className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[9px] font-black transition-all ${
-                    feeMode === 'manual' 
-                      ? 'bg-violet-500 text-white shadow-sm' 
-                      : 'text-gray-400 hover:text-gray-600'
-                  }`}
-                >
-                  ✏️ Manual
-                </button>
-              </div>
-            </div>
-          )}
-
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             {/* Service Fee */}
-            <div className={`rounded-2xl border p-3 ${feeMode === 'auto' && isOcrBill ? 'border-violet-200/60 bg-violet-50/40' : 'border-violet-100 bg-violet-50/70'}`}>
+            <div className="rounded-2xl border border-violet-100 bg-violet-50/70 p-3">
               <div className="mb-2 flex items-center justify-between gap-2">
                 <span className="text-[10px] font-black uppercase tracking-[0.16em] text-violet-700">Service fee</span>
-                <span className={`rounded-full px-2 py-0.5 text-[9px] font-black ${feeMode === 'auto' && isOcrBill ? 'bg-violet-100 text-violet-400' : 'bg-white text-violet-500'}`}>
-                  {feeMode === 'auto' && isOcrBill ? '🤖 อ่านจากบิล' : 'เพิ่มตามบิล'}
-                </span>
+                {!readOnly && !isOcrBill && (
+                  <div className="flex items-center gap-1 rounded-full bg-white p-0.5 shadow-sm">
+                    <button
+                      onClick={() => onSetFeeMode(bill.id, 'serviceChargeMode', 'amount')}
+                      className={`flex h-5 w-6 items-center justify-center rounded-full text-[10px] font-black transition-colors ${
+                        scMode === 'amount' ? 'bg-violet-500 text-white' : 'text-violet-400 hover:text-violet-600'
+                      }`}
+                    >
+                      <DollarSign className="h-3 w-3" />
+                    </button>
+                    <button
+                      onClick={() => onSetFeeMode(bill.id, 'serviceChargeMode', 'percent')}
+                      className={`flex h-5 w-6 items-center justify-center rounded-full text-[10px] font-black transition-colors ${
+                        scMode === 'percent' ? 'bg-violet-500 text-white' : 'text-violet-400 hover:text-violet-600'
+                      }`}
+                    >
+                      <Percent className="h-3 w-3" />
+                    </button>
+                  </div>
+                )}
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-bold text-violet-500">฿</span>
+                <span className="text-sm font-bold text-violet-500">{scMode === 'percent' ? '%' : '฿'}</span>
                 <input
                   type="number"
-                  value={(isOcrBill ? results[parseInt(bill.id.split('-')[1]!, 10)]?.summary.serviceCharge : manualBills.find((m) => m.id === bill.id)?.serviceCharge) || ''}
+                  value={(isOcrBill ? results[parseInt(bill.id.split('-')[1]!, 10)]?.summary.serviceCharge : manualBill?.serviceCharge) || ''}
                   onChange={(e) => onSetServiceCharge(bill.id, Number(e.target.value) || 0)}
                   placeholder="0"
-                  readOnly={readOnly || (feeMode === 'auto' && isOcrBill)}
-                  className={`w-full rounded-xl border border-violet-100 bg-white px-3 py-2 text-right text-sm font-semibold outline-none transition-all ${
-                    feeMode === 'auto' && isOcrBill 
-                      ? 'text-violet-400 bg-violet-50/50 cursor-not-allowed' 
-                      : 'text-gray-800 focus:ring-2 focus:ring-violet-400'
+                  readOnly={readOnly || isOcrBill}
+                  className={`w-full rounded-xl border border-violet-100 bg-white px-3 py-2 text-right text-sm font-semibold text-gray-800 outline-none transition-all ${
+                    readOnly || isOcrBill ? '' : 'focus:ring-2 focus:ring-violet-400'
                   }`}
                 />
               </div>
-              {feeMode === 'auto' && isOcrBill ? (
-                <p className="mt-2 text-[10px] leading-4 text-violet-400 italic">ค่านี้ถูกอ่านจากใบเสร็จอัตโนมัติ</p>
-              ) : (
-                <p className="mt-2 text-[10px] leading-4 text-violet-500">ใส่ค่าบริการรวมของบิล เช่น 10% หรือจำนวนเงินจริง</p>
+              {scMode === 'percent' && (
+                <p className="mt-1 text-right text-[10px] font-bold text-violet-600">
+                  ≈ ฿{resolveAmount(manualBill?.serviceCharge ?? 0, 'percent', currentItemsSum).toFixed(2)}
+                </p>
               )}
+              <p className="mt-2 text-[10px] leading-4 text-violet-500">ใส่ค่าบริการรวมของบิล</p>
             </div>
 
             {/* VAT */}
-            <div className={`rounded-2xl border p-3 ${feeMode === 'auto' && isOcrBill ? 'border-amber-200/60 bg-amber-50/40' : 'border-amber-100 bg-amber-50/70'}`}>
+            <div className="rounded-2xl border border-amber-100 bg-amber-50/70 p-3">
               <div className="mb-2 flex items-center justify-between gap-2">
                 <span className="text-[10px] font-black uppercase tracking-[0.16em] text-amber-700">VAT</span>
-                <button
-                  onClick={() => {
-                    if (readOnly || (feeMode === 'auto' && isOcrBill)) return
-                    const next = !(isOcrBill ? results[parseInt(bill.id.split('-')[1]!, 10)]?.vatIncluded : manualBills.find((m) => m.id === bill.id)?.vatIncluded)
-                    onToggleVatIncluded(bill.id, next)
-                  }}
-                  disabled={readOnly || (feeMode === 'auto' && isOcrBill)}
-                  className={`rounded-full px-2 py-1 text-[9px] font-black transition-colors ${
-                    (isOcrBill ? results[parseInt(bill.id.split('-')[1]!, 10)]?.vatIncluded : manualBills.find((m) => m.id === bill.id)?.vatIncluded)
-                      ? (feeMode === 'auto' && isOcrBill ? 'bg-amber-100 text-amber-400' : 'bg-amber-200 text-amber-800')
-                      : (feeMode === 'auto' && isOcrBill ? 'bg-amber-50 text-amber-300' : 'bg-white text-amber-700')
-                  }`}
-                >
-                  {(isOcrBill ? results[parseInt(bill.id.split('-')[1]!, 10)]?.vatIncluded : manualBills.find((m) => m.id === bill.id)?.vatIncluded) ? 'รวมแล้ว' : 'แยก VAT'}
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => {
+                      if (readOnly || isOcrBill) return
+                      const next = !(isOcrBill ? results[parseInt(bill.id.split('-')[1]!, 10)]?.vatIncluded : manualBill?.vatIncluded)
+                      onToggleVatIncluded(bill.id, next)
+                    }}
+                    disabled={readOnly || isOcrBill}
+                    className={`rounded-full px-2 py-1 text-[9px] font-black transition-colors ${
+                      (isOcrBill ? results[parseInt(bill.id.split('-')[1]!, 10)]?.vatIncluded : manualBill?.vatIncluded)
+                        ? 'bg-amber-200 text-amber-800'
+                        : 'bg-white text-amber-700'
+                    }`}
+                  >
+                    {(isOcrBill ? results[parseInt(bill.id.split('-')[1]!, 10)]?.vatIncluded : manualBill?.vatIncluded) ? 'รวมแล้ว' : 'แยก VAT'}
+                  </button>
+                  {!readOnly && !isOcrBill && (
+                    <div className="flex items-center gap-1 rounded-full bg-white p-0.5 shadow-sm">
+                      <button
+                        onClick={() => onSetFeeMode(bill.id, 'vatMode', 'amount')}
+                        className={`flex h-5 w-6 items-center justify-center rounded-full text-[10px] font-black transition-colors ${
+                          vtMode === 'amount' ? 'bg-amber-500 text-white' : 'text-amber-400 hover:text-amber-600'
+                        }`}
+                      >
+                        <DollarSign className="h-3 w-3" />
+                      </button>
+                      <button
+                        onClick={() => onSetFeeMode(bill.id, 'vatMode', 'percent')}
+                        className={`flex h-5 w-6 items-center justify-center rounded-full text-[10px] font-black transition-colors ${
+                          vtMode === 'percent' ? 'bg-amber-500 text-white' : 'text-amber-400 hover:text-amber-600'
+                        }`}
+                      >
+                        <Percent className="h-3 w-3" />
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-bold text-amber-500">฿</span>
+                <span className="text-sm font-bold text-amber-500">{vtMode === 'percent' ? '%' : '฿'}</span>
                 <input
                   type="number"
-                  value={(isOcrBill ? results[parseInt(bill.id.split('-')[1]!, 10)]?.summary.vat : manualBills.find((m) => m.id === bill.id)?.vat) || ''}
+                  value={(isOcrBill ? results[parseInt(bill.id.split('-')[1]!, 10)]?.summary.vat : manualBill?.vat) || ''}
                   onChange={(e) => onSetVat(bill.id, Number(e.target.value) || 0)}
-                  disabled={(isOcrBill ? results[parseInt(bill.id.split('-')[1]!, 10)]?.vatIncluded : manualBills.find((m) => m.id === bill.id)?.vatIncluded) || readOnly || (feeMode === 'auto' && isOcrBill)}
+                  disabled={(isOcrBill ? results[parseInt(bill.id.split('-')[1]!, 10)]?.vatIncluded : manualBill?.vatIncluded) || readOnly || isOcrBill}
                   placeholder="0"
-                  readOnly={readOnly || (feeMode === 'auto' && isOcrBill)}
-                  className={`w-full rounded-xl border border-amber-100 bg-white px-3 py-2 text-right text-sm font-semibold outline-none transition-all ${
-                    feeMode === 'auto' && isOcrBill
-                      ? 'text-amber-400 bg-amber-50/50 cursor-not-allowed'
-                      : 'text-gray-800 focus:ring-2 focus:ring-amber-300'
+                  readOnly={readOnly || isOcrBill}
+                  className={`w-full rounded-xl border border-amber-100 bg-white px-3 py-2 text-right text-sm font-semibold text-gray-800 outline-none transition-all ${
+                    readOnly || isOcrBill ? '' : 'focus:ring-2 focus:ring-amber-300'
                   } disabled:bg-gray-50 disabled:text-gray-400`}
                 />
               </div>
-              {feeMode === 'auto' && isOcrBill ? (
-                <p className="mt-2 text-[10px] leading-4 text-amber-400 italic">ค่านี้ถูกอ่านจากใบเสร็จอัตโนมัติ</p>
-              ) : (
-                <p className="mt-2 text-[10px] leading-4 text-amber-600">สลับได้ว่า VAT รวมอยู่ในยอดแล้ว หรือคิดแยกต่างหาก</p>
+              {vtMode === 'percent' && !(isOcrBill ? results[parseInt(bill.id.split('-')[1]!, 10)]?.vatIncluded : manualBill?.vatIncluded) && (
+                <p className="mt-1 text-right text-[10px] font-bold text-amber-600">
+                  ≈ ฿{resolveAmount(manualBill?.vat ?? 0, 'percent', currentItemsSum).toFixed(2)}
+                </p>
               )}
+              <p className="mt-2 text-[10px] leading-4 text-amber-600">คิดจากยอดรวมรายการ</p>
             </div>
 
             {/* Discount */}
-            <div className={`rounded-2xl border p-3 ${feeMode === 'auto' && isOcrBill ? 'border-pink-200/60 bg-pink-50/40' : 'border-pink-100 bg-pink-50/70'}`}>
+            <div className="rounded-2xl border border-pink-100 bg-pink-50/70 p-3">
               <div className="mb-2 flex items-center justify-between gap-2">
                 <span className="text-[10px] font-black uppercase tracking-[0.16em] text-pink-600">Discount</span>
-                <span className={`rounded-full px-2 py-0.5 text-[9px] font-black ${feeMode === 'auto' && isOcrBill ? 'bg-pink-100 text-pink-400' : 'bg-white text-pink-500'}`}>
-                  {feeMode === 'auto' && isOcrBill ? '🤖 อ่านจากบิล' : 'หักออก'}
-                </span>
+                {!readOnly && !isOcrBill && (
+                  <div className="flex items-center gap-1 rounded-full bg-white p-0.5 shadow-sm">
+                    <button
+                      onClick={() => onSetFeeMode(bill.id, 'discountMode', 'amount')}
+                      className={`flex h-5 w-6 items-center justify-center rounded-full text-[10px] font-black transition-colors ${
+                        dcMode === 'amount' ? 'bg-pink-500 text-white' : 'text-pink-400 hover:text-pink-600'
+                      }`}
+                    >
+                      <DollarSign className="h-3 w-3" />
+                    </button>
+                    <button
+                      onClick={() => onSetFeeMode(bill.id, 'discountMode', 'percent')}
+                      className={`flex h-5 w-6 items-center justify-center rounded-full text-[10px] font-black transition-colors ${
+                        dcMode === 'percent' ? 'bg-pink-500 text-white' : 'text-pink-400 hover:text-pink-600'
+                      }`}
+                    >
+                      <Percent className="h-3 w-3" />
+                    </button>
+                  </div>
+                )}
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-bold text-pink-500">฿</span>
+                <span className="text-sm font-bold text-pink-500">{dcMode === 'percent' ? '%' : '฿'}</span>
                 <input
                   type="number"
-                  value={(isOcrBill ? (results[parseInt(bill.id.split('-')[1]!, 10)]?.summary.billDiscount ?? results[parseInt(bill.id.split('-')[1]!, 10)]?.summary.discount) : (manualBills.find((m) => m.id === bill.id)?.billDiscount ?? manualBills.find((m) => m.id === bill.id)?.discount)) || ''}
+                  value={(isOcrBill ? (results[parseInt(bill.id.split('-')[1]!, 10)]?.summary.billDiscount ?? results[parseInt(bill.id.split('-')[1]!, 10)]?.summary.discount) : (manualBill?.billDiscount ?? manualBill?.discount)) || ''}
                   onChange={(e) => onSetDiscount(bill.id, Number(e.target.value) || 0)}
                   placeholder="0"
-                  readOnly={readOnly || (feeMode === 'auto' && isOcrBill)}
-                  className={`w-full rounded-xl border border-pink-100 bg-white px-3 py-2 text-right text-sm font-semibold outline-none transition-all ${
-                    feeMode === 'auto' && isOcrBill
-                      ? 'text-pink-400 bg-pink-50/50 cursor-not-allowed'
-                      : 'text-gray-800 focus:ring-2 focus:ring-pink-300'
+                  readOnly={readOnly || isOcrBill}
+                  className={`w-full rounded-xl border border-pink-100 bg-white px-3 py-2 text-right text-sm font-semibold text-gray-800 outline-none transition-all ${
+                    readOnly || isOcrBill ? '' : 'focus:ring-2 focus:ring-pink-300'
                   }`}
                 />
               </div>
-              {feeMode === 'auto' && isOcrBill ? (
-                <p className="mt-2 text-[10px] leading-4 text-pink-400 italic">ค่านี้ถูกอ่านจากใบเสร็จอัตโนมัติ</p>
-              ) : (
-                <p className="mt-2 text-[10px] leading-4 text-pink-500">ส่วนลดทั้งบิล เช่น คูปอง โปร หรือเงินที่ต้องตัดออก</p>
+              {dcMode === 'percent' && (
+                <p className="mt-1 text-right text-[10px] font-bold text-pink-600">
+                  ≈ ฿{resolveAmount(manualBill?.billDiscount ?? manualBill?.discount ?? 0, 'percent', currentItemsSum).toFixed(2)}
+                </p>
               )}
+              <p className="mt-2 text-[10px] leading-4 text-pink-500">ส่วนลดทั้งบิล</p>
             </div>
           </div>
 
