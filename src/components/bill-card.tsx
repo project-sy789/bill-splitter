@@ -288,8 +288,8 @@ export function BillCard({
                     {members.filter((m) => it.consumerIds.includes(m.id)).map((m) => (
                       <div key={m.id} className="flex items-center justify-between gap-3 rounded-lg bg-white px-2 py-1.5">
                         <div className="flex items-center gap-2">
-                          <span className="flex h-4 w-4 items-center justify-center rounded-full text-[8px] font-black text-white" style={{ backgroundColor: m.color }}>
-                            {m.name.slice(0, 1)}
+                          <span className="flex h-4 w-4 items-center justify-center rounded-full text-[8px] font-black text-white overflow-hidden" style={{ backgroundColor: m.color }}>
+                            {m.pictureUrl ? <img src={m.pictureUrl} className="h-full w-full object-cover" alt={m.name} /> : m.name.slice(0, 1)}
                           </span>
                           <span className="text-[10px] font-bold text-gray-700">{m.name}</span>
                         </div>
@@ -338,10 +338,10 @@ export function BillCard({
                           }}
                         >
                           <span 
-                            className={`flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-black text-white shadow-sm transition-transform group-active:scale-90 ${!isActive && 'grayscale'}`}
+                            className={`flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-black text-white shadow-sm transition-transform group-active:scale-90 overflow-hidden ${!isActive && 'grayscale'}`}
                             style={{ backgroundColor: m.color }}
                           >
-                            {isActive ? <Check className="h-2.5 w-2.5" /> : m.name.slice(0, 1)}
+                            {isActive ? <Check className="h-2.5 w-2.5" /> : (m.pictureUrl ? <img src={m.pictureUrl} className="h-full w-full object-cover" alt={m.name} /> : m.name.slice(0, 1))}
                           </span>
                           {m.name}
                         </button>
