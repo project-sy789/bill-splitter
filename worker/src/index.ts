@@ -75,13 +75,19 @@ export default {
         })
         const html = await response.text()
         
-        // Extract og:image
-        const imageMatch = html.match(/<meta\s+property="og:image"\s+content="([^"]+)"/)
-        const titleMatch = html.match(/<meta\s+property="og:title"\s+content="([^"]+)"/)
+        // Extract image (support multiple meta tags and variations)
+        const findMeta = (prop: string) => {
+          const regex = new RegExp(`<meta[^>]*(?:property|name)=["']${prop}["'][^>]*content=["']([^"']+)["']`, 'i')
+          const regexAlt = new RegExp(`<meta[^>]*content=["']([^"']+)["'][^>]*(?:property|name)=["']${prop}["']`, 'i')
+          return html.match(regex)?.[1] || html.match(regexAlt)?.[1] || null
+        }
+
+        const image = findMeta('og:image') || findMeta('twitter:image') || findMeta('image') || html.match(/<link[^>]*rel=["']image_src["'][^>]*href=["']([^"']+)["']/i)?.[1] || null
+        const title = findMeta('og:title') || findMeta('twitter:title') || html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1] || null
         
         return jsonResponse({
-          image: imageMatch ? imageMatch[1] : null,
-          title: titleMatch ? titleMatch[1] : null
+          image,
+          title: title ? title.trim() : null
         }, { status: 200 }, origin, env)
       } catch (err) {
         return jsonResponse({ error: 'Failed to unfurl URL' }, { status: 500 }, origin, env)

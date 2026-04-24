@@ -314,14 +314,16 @@ function App() {
       
       // Try to unfurl image if missing
       if (!pick.image_url && pick.url.startsWith('http')) {
-        const workerUrl = import.meta.env.VITE_OCR_WORKER_URL || '';
-        fetch(`${workerUrl}/unfurl?url=${encodeURIComponent(pick.url)}`)
-          .then(res => res.json())
-          .then(data => {
-            if (data.image) {
-              setRandomAd(prev => (prev?.url === pick.url ? { ...prev, image_url: data.image } : prev));
-            }
-          }).catch(() => {});
+        const workerUrl = import.meta.env.VITE_OCR_WORKER_URL || import.meta.env.VITE_GEMINI_PROXY_URL || '';
+        if (workerUrl) {
+          fetch(`${workerUrl}/unfurl?url=${encodeURIComponent(pick.url)}`)
+            .then(res => res.json())
+            .then(data => {
+              if (data.image) {
+                setRandomAd(prev => (prev?.url === pick.url ? { ...prev, image_url: data.image } : prev));
+              }
+            }).catch(() => {});
+        }
       }
       
       setRandomAd(pick);
