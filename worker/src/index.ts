@@ -92,6 +92,14 @@ export default {
 
         let image = findMeta('og:image') || findMeta('twitter:image') || findMeta('image') || html.match(/<link[^>]*rel=["']image_src["'][^>]*href=["']([^"']+)["']/i)?.[1] || null
         
+        // --- Shopee Specific Fix ---
+        // If the image looks like a generic banner (deo.shopeemobile.com) or logo, try to find a better one
+        if (image && (image.includes('homepagefe') || image.includes('logo') || image.includes('banner'))) {
+          // Look for product images in Shopee's specific patterns (often in JSON or specific script tags)
+          const productImgMatch = html.match(/https:\/\/down-th\.img\.susercontent\.com\/file\/[a-z0-9_]+/i)
+          if (productImgMatch) image = productImgMatch[0]
+        }
+
         // If it's a relative URL, try to make it absolute
         if (image && image.startsWith('//')) {
           image = 'https:' + image
