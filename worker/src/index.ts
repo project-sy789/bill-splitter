@@ -72,11 +72,10 @@ export default {
       try {
         const response = await fetch(targetUrl, {
           headers: { 
-            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0.3 Mobile/15E148 Safari/604.1',
+            // Pretend to be Facebook's crawler - websites usually let them see og:image
+            'User-Agent': 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Upgrade-Insecure-Requests': '1',
-            'Cache-Control': 'max-age=0'
+            'Accept-Language': 'th,en-US;q=0.9,en;q=0.8',
           },
           redirect: 'follow'
         })
@@ -84,7 +83,6 @@ export default {
         
         // Extract image (support multiple meta tags and variations)
         const findMeta = (prop: string) => {
-          // Robust regex to find content in various meta tag formats
           const regex = new RegExp(`<meta[^>]*(?:property|name)=["']${prop}["'][^>]*content=["']([^"']+)["']`, 'i')
           const regexAlt = new RegExp(`<meta[^>]*content=["']([^"']+)["'][^>]*(?:property|name)=["']${prop}["']`, 'i')
           return html.match(regex)?.[1] || html.match(regexAlt)?.[1] || null
@@ -92,27 +90,19 @@ export default {
 
         let image = findMeta('og:image') || findMeta('twitter:image') || findMeta('image') || html.match(/<link[^>]*rel=["']image_src["'][^>]*href=["']([^"']+)["']/i)?.[1] || null
         
-        // --- Aggressive Shopee/Lazada Product Image Extraction ---
-        // If we got a generic banner or no image, search for product image patterns in the entire HTML
+        // --- Aggressive Showee/Lazada Product Image Extraction ---
+        // If we got a generic banner or no image, search for product image patterns
         if (!image || image.includes('homepagefe') || image.includes('logo') || image.includes('banner')) {
-          const productImgPatterns = [
-            /https:\/\/(?:down-th|cf)\.img\.susercontent\.com\/file\/[a-z0-9_]+/gi,
-            /https:\/\/cf\.shopee\.co\.th\/file\/[a-z0-9_]+/gi,
-            /https:\/\/lzd-img-global\.slatic\.net\/g\/p\/[a-z0-9_.]+/gi
-          ]
-          
-          for (const pattern of productImgPatterns) {
-            const matches = html.match(pattern)
-            if (matches && matches.length > 0) {
-              // Usually the first few matches are product images
-              // We pick the first one that doesn't look like a tiny icon
-              image = matches[0] || null
-              break
-            }
+          // Look for Shopee's high-res product image patterns (typically [a-z0-9]{32})
+          const shopeeImgRegex = /https:\/\/(?:down-th|cf)\.img\.susercontent\.com\/file\/([a-z0-9]{32})/gi
+          const matches = [...html.matchAll(shopeeImgRegex)]
+          if (matches.length > 0) {
+            // Pick the last one usually, as Shopee puts smaller thumbnails first and bigger images later
+            image = matches[matches.length - 1][0]
           }
         }
 
-        // If it's a relative URL, try to make it absolute
+        // --- Final Cleanup ---
         if (image && image.startsWith('//')) {
           image = 'https:' + image
         } else if (image && image.startsWith('/')) {
