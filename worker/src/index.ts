@@ -65,6 +65,29 @@ export default {
       })
     }
 
+    if (request.method === 'GET' && url.pathname === '/unfurl') {
+      const targetUrl = url.searchParams.get('url')
+      if (!targetUrl) return jsonResponse({ error: 'Missing url' }, { status: 400 }, origin, env)
+
+      try {
+        const response = await fetch(targetUrl, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' }
+        })
+        const html = await response.text()
+        
+        // Extract og:image
+        const imageMatch = html.match(/<meta\s+property="og:image"\s+content="([^"]+)"/)
+        const titleMatch = html.match(/<meta\s+property="og:title"\s+content="([^"]+)"/)
+        
+        return jsonResponse({
+          image: imageMatch ? imageMatch[1] : null,
+          title: titleMatch ? titleMatch[1] : null
+        }, { status: 200 }, origin, env)
+      } catch (err) {
+        return jsonResponse({ error: 'Failed to unfurl URL' }, { status: 500 }, origin, env)
+      }
+    }
+
     if (request.method !== 'POST' || (url.pathname !== '/' && url.pathname !== '/ocr')) {
       return jsonResponse({ error: 'Not Found' }, { status: 404 }, origin, env)
     }
