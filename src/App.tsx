@@ -1141,10 +1141,12 @@ function App() {
       vatIncluded: b.vatIncluded ?? false
     })))
     setReceiptPayerMap(data.receiptPayerMap ?? {})
-    reset()
+    
+    // Instead of calling reset() which wipes out data.results, 
+    // we just reset the UI state of the OCR scanner.
     setIsHistoryModalOpen(false)
     showToast(`โหลดบิล "${h.title}" สำเร็จ`, 'info')
-  }, [reset, showToast])
+  }, [showToast])
 
 
   const handleRemoveHistoryBill = (id: string) => {
