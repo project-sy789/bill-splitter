@@ -86,13 +86,18 @@ export async function decrypt(encryptedBase64: string): Promise<string> {
 export async function processSensitiveData(obj: any, mode: 'encrypt' | 'decrypt'): Promise<any> {
   if (!obj || typeof obj !== 'object') return obj;
 
+  // Create a deep enough copy to avoid mutations
   const newObj = Array.isArray(obj) ? [...obj] : { ...obj };
 
   for (const key in newObj) {
-    if (key === 'promptPayId' && typeof newObj[key] === 'string' && newObj[key]) {
-      newObj[key] = mode === 'encrypt' ? await encrypt(newObj[key]) : await decrypt(newObj[key]);
-    } else if (typeof newObj[key] === 'object') {
-      newObj[key] = await processSensitiveData(newObj[key], mode);
+    const value = newObj[key];
+    
+    if (key === 'promptPayId' && typeof value === 'string' && value) {
+      const processed = mode === 'encrypt' ? await encrypt(value) : await decrypt(value);
+      newObj[key] = processed;
+      console.log(`[Encryption] ✅ ${mode}ed ${key}:`, processed.slice(0, 10) + '...');
+    } else if (value !== null && typeof value === 'object') {
+      newObj[key] = await processSensitiveData(value, mode);
     }
   }
 
