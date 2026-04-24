@@ -389,6 +389,7 @@ function App() {
           if (state.manualBills) setManualBills(state.manualBills || [])
           if (state.receiptPayerMap) setReceiptPayerMap(state.receiptPayerMap || {})
           if (state.results) setResults(state.results || [])
+          setCurrentBillId(billIdFromUrl)
           console.log('Successfully loaded shared bill:', billIdFromUrl)
         } else {
           console.error('Bill data is missing in record:', dbBill)
@@ -1108,6 +1109,8 @@ function App() {
   const resetAll = useCallback(() => {
     const newId = crypto.randomUUID()
     setCurrentBillId(newId)
+    void db.setSetting('current-bill-id', newId)
+    setMembers([])
     setItems([])
     setPaidByMember({})
     setSettlementStatus({})

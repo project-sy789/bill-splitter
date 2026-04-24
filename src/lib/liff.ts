@@ -34,7 +34,7 @@ export async function initLiff(): Promise<LineProfile | null> {
 
 export function login() {
   if (!liff.isLoggedIn()) {
-    liff.login()
+    liff.login({ redirectUri: window.location.href })
   }
 }
 
