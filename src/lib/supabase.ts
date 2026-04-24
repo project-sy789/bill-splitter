@@ -24,7 +24,6 @@ export async function saveBillToCloud(billId: string, userId: string, name: stri
   if (!supabaseUrl) return
 
   const encryptedData = await processSensitiveData(data, 'encrypt')
-  console.log('[Supabase] 🚀 Saving bill (JSON):', JSON.stringify(encryptedData, null, 2))
 
   const { error } = await supabase
     .from('bills')
@@ -69,7 +68,6 @@ export async function updateBillData(billId: string, data: any) {
   if (!supabaseUrl) return
 
   const encryptedData = await processSensitiveData(data, 'encrypt')
-  console.log('[Supabase] 🚀 Updating bill (JSON):', JSON.stringify(encryptedData, null, 2))
 
   const { error } = await supabase
     .from('bills')
@@ -225,22 +223,22 @@ export interface DbGroup {
   created_at?: string
 }
 
-export async function saveGroupToCloud(userId: string, name: string, members: any[]) {
+export async function saveGroupToCloud(userId: string, name: string, members: any[], groupId?: string) {
   if (!supabaseUrl) return
 
   const encryptedMembers = await processSensitiveData(members, 'encrypt')
-  console.log('[Supabase] 👥 Saving group (JSON):', JSON.stringify(encryptedMembers, null, 2))
 
   const { error } = await supabase
     .from('groups')
-    .insert({
+    .upsert({
+      id: groupId || undefined, // Use provided ID or let Supabase generate one
       user_id: userId,
       name: name,
       members: encryptedMembers
-    })
+    }, { onConflict: 'id' })
 
   if (error) {
-    console.error('Error saving group to Supabase:', error)
+    console.error('Error saving/updating group in Supabase:', error)
   }
 }
 

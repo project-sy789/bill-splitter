@@ -23,7 +23,6 @@ async function getCryptoKey(): Promise<CryptoKey> {
  */
 export async function encrypt(text: string): Promise<string> {
   if (!text) return '';
-  console.log('[Encryption] 🔐 Encrypting sensitive data:', text);
   try {
     const key = await getCryptoKey();
     const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -57,7 +56,6 @@ export async function decrypt(encryptedBase64: string): Promise<string> {
     return encryptedBase64;
   }
   
-  console.log('[Encryption] 🔓 Decrypting data...');
   try {
     const key = await getCryptoKey();
     const combined = new Uint8Array(
@@ -96,7 +94,6 @@ export async function processSensitiveData(obj: any, mode: 'encrypt' | 'decrypt'
       const value = current[key];
       if (key === 'promptPayId' && typeof value === 'string' && value) {
         current[key] = mode === 'encrypt' ? await encrypt(value) : await decrypt(value);
-        console.log(`[Encryption] ✅ ${mode}ed ${key}:`, current[key].slice(0, 10) + '...');
       } else if (value !== null && typeof value === 'object') {
         await walk(value);
       }

@@ -500,7 +500,7 @@ function App() {
     }
   }, [lineProfile])
 
-  const { groups, saveGroup, deleteGroup } = useGroups(lineProfile?.userId)
+  const { groups, saveGroup, deleteGroup, updateGroupName } = useGroups(lineProfile?.userId)
   const [groupModalMode, setGroupModalMode] = useState<'save' | 'load' | null>(null)
   const [newGroupName, setNewGroupName] = useState('')
   const [isManualBillModalOpen, setIsManualBillModalOpen] = useState(false)
@@ -2240,6 +2240,17 @@ function App() {
                           <div className="flex gap-1">
                             <button
                               onClick={() => {
+                                const newName = prompt('แก้ไขชื่อแก๊ง', g.name)
+                                if (newName && newName.trim() && newName !== g.name) {
+                                  updateGroupName(g.id, newName.trim())
+                                }
+                              }}
+                              className="rounded-lg text-gray-500 px-2 py-1.5 text-xs hover:bg-gray-100 transition-colors"
+                            >
+                              แก้ชื่อ
+                            </button>
+                            <button
+                              onClick={() => {
                                 const loadedMembers = g.members.map((m, i) => ({
                                   id: crypto.randomUUID(),
                                   name: m.name,
@@ -2256,7 +2267,11 @@ function App() {
                               เลือก
                             </button>
                             <button
-                              onClick={() => deleteGroup(g.id)}
+                              onClick={() => {
+                                if (confirm(`ต้องการลบแก๊ง "${g.name}" ใช่ไหม?`)) {
+                                  deleteGroup(g.id)
+                                }
+                              }}
                               className="rounded-lg text-red-500 px-2 py-1.5 text-xs hover:bg-red-50 transition-colors"
                             >
                               ลบ

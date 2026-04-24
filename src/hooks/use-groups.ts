@@ -59,19 +59,22 @@ export function useGroups(userId?: string) {
     }
   }, [userId])
 
-  const deleteGroup = useCallback((id: string) => {
-    // Delete from local
+  const updateGroupName = useCallback((id: string, newName: string) => {
+    // Update local
     setGroups((prev) => {
-      const newGroups = prev.filter((g) => g.id !== id)
-      localStorage.setItem(GROUPS_KEY, JSON.stringify(newGroups))
-      return newGroups
+      const updated = prev.map((g) => g.id === id ? { ...g, name: newName } : g)
+      localStorage.setItem(GROUPS_KEY, JSON.stringify(updated))
+      return updated
     })
 
-    // Delete from cloud if logged in
+    // Update cloud if logged in
     if (userId) {
-      deleteGroupFromCloud(id, userId)
+      const group = groups.find(g => g.id === id)
+      if (group) {
+        saveGroupToCloud(userId, newName, group.members, id)
+      }
     }
-  }, [userId])
+  }, [userId, groups])
 
-  return { groups, saveGroup, deleteGroup }
+  return { groups, saveGroup, deleteGroup, updateGroupName }
 }
