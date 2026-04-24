@@ -478,6 +478,28 @@ function App() {
   const [activeSettlementIdx, setActiveSettlementIdx] = useState<number | null>(null)
   const [toast, setToast] = useState<{ message: string, type: 'success' | 'info' } | null>(null)
 
+  // ── Sync state with initial data once loaded ──
+  useEffect(() => {
+    if (dbReady && effectiveInitialState) {
+      if (effectiveInitialState.members) setMembers(effectiveInitialState.members)
+      if (effectiveInitialState.items) setItems(effectiveInitialState.items)
+      if (effectiveInitialState.allocationMode) setAllocationMode(effectiveInitialState.allocationMode)
+      if (effectiveInitialState.paidByMember) setPaidByMember(effectiveInitialState.paidByMember)
+      if (effectiveInitialState.settlementStatus) setSettlementStatus(effectiveInitialState.settlementStatus)
+      if (effectiveInitialState.manualBills) setManualBills(effectiveInitialState.manualBills.map(b => ({
+        ...b,
+        serviceCharge: b.serviceCharge ?? 0,
+        vat: b.vat ?? 0,
+        itemDiscount: b.itemDiscount ?? 0,
+        billDiscount: b.billDiscount ?? 0,
+        vatIncluded: b.vatIncluded ?? false
+      })))
+      if (effectiveInitialState.receiptPayerMap) setReceiptPayerMap(effectiveInitialState.receiptPayerMap)
+      if (effectiveInitialState.results) setResults(effectiveInitialState.results)
+      setIsInitialLoadFinished(true)
+    }
+  }, [dbReady, effectiveInitialState])
+
   const showToast = useCallback((message: string, type: 'success' | 'info' = 'success') => {
     setToast({ message, type })
     setTimeout(() => setToast(null), 3000)
