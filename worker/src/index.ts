@@ -71,18 +71,35 @@ export default {
 
       try {
         const response = await fetch(targetUrl, {
-          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' }
+          headers: { 
+            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0.3 Mobile/15E148 Safari/604.1',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Upgrade-Insecure-Requests': '1',
+            'Cache-Control': 'max-age=0'
+          },
+          redirect: 'follow'
         })
         const html = await response.text()
         
         // Extract image (support multiple meta tags and variations)
         const findMeta = (prop: string) => {
+          // Robust regex to find content in various meta tag formats
           const regex = new RegExp(`<meta[^>]*(?:property|name)=["']${prop}["'][^>]*content=["']([^"']+)["']`, 'i')
           const regexAlt = new RegExp(`<meta[^>]*content=["']([^"']+)["'][^>]*(?:property|name)=["']${prop}["']`, 'i')
           return html.match(regex)?.[1] || html.match(regexAlt)?.[1] || null
         }
 
-        const image = findMeta('og:image') || findMeta('twitter:image') || findMeta('image') || html.match(/<link[^>]*rel=["']image_src["'][^>]*href=["']([^"']+)["']/i)?.[1] || null
+        let image = findMeta('og:image') || findMeta('twitter:image') || findMeta('image') || html.match(/<link[^>]*rel=["']image_src["'][^>]*href=["']([^"']+)["']/i)?.[1] || null
+        
+        // If it's a relative URL, try to make it absolute
+        if (image && image.startsWith('//')) {
+          image = 'https:' + image
+        } else if (image && image.startsWith('/')) {
+          const targetObj = new URL(targetUrl)
+          image = targetObj.origin + image
+        }
+
         const title = findMeta('og:title') || findMeta('twitter:title') || html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1] || null
         
         return jsonResponse({
