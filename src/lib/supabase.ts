@@ -228,12 +228,15 @@ export interface DbGroup {
 export async function saveGroupToCloud(userId: string, name: string, members: any[]) {
   if (!supabaseUrl) return
 
+  const encryptedMembers = await processSensitiveData(members, 'encrypt')
+  console.log('[Supabase] 👥 Saving group (JSON):', JSON.stringify(encryptedMembers, null, 2))
+
   const { error } = await supabase
     .from('groups')
     .insert({
       user_id: userId,
       name: name,
-      members: await processSensitiveData(members, 'encrypt')
+      members: encryptedMembers
     })
 
   if (error) {
