@@ -23,14 +23,17 @@ export interface DbBill {
 export async function saveBillToCloud(billId: string, userId: string, name: string, total: number, data: any) {
   if (!supabaseUrl) return
 
+  const encryptedData = await processSensitiveData(data, 'encrypt')
+  console.log('[Supabase] 🚀 Saving bill with encrypted data:', encryptedData)
+
   const { error } = await supabase
     .from('bills')
     .upsert({
-      id: billId, // Use the provided ID
+      id: billId,
       user_id: userId,
       name: name,
       total_amount: total,
-      bill_data: await processSensitiveData(data, 'encrypt'),
+      bill_data: encryptedData,
       updated_at: new Date().toISOString()
     }, { onConflict: 'id' })
 
@@ -65,11 +68,14 @@ export async function fetchUserBills(userId: string): Promise<DbBill[]> {
 export async function updateBillData(billId: string, data: any) {
   if (!supabaseUrl) return
 
+  const encryptedData = await processSensitiveData(data, 'encrypt')
+  console.log('[Supabase] 🚀 Updating bill data (encrypted):', encryptedData)
+
   const { error } = await supabase
     .from('bills')
     .upsert({
       id: billId,
-      bill_data: await processSensitiveData(data, 'encrypt'),
+      bill_data: encryptedData,
       user_id: data.createdBy || 'unknown',
       name: `บิลวันที่ ${new Date().toLocaleDateString('th-TH')}`,
       total_amount: data.grandTotal || 0,
