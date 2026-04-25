@@ -22,6 +22,7 @@ interface RawParsedData {
   }
   items?: Array<{
     name?: string
+    qty?: number | string | null
     amount?: number | string | null
   }>
 }
