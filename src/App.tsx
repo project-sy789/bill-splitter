@@ -2460,8 +2460,42 @@ function App() {
             </div>
           </div>
 
-          <div className="text-center text-[10px] text-gray-400 mt-2">
-            สร้างด้วยแอป หารบิลกัน (Free & Offline)
+          {/* Member Breakdown Section */}
+          <div className="mt-4 border-t border-dashed border-gray-200 pt-4">
+            <h2 className="text-[10px] font-bold text-gray-400 mb-3 uppercase tracking-wider text-center">สรุปรายการรายบุคคล</h2>
+            <div className="space-y-3">
+              {members.map((m) => (
+                <div key={m.id} className="rounded-xl border border-gray-100 bg-white p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: m.color }} />
+                      <span className="text-[11px] font-bold text-gray-700 truncate">{m.name}</span>
+                    </div>
+                    <div className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md ${(netByMember[m.id] ?? 0) >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
+                      {(netByMember[m.id] ?? 0) >= 0 ? '↑ ได้รับคืน' : '↓ ต้องโอน'} ฿{Math.abs(netByMember[m.id] ?? 0).toFixed(2)}
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-1 mb-2">
+                    {memberItemBreakdown[m.id]?.map((it, idx) => (
+                      <div key={idx} className="flex justify-between text-[9px] text-gray-500 leading-tight">
+                        <span className="truncate pr-2">• {it.name}</span>
+                        <span className="shrink-0 font-mono">฿{it.amount.toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="pt-2 border-t border-gray-50 mt-1 flex justify-between items-center">
+                    <span className="text-[9px] text-gray-400">ยอดรวมคนนี้</span>
+                    <p className="text-xs font-black text-gray-800">฿{(finalDueByMember[m.id] ?? 0).toFixed(2)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="text-center text-[10px] text-gray-400 mt-4 border-t border-gray-100 pt-3">
+            สร้างด้วยแอป หารบิลกัน — bill.sapyai.com
           </div>
         </div>
       </div>
