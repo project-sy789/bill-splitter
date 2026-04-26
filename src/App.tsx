@@ -1108,6 +1108,18 @@ function App() {
   }, [setResults, setItems, setReceiptPayerMap, setManualBills])
 
   const handleSetBillTotal = useCallback((billId: string, value: number) => {
+    // Update payer total if this bill has a payer
+    const payerId = receiptPayerMap[billId]
+    if (payerId) {
+      const bill = unifiedBills.find(b => b.id === billId)
+      if (bill) {
+        setPaidByMember(prev => ({
+          ...prev,
+          [payerId]: round2(Math.max(0, (prev[payerId] ?? 0) - bill.amount + value))
+        }))
+      }
+    }
+
     if (billId.startsWith('ocr-')) {
       const idx = parseInt(billId.split('-')[1]!, 10)
       setResults(prev => {
@@ -1123,7 +1135,7 @@ function App() {
     } else {
       setManualBills(prev => prev.map(m => m.id === billId ? { ...m, amount: value } : m))
     }
-  }, [setResults, setManualBills])
+  }, [receiptPayerMap, unifiedBills, setResults, setManualBills, setPaidByMember])
 
   const updateItem = useCallback(<K extends keyof BillItemDraft>(itemId: string, field: K, value: BillItemDraft[K]) => {
     // Removed auto-updating bill total from item amount changes to preserve the target total
