@@ -1053,6 +1053,18 @@ function App() {
   }, [])
 
   const handleDeleteBill = useCallback((billId: string) => {
+    // 1. Subtract paid amount from the payer of this bill
+    const payerId = receiptPayerMap[billId]
+    if (payerId) {
+      const bill = unifiedBills.find(b => b.id === billId)
+      if (bill) {
+        setPaidByMember(prev => ({
+          ...prev,
+          [payerId]: round2(Math.max(0, (prev[payerId] ?? 0) - bill.amount))
+        }))
+      }
+    }
+
     if (billId.startsWith('ocr-')) {
       const idx = parseInt(billId.split('-')[1]!, 10)
       setResults(prev => prev.filter((_, i) => i !== idx))
@@ -1843,8 +1855,20 @@ function App() {
                           setManualBills(prev => prev.map(mm => mm.id === billId ? { ...mm, name } : mm))
                         }}
                         onSetPayer={(billId, memberId) => {
+                          const oldPayerId = receiptPayerMap[billId]
+                          setPaidByMember(prev => {
+                            const next = { ...prev }
+                            // 1. Subtract from OLD payer if exists
+                            if (oldPayerId && next[oldPayerId] !== undefined) {
+                              next[oldPayerId] = round2(Math.max(0, next[oldPayerId] - b.amount))
+                            }
+                            // 2. Add to NEW payer if selected
+                            if (memberId) {
+                              next[memberId] = round2((next[memberId] ?? 0) + b.amount)
+                            }
+                            return next
+                          })
                           setReceiptPayerMap(prev => ({ ...prev, [billId]: memberId }))
-                          if (memberId) setPaidByMember(prev => ({ ...prev, [memberId]: round2((prev[memberId] ?? 0) + b.amount) }))
                         }}
                         onEditItem={(itemId, field, value) => updateItem(itemId, field as keyof BillItemDraft, value as never)}
                         onRemoveItem={(itemId) => setItems(prev => prev.filter(it => it.id !== itemId))}
