@@ -695,6 +695,35 @@ function App() {
     return due
   }, [members, baseTotalsByMember, adjustmentsByMember])
 
+  const memberItemBreakdown = useMemo(() => {
+    const breakdown: Record<string, { name: string; amount: number }[]> = {}
+    members.forEach(m => { breakdown[m.id] = [] })
+
+    items.forEach(item => {
+      const split = calcItemSplit({ ...item, amount: round2(Math.max(0, (item.amount * (item.qty ?? 1)) - (item.itemDiscount ?? 0))) }, members)
+      Object.entries(split).forEach(([id, amt]) => {
+        if (amt > 0.009) {
+          breakdown[id]?.push({ 
+            name: item.name || 'รายการไม่มีชื่อ', 
+            amount: round2(amt) 
+          })
+        }
+      })
+    })
+
+    // Include adjustments (fees/discounts) in the breakdown
+    Object.entries(adjustmentsByMember).forEach(([id, amt]) => {
+      if (Math.abs(amt) > 0.009) {
+        breakdown[id]?.push({ 
+          name: amt > 0 ? 'ค่าธรรมเนียม/ส่วนเกิน' : 'ส่วนลดท้ายบิล', 
+          amount: round2(amt) 
+        })
+      }
+    })
+
+    return breakdown
+  }, [items, members, adjustmentsByMember])
+
   const unifiedBills = useMemo(() => [
     ...results.map((r, i) => {
       const bId = `ocr-${i}`
@@ -2098,18 +2127,35 @@ function App() {
             {/* Per-member summary */}
             <div className="mt-4 pt-3 border-t border-gray-100">
               <p className="text-xs text-gray-400 mb-2">สรุปต่อคน</p>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {members.map((m) => (
-                  <div key={m.id} className="rounded-xl bg-gray-50 border border-gray-100 p-2.5">
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: m.color }} />
-                      <span className="text-xs font-medium text-gray-700 truncate">{m.name}</span>
+                  <div key={m.id} className="rounded-xl bg-gray-50 border border-gray-100 p-3 flex flex-col">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: m.color }} />
+                        <span className="text-xs font-bold text-gray-700 truncate">{m.name}</span>
+                      </div>
+                      <p className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${(netByMember[m.id] ?? 0) >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                        {(netByMember[m.id] ?? 0) >= 0 ? '↑ คืน' : '↓ โอน'} ฿{Math.abs(netByMember[m.id] ?? 0).toFixed(2)}
+                      </p>
                     </div>
-                    <p className="text-sm font-bold text-gray-800">฿{(finalDueByMember[m.id] ?? 0).toFixed(2)}</p>
-                    <p className={`text-xs ${(netByMember[m.id] ?? 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                      {(netByMember[m.id] ?? 0) >= 0 ? '↑ ได้รับคืน' : '↓ ต้องโอน'}
-                      {' '}฿{Math.abs(netByMember[m.id] ?? 0).toFixed(2)}
-                    </p>
+                    
+                    <div className="flex-1 space-y-1 mb-2">
+                      {memberItemBreakdown[m.id]?.map((it, idx) => (
+                        <div key={idx} className="flex justify-between text-[10px] text-gray-500 leading-tight">
+                          <span className="truncate pr-2">• {it.name}</span>
+                          <span className="shrink-0 font-mono">฿{it.amount.toFixed(2)}</span>
+                        </div>
+                      ))}
+                      {(!memberItemBreakdown[m.id] || memberItemBreakdown[m.id]!.length === 0) && (
+                        <p className="text-[10px] text-gray-400 italic">ไม่มีรายการ</p>
+                      )}
+                    </div>
+
+                    <div className="pt-2 border-t border-gray-200 mt-auto flex justify-between items-center">
+                      <span className="text-[10px] text-gray-400">ยอดรวมทั้งหมด</span>
+                      <p className="text-sm font-black text-gray-800">฿{(finalDueByMember[m.id] ?? 0).toFixed(2)}</p>
+                    </div>
                   </div>
                 ))}
               </div>
