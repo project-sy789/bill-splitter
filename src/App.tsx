@@ -871,7 +871,11 @@ function App() {
           vatIncluded: false
         })
       })
-      setManualBills(prev => [...prev, ...recovered])
+      setManualBills(prev => {
+        const existingIds = new Set(prev.map(m => m.id))
+        const newOnes = recovered.filter(r => !existingIds.has(r.id))
+        return newOnes.length > 0 ? [...prev, ...newOnes] : prev
+      })
     }
   }, [items, manualBills, results])
   useEffect(() => {
@@ -1817,7 +1821,7 @@ function App() {
 
                 <div className="space-y-6">
                   {unifiedBills.map((b) => {
-                    const isDiscrepant = Math.abs(round2(b.amount - b.calculatedTotal)) > 0.01
+                    const isDiscrepant = round2(b.amount - b.calculatedTotal) > 0.01
                     return (
                       <BillCard
                         key={b.id}
