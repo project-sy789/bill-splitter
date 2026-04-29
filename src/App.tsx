@@ -533,7 +533,7 @@ function App() {
   }, [lineProfile])
 
   const { groups, saveGroup, deleteGroup, updateGroupName } = useGroups(lineProfile?.userId)
-  const { profile: userProfile, updateProfile } = useUserProfile(lineProfile?.userId)
+  const { profile: userProfile } = useUserProfile(lineProfile?.userId)
   const isSupporter = userProfile?.is_supporter === true
   const isAdmin = ADMIN_USER_IDS.has(lineProfile?.userId ?? '')
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
