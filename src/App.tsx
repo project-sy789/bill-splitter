@@ -1911,7 +1911,10 @@ function App() {
                           setReceiptPayerMap(prev => ({ ...prev, [billId]: memberId }))
                         }}
                         onEditItem={(itemId, field, value) => updateItem(itemId, field as keyof BillItemDraft, value as never)}
-                        onRemoveItem={(itemId) => setItems(prev => prev.filter(it => it.id !== itemId))}
+                        onRemoveItem={(itemId) => {
+                          setItems(prev => prev.filter(it => it.id !== itemId))
+                          setResults(prev => prev.map(r => ({ ...r, items: r.items.filter((it: any) => it.id !== itemId) })))
+                        }}
                         onAddItemToBill={(billId) => {
                           const item: BillItemDraft = {
                             id: crypto.randomUUID(),
