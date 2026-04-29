@@ -20,6 +20,14 @@ export interface DbBill {
   updated_at?: string
 }
 
+export interface DbProfile {
+  id: string
+  name?: string
+  avatar_url?: string
+  is_supporter?: boolean
+  updated_at?: string
+}
+
 export async function saveBillToCloud(billId: string, userId: string, name: string, total: number, data: any) {
   if (!supabaseUrl) return
 
@@ -276,5 +284,73 @@ export async function deleteGroupFromCloud(groupId: string, userId: string) {
 
   if (error) {
     console.error('Error deleting group from Supabase:', error)
+  }
+}
+
+// ── Profile Management Functions ──
+
+export async function fetchUserProfile(userId: string): Promise<DbProfile | null> {
+  if (!supabaseUrl) return null
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', userId)
+    .single()
+
+  if (error) {
+    if (error.code !== 'PGRST116') { // PGRST116 is "No rows found"
+      console.error('Error fetching profile from Supabase:', error)
+    }
+    return null
+  }
+
+  return data
+}
+
+export async function upsertUserProfile(profile: DbProfile) {
+  if (!supabaseUrl) return
+
+  const { error } = await supabase
+    .from('profiles')
+    .upsert({
+      ...profile,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'id' })
+
+  if (error) {
+    console.error('Error upserting profile in Supabase:', error)
+  }
+}
+
+export async function fetchAllProfiles(): Promise<DbProfile[]> {
+  if (!supabaseUrl) return []
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .order('updated_at', { ascending: false })
+
+  if (error) {
+    console.error('Error fetching all profiles:', error)
+    return []
+  }
+
+  return data || []
+}
+
+export async function setProfileSupporter(userId: string, isSupporter: boolean) {
+  if (!supabaseUrl) return
+
+  const { error } = await supabase
+    .from('profiles')
+    .upsert({
+      id: userId,
+      is_supporter: isSupporter,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'id' })
+
+  if (error) {
+    console.error('Error setting supporter status:', error)
   }
 }

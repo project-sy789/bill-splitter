@@ -21,6 +21,8 @@ import {
   Unlock,
   Zap as ZapIcon,
   ShoppingBag as ShoppingBagIcon, // Using alias to avoid any hidden conflicts
+  Settings as SettingsIcon,
+  Crown as CrownIcon,
 } from 'lucide-react'
 import * as htmlToImage from 'html-to-image'
 
@@ -29,6 +31,7 @@ import { BillCard } from './components/bill-card'
 import { useReceiptOcr } from './hooks/use-receipt-ocr'
 import { useBillHistory, type BillHistoryMeta } from './hooks/use-bill-history'
 import { useGroups } from './hooks/use-groups'
+import { useUserProfile } from './hooks/use-user-profile'
 import { buildPromptPayPayload, formatPromptPay, toPromptPayTarget } from './lib/promptpay'
 import * as db from './lib/bill-db'
 import {
@@ -42,7 +45,9 @@ import {
 import type { SplitMode } from './types/bill'
 import { initLiff, login, logout, shareBillToFriends, type LineProfile } from './lib/liff'
 import liff from '@line/liff'
-import { subscribeToBill, fetchBillById, updateBillData, logUsage, fetchRemoteAffiliateLinks, deleteBill } from './lib/supabase'
+import { subscribeToBill, fetchBillById, updateBillData, logUsage, fetchRemoteAffiliateLinks, deleteBill, fetchAllProfiles, setProfileSupporter, type DbProfile } from './lib/supabase'
+
+const ADMIN_USER_IDS = new Set(['Ufcd3ae33c4609fa75dd8594a761bef6b'])
 
 // ──────────────────────────────────────────────
 // Types
@@ -332,6 +337,11 @@ function App() {
   }, [showLimitModal, remoteLinks]);
 
   const checkAndRecordUsage = (action: string): boolean => {
+    // Supporters skip ads entirely
+    if (isSupporter) {
+      if (lineProfile) logUsage(lineProfile.userId, action);
+      return true;
+    }
     // ALWAYS show ad if not temporarily unlocked
     if (!isTemporarilyUnlocked) {
       setShowLimitModal(true);
@@ -523,6 +533,14 @@ function App() {
   }, [lineProfile])
 
   const { groups, saveGroup, deleteGroup, updateGroupName } = useGroups(lineProfile?.userId)
+  const { profile: userProfile, updateProfile } = useUserProfile(lineProfile?.userId)
+  const isSupporter = userProfile?.is_supporter === true
+  const isAdmin = ADMIN_USER_IDS.has(lineProfile?.userId ?? '')
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
+  const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(false)
+  const [adminProfiles, setAdminProfiles] = useState<DbProfile[]>([])
+  const [adminLoading, setAdminLoading] = useState(false)
+  const [adminSearch, setAdminSearch] = useState('')
   const [groupModalMode, setGroupModalMode] = useState<'save' | 'load' | null>(null)
   const [newGroupName, setNewGroupName] = useState('')
   const [isManualBillModalOpen, setIsManualBillModalOpen] = useState(false)
@@ -1539,9 +1557,9 @@ function App() {
 
             {lineProfile ? (
               <button
-                onClick={logout}
-                className="flex items-center gap-2 rounded-xl border border-violet-100 bg-white/50 p-1.5 pr-3 transition-all hover:bg-violet-50"
-                title="ออกจากระบบ LINE"
+                onClick={() => setIsProfileModalOpen(true)}
+                className="relative flex items-center gap-2 rounded-xl border border-violet-100 bg-white/50 p-1.5 pr-3 transition-all hover:bg-violet-50"
+                title="โปรไฟล์และตั้งค่า"
               >
                 {lineProfile.pictureUrl ? (
                   <img 
@@ -1555,6 +1573,11 @@ function App() {
                   </div>
                 )}
                 <span className="text-xs font-bold text-violet-700 hidden sm:inline">{lineProfile.displayName}</span>
+                {isSupporter && (
+                  <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 shadow-sm">
+                    <CrownIcon className="h-2.5 w-2.5 text-white" />
+                  </span>
+                )}
               </button>
             ) : (
               <button
@@ -2405,6 +2428,141 @@ function App() {
                   )}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+
+      {/* Profile & Settings Modal */}
+      {isProfileModalOpen && lineProfile && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-end bg-black/40 sm:justify-center p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white shadow-xl flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between border-b border-gray-100 p-4 bg-gray-50">
+              <h3 className="text-base font-bold text-gray-800">โปรไฟล์</h3>
+              <button onClick={() => setIsProfileModalOpen(false)} className="rounded-full p-2 text-gray-400 hover:bg-gray-200 transition-colors">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-5">
+              <div className="flex items-center gap-4">
+                {lineProfile.pictureUrl ? (
+                  <img src={lineProfile.pictureUrl} alt={lineProfile.displayName} className="h-14 w-14 rounded-2xl object-cover shadow-md ring-2 ring-violet-200" />
+                ) : (
+                  <div className="h-14 w-14 rounded-2xl bg-violet-600 flex items-center justify-center text-xl font-bold text-white shadow-md">
+                    {lineProfile.displayName.slice(0, 1)}
+                  </div>
+                )}
+                <div>
+                  <p className="font-bold text-gray-900">{lineProfile.displayName}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">LINE Account</p>
+                  {isSupporter && (
+                    <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-700">
+                      <CrownIcon className="h-3 w-3" /> Supporter
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <CrownIcon className="h-4 w-4 text-amber-500" />
+                  <p className="text-sm font-bold text-amber-800">Supporter</p>
+                </div>
+                <p className="text-xs text-amber-600">
+                  {isSupporter
+                    ? 'ขอบคุณที่สนับสนุน! ใช้งานได้ไม่มีโฆษณา'
+                    : 'ผู้สนับสนุนใช้งานได้ไม่ถูกขัดด้วยโฆษณา'}
+                </p>
+              </div>
+
+              {isAdmin && (
+                <button
+                  onClick={() => {
+                    setIsProfileModalOpen(false)
+                    setAdminSearch('')
+                    setAdminLoading(true)
+                    setIsAdminPanelOpen(true)
+                    fetchAllProfiles().then(p => { setAdminProfiles(p); setAdminLoading(false) })
+                  }}
+                  className="w-full rounded-xl border border-violet-200 bg-violet-50 py-2.5 text-sm font-semibold text-violet-700 hover:bg-violet-100 transition-colors flex items-center justify-center gap-2"
+                >
+                  <SettingsIcon className="h-4 w-4" />
+                  จัดการ Supporter (Admin)
+                </button>
+              )}
+
+              <button
+                onClick={() => { setIsProfileModalOpen(false); logout() }}
+                className="w-full rounded-xl border border-gray-200 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                ออกจากระบบ LINE
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Admin Panel Modal */}
+      {isAdminPanelOpen && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-end bg-black/40 sm:justify-center p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white shadow-xl flex flex-col overflow-hidden max-h-[80vh]">
+            <div className="flex items-center justify-between border-b border-gray-100 p-4 bg-gray-50 shrink-0">
+              <div className="flex items-center gap-2">
+                <SettingsIcon className="h-4 w-4 text-violet-600" />
+                <h3 className="text-base font-bold text-gray-800">Admin — จัดการ Supporter</h3>
+              </div>
+              <button onClick={() => setIsAdminPanelOpen(false)} className="rounded-full p-2 text-gray-400 hover:bg-gray-200 transition-colors">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="p-4 border-b border-gray-100 shrink-0">
+              <input
+                type="text"
+                placeholder="ค้นหา ID..."
+                value={adminSearch}
+                onChange={e => setAdminSearch(e.target.value)}
+                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+              />
+            </div>
+
+            <div className="overflow-y-auto flex-1 p-4 space-y-2">
+              {adminLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-5 w-5 animate-spin text-violet-400" />
+                </div>
+              ) : adminProfiles.filter(p =>
+                  !adminSearch || p.id.toLowerCase().includes(adminSearch.toLowerCase()) || (p.name ?? '').toLowerCase().includes(adminSearch.toLowerCase())
+                ).length === 0 ? (
+                <p className="text-center text-sm text-gray-400 py-8">ไม่พบผู้ใช้</p>
+              ) : (
+                adminProfiles
+                  .filter(p => !adminSearch || p.id.toLowerCase().includes(adminSearch.toLowerCase()) || (p.name ?? '').toLowerCase().includes(adminSearch.toLowerCase()))
+                  .map(p => (
+                    <div key={p.id} className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 bg-gray-50 p-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-gray-800 truncate">{p.name || 'ไม่มีชื่อ'}</p>
+                        <p className="text-[11px] text-gray-400 font-mono truncate">{p.id}</p>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          const next = !p.is_supporter
+                          setAdminProfiles(prev => prev.map(x => x.id === p.id ? { ...x, is_supporter: next } : x))
+                          await setProfileSupporter(p.id, next)
+                        }}
+                        className={"flex h-6 w-11 shrink-0 items-center rounded-full border-2 transition-colors " + (p.is_supporter ? "border-amber-400 bg-amber-400" : "border-gray-200 bg-gray-200")}
+                      >
+                        <div className={"h-4 w-4 rounded-full bg-white shadow transition-transform " + (p.is_supporter ? "translate-x-5" : "translate-x-0.5")} />
+                      </button>
+                    </div>
+                  ))
+              )}
+            </div>
+
+            <div className="p-4 border-t border-gray-100 shrink-0">
+              <p className="text-xs text-gray-400 text-center">{adminProfiles.length} ผู้ใช้ทั้งหมด</p>
             </div>
           </div>
         </div>
