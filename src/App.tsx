@@ -888,6 +888,7 @@ function App() {
       const next = [...prev]
       newOcrItems.forEach((oi) => {
         // Grouping: Check if an exact match of (name + exact price) exists IN THE SAME BILL
+        if (next.some(x => x.id === oi.id)) return
         const matchBaseIdx = next.findIndex((x) =>
           x.name === oi.name &&
           Math.abs((x.amount * (x.qty ?? 1)) - (oi.amount * (oi.qty ?? 1))) < 0.01 &&
